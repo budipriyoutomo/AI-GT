@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Icon } from "@/components/ui/icon";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth";
 
 const STEPS = [
   { t: "Profil Bisnis", s: "Nama, industri & deskripsi" },
@@ -21,6 +23,9 @@ const STEPS = [
 const COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
 
 export default function OnboardingPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
   const [step, setStep] = useState(0);
   const [name, setName] = useState("Toko Kopi Senja");
   const [industry, setIndustry] = useState("F&B / Kuliner");
@@ -29,13 +34,23 @@ export default function OnboardingPage() {
   const [lang, setLang] = useState("Indonesia");
   const [tone, setTone] = useState("Ramah & santai");
 
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
   const last = STEPS.length - 1;
   const initial = (name.trim()[0] || "S").toUpperCase();
 
   function next() {
-    if (step < last) setStep(step + 1);
-    else toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
+    if (step < last) {
+      setStep(step + 1);
+    } else {
+      toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
+      router.replace("/");
+    }
   }
+
+  if (!user) return null;
 
   function StepContent() {
     if (step === 0) return (
@@ -148,7 +163,7 @@ export default function OnboardingPage() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
-          <Select label="Tone of voice" value={tone} onChange={(e) => setTone(e.target.value)} options={["Ramah & santai", "Profesional", "Energik & seru", "Elegan & premium"]} />
+          <Select label="Gaya bahasa" value={tone} onChange={(e) => setTone(e.target.value)} options={["Formal", "Casual", "Persuasive", "Fun & Playful", "Inspiratif"]} />
           <Select label="Target audiens" options={["Anak muda (18–25)", "Keluarga", "Profesional (25–40)", "Umum"]} />
         </div>
         <div style={{ marginBottom: 18 }}>

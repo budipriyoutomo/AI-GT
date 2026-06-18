@@ -88,7 +88,7 @@ export default function DashboardPage() {
       <PageHead title="Halo, Rendi 👋" subtitle="Ringkasan workspace dan konten yang baru kamu buat." />
 
       {/* Create banner */}
-      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "20px 22px", background: "var(--aigt-spark-soft)", border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)", borderRadius: "var(--radius-xl)", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "20px 22px", background: "var(--aigt-spark-soft)", border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)", borderRadius: "var(--radius-xl)", marginBottom: 12 }}>
         <span className="aigt-mark" style={{ width: 44, height: 44, borderRadius: "var(--radius-xl)" }}>
           <Icon name="sparkles" size={22} />
         </span>
@@ -105,6 +105,20 @@ export default function DashboardPage() {
         </div>
         <Link href="/templates">
           <Button icon="layout-grid" style={{ flex: "none" }}>Buka Galeri Template</Button>
+        </Link>
+      </div>
+
+      {/* Generate by Campaign banner */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 22px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", marginBottom: 20 }}>
+        <span style={{ width: 38, height: 38, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon name="target" size={18} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Generate by Campaign</div>
+          <div className="aigt-caption" style={{ marginTop: 2 }}>Definisikan goal, platform, dan momen — AI suggest template dan generate konten yang lebih strategic.</div>
+        </div>
+        <Link href="/campaign" style={{ flexShrink: 0 }}>
+          <Button size="sm" variant="outline" icon="target">Mulai Campaign</Button>
         </Link>
       </div>
 

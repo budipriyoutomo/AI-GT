@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/lib/auth";
 
 const NAV = [
   {
@@ -35,7 +37,24 @@ interface SidebarProps {
   active: string;
 }
 
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+}
+
 export function Sidebar({ active }: SidebarProps) {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  function handleLogout() {
+    logout();
+    router.replace("/login");
+  }
+
   return (
     <aside className="aigt-side">
       {/* Brand */}
@@ -94,7 +113,7 @@ export function Sidebar({ active }: SidebarProps) {
           gap: 10,
         }}
       >
-        <Avatar initials="RW" size={30} status="online" />
+        <Avatar initials={user ? initials(user.name) : "?"} size={30} status="online" />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
@@ -102,11 +121,21 @@ export function Sidebar({ active }: SidebarProps) {
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}
           >
-            Rendi Wijaya
+            {user?.name ?? "—"}
           </div>
-          <div style={{ fontSize: 10, color: "var(--muted-foreground)" }}>Toko Kopi Senja</div>
+          <div style={{ fontSize: 10, color: "var(--muted-foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {user?.businessName ?? user?.email ?? ""}
+          </div>
         </div>
         <ThemeToggle />
+        <button
+          className="aigt-iconbtn"
+          title="Keluar"
+          onClick={handleLogout}
+          style={{ width: 28, height: 28 }}
+        >
+          <Icon name="log-out" size={14} />
+        </button>
       </div>
     </aside>
   );
