@@ -14,6 +14,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { PosterThumb } from "@/components/poster-thumb";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/lib/auth";
 
 const QUICK = [
   { label: "Promo Diskon", icon: "percent" },
@@ -76,8 +77,10 @@ function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [filter, setFilter] = useState("Semua");
   const list = filter === "Semua" ? HISTORY : HISTORY.filter((h) => h.status === filter);
+  const firstName = user?.name?.split(" ")[0] ?? "sana";
 
   return (
     <Shell
@@ -85,7 +88,7 @@ export default function DashboardPage() {
       title="Dashboard"
       actions={<Button size="sm" variant="outline" icon="calendar">Juni 2026</Button>}
     >
-      <PageHead title="Halo, Rendi 👋" subtitle="Ringkasan workspace dan konten yang baru kamu buat." />
+      <PageHead title={`Halo, ${firstName} 👋`} subtitle="Ringkasan workspace dan konten yang baru kamu buat." />
 
       {/* Create banner */}
       <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "20px 22px", background: "var(--aigt-spark-soft)", border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)", borderRadius: "var(--radius-xl)", marginBottom: 12 }}>

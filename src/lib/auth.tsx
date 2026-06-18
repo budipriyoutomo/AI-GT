@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-interface User {
+export interface User {
   name: string;
   email: string;
   businessName: string;
+  industry?: string;
+  brandColor?: string;
 }
 
 interface StoredUser extends User {
@@ -17,6 +19,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => string | null;
   register: (name: string, email: string, password: string, businessName: string) => string | null;
   logout: () => void;
+  updateProfile: (data: Partial<Omit<User, "email">>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
     if (!found) return "Email atau password salah.";
-    const session: User = { name: found.name, email: found.email, businessName: found.businessName };
+    const { password: _, ...session } = found;
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     setUser(session);
     return null;
@@ -75,6 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }
 
+  function updateProfile(data: Partial<Omit<User, "email">>) {
+    if (!user) return;
+    const updated: User = { ...user, ...data };
+    // sync to stored users list
+    const users = getUsers();
+    const idx = users.findIndex((u) => u.email.toLowerCase() === user.email.toLowerCase());
+    if (idx !== -1) {
+      users[idx] = { ...users[idx], ...data };
+      saveUsers(users);
+    }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+    setUser(updated);
+  }
+
   function logout() {
     localStorage.removeItem(SESSION_KEY);
     setUser(null);
@@ -83,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!ready) return null;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

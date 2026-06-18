@@ -23,11 +23,11 @@ const STEPS = [
 const COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
 
 export default function OnboardingPage() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("Toko Kopi Senja");
+  const [name, setName] = useState("");
   const [industry, setIndustry] = useState("F&B / Kuliner");
   const [logo, setLogo] = useState(false);
   const [color, setColor] = useState("#2F6BFF");
@@ -35,8 +35,13 @@ export default function OnboardingPage() {
   const [tone, setTone] = useState("Ramah & santai");
 
   useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
+    if (!user) { router.replace("/login"); return; }
+    // pre-fill from saved profile
+    if (user.businessName) setName(user.businessName);
+    if (user.industry) setIndustry(user.industry);
+    if (user.brandColor) setColor(user.brandColor);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const last = STEPS.length - 1;
   const initial = (name.trim()[0] || "S").toUpperCase();
@@ -45,6 +50,7 @@ export default function OnboardingPage() {
     if (step < last) {
       setStep(step + 1);
     } else {
+      updateProfile({ businessName: name || user?.businessName, industry, brandColor: color });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
       router.replace("/");
     }

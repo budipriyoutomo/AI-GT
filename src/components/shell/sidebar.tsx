@@ -15,7 +15,8 @@ const NAV = [
     items: [
       { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", href: "/" },
       { id: "templates", label: "Galeri Template", icon: "layout-grid", href: "/templates" },
-      { id: "history", label: "Riwayat", icon: "history", href: "/", badge: "12" },
+      { id: "history", label: "Riwayat", icon: "history", href: "/history", badge: "12" },
+      { id: "schedule", label: "Jadwal", icon: "calendar-clock", href: "/schedule", badge: "9" },
     ],
   },
   {
@@ -28,7 +29,7 @@ const NAV = [
   {
     group: "Akun",
     items: [
-      { id: "settings", label: "Pengaturan", icon: "settings", href: "#" },
+      { id: "settings", label: "Pengaturan", icon: "settings", href: "/settings" },
     ],
   },
 ];
