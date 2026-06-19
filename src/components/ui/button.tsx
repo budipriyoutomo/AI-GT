@@ -20,7 +20,7 @@ const base =
 
 const variants: Record<Variant, string> = {
   default:
-    "bg-[var(--primary)] text-[var(--primary-foreground)] hover:brightness-90 shadow-[var(--shadow-xs)]",
+    "bg-[var(--primary)] text-white hover:brightness-90 shadow-[var(--shadow-xs)]",
   secondary:
     "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--accent)]",
   outline:

@@ -204,8 +204,6 @@ export default function EditorPage() {
 
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
           <span className="aigt-h6" style={{ fontSize: "var(--text-sm)" }}>Flash Sale Akhir Pekan</span>
-          <Badge variant="secondary">Varian A</Badge>
-          {saved && <Badge variant="success" icon="check">Tersimpan</Badge>}
         </div>
 
         {/* Autosave indicator */}
@@ -214,7 +212,6 @@ export default function EditorPage() {
           Autosave aktif
         </div>
 
-        <Button size="sm" variant="outline" icon="save" onClick={handleSave}>Simpan</Button>
         <Button size="sm" icon="download" onClick={handleExport}>Export PNG</Button>
       </div>
 
@@ -523,7 +520,6 @@ export default function EditorPage() {
             <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
               <Badge variant="secondary">Carousel</Badge>
               <Badge variant="secondary">F&B</Badge>
-              <Badge variant="success" icon="check">Varian A</Badge>
             </div>
           </div>
 
@@ -578,19 +574,6 @@ export default function EditorPage() {
             </div>
           </div>
 
-          {/* Export actions */}
-          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <Button icon="download" style={{ width: "100%", justifyContent: "center" }} onClick={handleExport}>
-              Export PNG
-            </Button>
-            <Button variant="outline" icon="save" style={{ width: "100%", justifyContent: "center" }} onClick={handleSave}>
-              Simpan ke Projects
-            </Button>
-            <Button variant="ghost" icon="calendar-clock" style={{ width: "100%", justifyContent: "center" }}
-              onClick={() => toast({ title: "Fitur scheduling segera hadir", variant: "info" })}>
-              Jadwalkan
-            </Button>
-          </div>
         </div>
 
       </div>

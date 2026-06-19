@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { PosterThumb } from "@/components/poster-thumb";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
@@ -35,8 +35,19 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "info"> = {
 
 function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
   return (
+    <div style={{ position: "relative" }} className="group">
     <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
-      <PosterThumb title={it.title} kicker={it.kicker} cta={it.cta} accent={it.accent} platform={it.platform} ratio="4 / 3" />
+      <div style={{ position: "relative" }}>
+        <PosterThumb title={it.title} kicker={it.kicker} cta={it.cta} accent={it.accent} platform={it.platform} ratio="4 / 3" />
+        <div
+          className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
+          style={{ position: "absolute", inset: "12px 12px auto 12px" }}
+        >
+          <Link href="/create" style={{ display: "block" }}>
+            <Button icon="refresh-cw" style={{ width: "100%" }}>Re Use Content</Button>
+          </Link>
+        </div>
+      </div>
       <div style={{ marginTop: 11 }}>
         <div className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</div>
         <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>{it.id}</div>
@@ -49,23 +60,17 @@ function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
         <Badge variant={STATUS_VARIANT[it.status]} dot>{it.status}</Badge>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{it.date}</span>
-          <DropdownMenu
-            trigger={
-              <button className="aigt-iconbtn" style={{ width: 26, height: 26 }}>
-                <Icon name="more-horizontal" size={15} />
-              </button>
-            }
-            items={[
-              { label: "Edit", icon: "pencil" },
-              { label: "Duplikat", icon: "copy" },
-              { label: "Export PNG", icon: "download", onClick: () => toast({ title: "Export PNG dimulai", desc: it.id, variant: "info" }) },
-              { divider: true },
-              { label: "Hapus", icon: "trash-2", danger: true },
-            ]}
-          />
+          <button
+            className="aigt-iconbtn"
+            style={{ width: 26, height: 26, color: "var(--destructive)" }}
+            onClick={() => toast({ title: "Konten dihapus", desc: it.id, variant: "info" })}
+          >
+            <Icon name="trash-2" size={14} />
+          </button>
         </div>
       </div>
     </Card>
+    </div>
   );
 }
 
@@ -99,6 +104,54 @@ export default function HistoryPage() {
         title="Riwayat Generate"
         subtitle={`${HISTORY.length} konten total · ${HISTORY.filter((h) => h.status === "Published").length} dipublikasikan`}
       />
+
+      {/* Storage limit */}
+      {(() => {
+        const used = HISTORY.length;
+        const limit = 50;
+        const pct = Math.round((used / limit) * 100);
+        const isWarn = pct >= 80;
+        const barColor = isWarn ? "var(--chart-5)" : "var(--primary)";
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 16,
+            padding: "12px 16px",
+            border: `1px solid ${isWarn ? "color-mix(in oklch, var(--chart-5) 30%, transparent)" : "var(--border)"}`,
+            borderRadius: "var(--radius-xl)",
+            background: isWarn ? "color-mix(in oklch, var(--chart-5) 6%, var(--card))" : "var(--card)",
+            marginBottom: 20,
+          }}>
+            <Icon
+              name={isWarn ? "alert-triangle" : "database"}
+              size={15}
+              style={{ color: isWarn ? "var(--chart-5)" : "var(--muted-foreground)", flexShrink: 0 }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: isWarn ? "var(--chart-5)" : "var(--foreground)" }}>
+                  Penyimpanan Riwayat
+                </span>
+                <span className="aigt-mono" style={{ fontSize: 11, color: isWarn ? "var(--chart-5)" : "var(--muted-foreground)", fontWeight: 600 }}>
+                  {used} / {limit} konten ({pct}%)
+                </span>
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: "var(--surface-sunken)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, borderRadius: 999, background: barColor, transition: "width .4s ease" }} />
+              </div>
+              {isWarn && (
+                <div style={{ fontSize: 10, color: "var(--chart-5)", marginTop: 5, fontWeight: 500 }}>
+                  Penyimpanan hampir penuh. Hapus konten lama atau upgrade plan untuk menambah kapasitas.
+                </div>
+              )}
+            </div>
+            {isWarn && (
+              <Button size="sm" variant="outline" style={{ flexShrink: 0, borderColor: "var(--chart-5)", color: "var(--chart-5)" }}>
+                Upgrade
+              </Button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>

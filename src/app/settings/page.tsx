@@ -5,12 +5,20 @@ import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
+import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
+
+/* ── Constants ────────────────────────────────────────────── */
+
+const BRAND_COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
+
+/* ── Helpers ──────────────────────────────────────────────── */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -26,17 +34,19 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }
 
-export default function SettingsPage() {
+/* ── Tab: Profil ──────────────────────────────────────────── */
+
+function TabProfil() {
   const { user, updateProfile } = useAuth();
 
-  const [name, setName] = useState(user?.name ?? "");
+  const [name, setName]                 = useState(user?.name ?? "");
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
+  const [newPw, setNewPw]         = useState("");
   const [confirmPw, setConfirmPw] = useState("");
-  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwError, setPwError]     = useState<string | null>(null);
 
   function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
@@ -60,168 +70,394 @@ export default function SettingsPage() {
   }
 
   return (
-    <Shell active="settings" title="Pengaturan">
-      <PageHead title="Pengaturan Akun" subtitle="Kelola profil, keamanan, dan preferensi kamu." />
+    <div style={{ maxWidth: 600 }}>
 
-      <div style={{ maxWidth: 600 }}>
-
-        {/* Profile */}
-        <Section title="Profil">
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-            <Avatar initials={user ? initials(user.name) : "?"} size={56} status="online" />
-            <div>
-              <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{user?.name}</div>
-              <div className="aigt-caption" style={{ marginTop: 2 }}>{user?.email}</div>
-            </div>
+      <Section title="Profil">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+          <Avatar initials={user ? initials(user.name) : "?"} size={56} status="online" />
+          <div>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{user?.name}</div>
+            <div className="aigt-caption" style={{ marginTop: 2 }}>{user?.email}</div>
           </div>
-          <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Input
-              label="Nama lengkap"
-              icon="user"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nama kamu"
-            />
-            <Input
-              label="Nama bisnis"
-              icon="store"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Nama toko atau brand"
-            />
-            <Input
-              label="Email"
-              icon="mail"
-              value={user?.email ?? ""}
-              disabled
-              style={{ opacity: 0.6 }}
-            />
-            <div>
-              <Button type="submit" size="sm" disabled={savingProfile}>
-                {savingProfile ? "Menyimpan..." : "Simpan perubahan"}
-              </Button>
-            </div>
-          </form>
-        </Section>
-
-        {/* Password */}
-        <Section title="Keamanan">
-          <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Input
-              label="Password saat ini"
-              type="password"
-              icon="lock"
-              value={currentPw}
-              onChange={(e) => setCurrentPw(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-            <Input
-              label="Password baru"
-              type="password"
-              icon="lock-keyhole"
-              value={newPw}
-              onChange={(e) => setNewPw(e.target.value)}
-              placeholder="Min. 6 karakter"
-              autoComplete="new-password"
-            />
-            <Input
-              label="Konfirmasi password baru"
-              type="password"
-              icon="shield-check"
-              value={confirmPw}
-              onChange={(e) => setConfirmPw(e.target.value)}
-              placeholder="Ulangi password baru"
-              autoComplete="new-password"
-            />
-            {pwError && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 7,
-                padding: "9px 12px",
-                background: "var(--tint-destructive)",
-                border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--destructive)",
-                fontSize: "var(--text-xs)", fontWeight: 500,
-              }}>
-                <Icon name="circle-alert" size={14} />{pwError}
-              </div>
-            )}
-            <div>
-              <Button type="submit" size="sm" variant="outline">Ubah password</Button>
-            </div>
-          </form>
-        </Section>
-
-        {/* Plan */}
-        <Section title="Paket & Kuota">
-          <div style={{
-            padding: 18, border: "1px solid var(--border)", borderRadius: "var(--radius-xl)",
-            background: "var(--card)", display: "flex", flexDirection: "column", gap: 14,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Paket Pro</div>
-                <div className="aigt-caption" style={{ marginTop: 2 }}>Aktif hingga 30 Juli 2026</div>
-              </div>
-              <span style={{
-                padding: "3px 10px", borderRadius: "var(--radius-full)",
-                background: "var(--tint-success)", color: "var(--success)",
-                fontSize: "var(--text-xs)", fontWeight: 600,
-              }}>Aktif</span>
-            </div>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span className="aigt-caption">Kuota generate bulan ini</span>
-                <span style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>52 / 80</span>
-              </div>
-              <ProgressBar value={65} color="primary" height={6} />
-            </div>
-            <Button size="sm" variant="outline" icon="arrow-up-circle">Upgrade ke Business</Button>
-          </div>
-        </Section>
-
-        {/* Notifications */}
-        <Section title="Notifikasi">
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {[
-              { label: "Generate selesai", desc: "Notifikasi saat konten selesai dibuat", defaultChecked: true },
-              { label: "Jadwal tayang", desc: "Pengingat 1 jam sebelum konten terjadwal", defaultChecked: true },
-              { label: "Tips & pembaruan", desc: "Update fitur baru dan tips penggunaan AI-GT", defaultChecked: false },
-            ].map((n) => (
-              <div key={n.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                <div>
-                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{n.label}</div>
-                  <div className="aigt-caption" style={{ marginTop: 2 }}>{n.desc}</div>
-                </div>
-                <Switch defaultChecked={n.defaultChecked} />
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Danger zone */}
-        <Section title="Zona Berbahaya">
-          <div style={{
-            padding: 16, border: "1px solid color-mix(in oklch, var(--destructive) 35%, transparent)",
-            borderRadius: "var(--radius-lg)", background: "var(--tint-destructive)",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
-          }}>
-            <div>
-              <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--destructive)" }}>Hapus akun</div>
-              <div className="aigt-caption" style={{ marginTop: 2 }}>Semua data dan konten akan dihapus permanen.</div>
-            </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              icon="trash-2"
-              onClick={() => toast({ title: "Fitur ini belum tersedia", desc: "Hubungi support untuk menghapus akun.", variant: "warning" })}
-            >
-              Hapus akun
+        </div>
+        <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Input
+            label="Nama lengkap"
+            icon="user"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nama kamu"
+          />
+          <Input
+            label="Nama bisnis"
+            icon="store"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Nama toko atau brand"
+          />
+          <Input
+            label="Email"
+            icon="mail"
+            value={user?.email ?? ""}
+            disabled
+            style={{ opacity: 0.6 }}
+          />
+          <div>
+            <Button type="submit" size="sm" disabled={savingProfile}>
+              {savingProfile ? "Menyimpan..." : "Simpan perubahan"}
             </Button>
           </div>
-        </Section>
+        </form>
+      </Section>
 
+      <Section title="Keamanan">
+        <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Input
+            label="Password saat ini"
+            type="password"
+            icon="lock"
+            value={currentPw}
+            onChange={(e) => setCurrentPw(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+          <Input
+            label="Password baru"
+            type="password"
+            icon="lock-keyhole"
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+            placeholder="Min. 6 karakter"
+            autoComplete="new-password"
+          />
+          <Input
+            label="Konfirmasi password baru"
+            type="password"
+            icon="shield-check"
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            placeholder="Ulangi password baru"
+            autoComplete="new-password"
+          />
+          {pwError && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 12px",
+              background: "var(--tint-destructive)",
+              border: "1px solid color-mix(in oklch, var(--destructive) 30%, transparent)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--destructive)",
+              fontSize: "var(--text-xs)", fontWeight: 500,
+            }}>
+              <Icon name="circle-alert" size={14} />{pwError}
+            </div>
+          )}
+          <div>
+            <Button type="submit" size="sm" variant="outline">Ubah password</Button>
+          </div>
+        </form>
+      </Section>
+
+      <Section title="Paket & Kuota">
+        <div style={{
+          padding: 18, border: "1px solid var(--border)", borderRadius: "var(--radius-xl)",
+          background: "var(--card)", display: "flex", flexDirection: "column", gap: 14,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Paket Pro</div>
+              <div className="aigt-caption" style={{ marginTop: 2 }}>Aktif hingga 30 Juli 2026</div>
+            </div>
+            <span style={{
+              padding: "3px 10px", borderRadius: "var(--radius-full)",
+              background: "var(--tint-success)", color: "var(--success)",
+              fontSize: "var(--text-xs)", fontWeight: 600,
+            }}>Aktif</span>
+          </div>
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span className="aigt-caption">Kuota generate bulan ini</span>
+              <span style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>52 / 80</span>
+            </div>
+            <ProgressBar value={65} color="primary" height={6} />
+          </div>
+          <Button size="sm" variant="outline" icon="arrow-up-circle">Upgrade ke Business</Button>
+        </div>
+      </Section>
+
+      <Section title="Notifikasi">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {[
+            { label: "Generate selesai",  desc: "Notifikasi saat konten selesai dibuat",            defaultChecked: true  },
+            { label: "Jadwal tayang",     desc: "Pengingat 1 jam sebelum konten terjadwal",         defaultChecked: true  },
+            { label: "Tips & pembaruan",  desc: "Update fitur baru dan tips penggunaan AI-GT",      defaultChecked: false },
+          ].map((n) => (
+            <div key={n.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{n.label}</div>
+                <div className="aigt-caption" style={{ marginTop: 2 }}>{n.desc}</div>
+              </div>
+              <Switch defaultChecked={n.defaultChecked} />
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Zona Berbahaya">
+        <div style={{
+          padding: 16, border: "1px solid color-mix(in oklch, var(--destructive) 35%, transparent)",
+          borderRadius: "var(--radius-lg)", background: "var(--tint-destructive)",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--destructive)" }}>Hapus akun</div>
+            <div className="aigt-caption" style={{ marginTop: 2 }}>Semua data dan konten akan dihapus permanen.</div>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            icon="trash-2"
+            onClick={() => toast({ title: "Fitur ini belum tersedia", desc: "Hubungi support untuk menghapus akun.", variant: "warning" })}
+          >
+            Hapus akun
+          </Button>
+        </div>
+      </Section>
+
+    </div>
+  );
+}
+
+/* ── Tab: Profil Bisnis ───────────────────────────────────── */
+
+function TabProfilBisnis() {
+  const { user, updateProfile } = useAuth();
+
+  const [businessName, setBusinessName] = useState(user?.businessName ?? "");
+  const [industry, setIndustry]         = useState(user?.industry ?? "F&B / Kuliner");
+  const [city, setCity]                 = useState("Bandung");
+  const [desc, setDesc]                 = useState("Coffee shop lokal dengan suasana hangat, menyajikan kopi specialty dan camilan untuk teman ngobrol sore.");
+  const [logo, setLogo]                 = useState(false);
+  const [tagline, setTagline]           = useState("Teman ngopi sore kamu");
+  const [color, setColor]               = useState(user?.brandColor ?? "#2F6BFF");
+  const [lang, setLang]                 = useState("Indonesia");
+  const [tone, setTone]                 = useState("Casual");
+  const [saving, setSaving]             = useState(false);
+
+  const initial = (businessName.trim()[0] || "S").toUpperCase();
+
+  function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setTimeout(() => {
+      updateProfile({ businessName: businessName.trim(), industry, brandColor: color });
+      setSaving(false);
+      toast({ title: "Profil bisnis disimpan", variant: "success" });
+    }, 400);
+  }
+
+  return (
+    <form onSubmit={handleSave} style={{ maxWidth: 600 }}>
+
+      {/* ── Profil Bisnis ── */}
+      <Section title="Profil Bisnis">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Input
+            label="Nama bisnis"
+            icon="store"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="mis. Toko Kopi Senja"
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Select
+              label="Industri"
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              options={["F&B / Kuliner", "Fashion & Retail", "Jasa & Layanan", "Kesehatan & Kecantikan", "Toko Kelontong", "Edukasi", "Lainnya"]}
+            />
+            <Input
+              label="Kota"
+              icon="map-pin"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="mis. Bandung"
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500 }}>Deskripsi singkat</label>
+            <textarea
+              className="w-full min-h-[88px] p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-y focus:border-[var(--ring)]"
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Jelaskan produk/jasa utama dan keunikan bisnismu…"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Logo & Identitas ── */}
+      <Section title="Logo & Identitas">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Logo bisnis</label>
+            {logo ? (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 14, padding: 16,
+                border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--card)",
+              }}>
+                <span style={{
+                  width: 52, height: 52, borderRadius: "var(--radius-lg)", background: color, color: "#fff",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22,
+                }}>{initial}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="aigt-h6">logo-bisnis.png</div>
+                  <div className="aigt-caption">512×512 · 84 KB</div>
+                </div>
+                <Button type="button" variant="ghost" size="sm" icon="trash-2" onClick={() => setLogo(false)}>Ganti</Button>
+              </div>
+            ) : (
+              <div
+                onClick={() => { setLogo(true); toast({ title: "Logo terunggah", variant: "success" }); }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 28,
+                  border: "1.5px dashed color-mix(in oklch, var(--primary) 40%, var(--border))",
+                  borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)",
+                  cursor: "pointer", textAlign: "center",
+                }}
+              >
+                <span style={{ width: 40, height: 40, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="upload-cloud" size={20} />
+                </span>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Tarik logo ke sini atau klik untuk unggah</div>
+                <div className="aigt-caption">PNG, JPG atau SVG · maks 5 MB</div>
+              </div>
+            )}
+          </div>
+          <Input
+            label="Tagline (opsional)"
+            icon="quote"
+            value={tagline}
+            onChange={(e) => setTagline(e.target.value)}
+            placeholder="mis. Teman ngopi sore kamu"
+          />
+        </div>
+      </Section>
+
+      {/* ── Warna Brand ── */}
+      <Section title="Warna Brand">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Warna utama</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {BRAND_COLORS.map((c) => (
+                <button
+                  key={c} type="button"
+                  onClick={() => setColor(c)}
+                  aria-label={c}
+                  style={{
+                    width: 38, height: 38, borderRadius: 999, background: c,
+                    border: "2px solid transparent", cursor: "pointer",
+                    boxShadow: color === c ? `0 0 0 2px var(--card), 0 0 0 4px var(--foreground)` : undefined,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  {color === c && <Icon name="check" size={16} style={{ color: "#fff" }} />}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Atau masukkan kode HEX</label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: color, border: "1px solid var(--border)", flex: "none" }} />
+              <Input
+                value={color.toUpperCase()}
+                onChange={(e) => setColor(e.target.value)}
+                style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties}
+              />
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Preferensi Konten ── */}
+      <Section title="Preferensi Konten">
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Bahasa konten</label>
+            <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+              {["Indonesia", "English", "Campur"].map((l) => (
+                <button
+                  key={l} type="button"
+                  onClick={() => setLang(l)}
+                  style={{
+                    padding: "7px 14px", border: "none", cursor: "pointer",
+                    fontFamily: "var(--font-sans)", fontSize: "var(--text-xs)", fontWeight: 500,
+                    background: lang === l ? "var(--card)" : "transparent",
+                    color: lang === l ? "var(--foreground)" : "var(--muted-foreground)",
+                    borderRadius: "var(--radius-md)",
+                    boxShadow: lang === l ? "var(--shadow-xs)" : undefined,
+                  }}
+                >{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Select
+              label="Gaya bahasa"
+              value={tone}
+              onChange={(e) => setTone(e.target.value)}
+              options={["Formal", "Casual", "Persuasive", "Fun & Playful", "Inspiratif"]}
+            />
+            <Select
+              label="Target audiens"
+              options={["Anak muda (18–25)", "Keluarga", "Profesional (25–40)", "Umum"]}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Platform default</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+              <Switch label="Instagram" defaultChecked />
+              <Switch label="WhatsApp Story" defaultChecked />
+              <Switch label="TikTok" />
+              <Switch label="Facebook" />
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <div style={{ paddingBottom: 8 }}>
+        <Button type="submit" icon="save" disabled={saving}>
+          {saving ? "Menyimpan..." : "Simpan profil bisnis"}
+        </Button>
+      </div>
+
+    </form>
+  );
+}
+
+/* ── Page ─────────────────────────────────────────────────── */
+
+export default function SettingsPage() {
+  const [tab, setTab] = useState("profil");
+
+  return (
+    <Shell active="settings" title="Pengaturan">
+      <PageHead title="Pengaturan" subtitle="Kelola profil, bisnis, dan preferensi kamu." />
+
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: "profil",        label: "Profil"        },
+          { value: "profil-bisnis", label: "Profil Bisnis" },
+        ]}
+      />
+
+      <div style={{ marginTop: 28 }}>
+        {tab === "profil"        && <TabProfil />}
+        {tab === "profil-bisnis" && <TabProfilBisnis />}
       </div>
     </Shell>
   );

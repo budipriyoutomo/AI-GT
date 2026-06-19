@@ -340,7 +340,7 @@ export default function CreatePage() {
             </div>
             <Link href={canGenerate ? "/generate" : "#"} style={{ pointerEvents: canGenerate ? "auto" : "none" }}>
               <Button icon="sparkles" disabled={!canGenerate}>
-                Generate 3 Varian
+                Generate
               </Button>
             </Link>
           </div>

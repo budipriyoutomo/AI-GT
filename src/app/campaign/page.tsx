@@ -51,12 +51,6 @@ const LOKASI = [
   { id: "nasional",  label: "Nasional", desc: "Bahasa Indonesia umum, jangkauan luas" },
 ];
 
-const BUDGET = [
-  { id: "organik",   label: "Organik",             sub: "Tanpa budget iklan",        icon: "leaf",        cta: "Organic reach — share, tag teman"       },
-  { id: "kecil",     label: "Iklan Kecil",         sub: "< Rp500rb",                 icon: "banknote",    cta: "Soft CTA — klik link, swipe up"         },
-  { id: "menengah",  label: "Iklan Menengah",      sub: "Rp500rb – Rp2jt",           icon: "trending-up", cta: "Direct CTA — chat sekarang, beli langsung"},
-  { id: "besar",     label: "Iklan Besar",         sub: "> Rp2jt",                   icon: "rocket",      cta: "Hard CTA — konversi, retarget, upsell"   },
-];
 
 /* ── Component helpers ────────────────────────────────────── */
 
@@ -85,21 +79,19 @@ export default function CampaignPage() {
   const [momen,    setMomen]    = useState<string | null>(null);
   const [gaya,     setGaya]     = useState<string | null>(null);
   const [lokasi,   setLokasi]   = useState<string>("lokal");
-  const [budget,   setBudget]   = useState<string | null>(null);
 
-  const filledCount = [goal, platform, momen, gaya, budget].filter(Boolean).length;
-  const canContinue = filledCount === 5;
+  const filledCount = [goal, platform, momen, gaya].filter(Boolean).length;
+  const canContinue = filledCount === 4;
 
   const selectedGoal     = GOALS.find((g) => g.id === goal);
   const selectedPlatform = PLATFORMS.find((p) => p.id === platform);
   const selectedMomen    = MOMEN.find((m) => m.id === momen);
   const selectedGaya     = GAYA.find((g) => g.id === gaya);
-  const selectedBudget   = BUDGET.find((b) => b.id === budget);
   const selectedLokasi   = LOKASI.find((l) => l.id === lokasi);
 
   return (
     <Shell
-      active="templates"
+      active="campaign"
       title="Generate by Campaign"
       actions={
         <Link href="/templates">
@@ -290,55 +282,6 @@ export default function CampaignPage() {
             </div>
           </Card>
 
-          {/* 5. Budget */}
-          <Card variant="elevated" padding={20}>
-            <SectionLabel num={5} label="Budget Range" done={!!budget} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-              {BUDGET.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => setBudget(b.id)}
-                  style={{
-                    padding: "14px 16px", borderRadius: "var(--radius-lg)", textAlign: "left",
-                    border: `1px solid ${budget === b.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                    background: budget === b.id ? "var(--tint-primary)" : "var(--card)",
-                    cursor: "pointer", fontFamily: "var(--font-sans)",
-                    display: "flex", flexDirection: "column", gap: 8,
-                    transition: "all .15s ease",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{
-                      width: 32, height: 32, borderRadius: "var(--radius-md)",
-                      background: budget === b.id ? "color-mix(in oklch, var(--primary) 15%, transparent)" : "var(--surface-sunken)",
-                      border: `1px solid ${budget === b.id ? "color-mix(in oklch, var(--primary) 25%, transparent)" : "var(--border)"}`,
-                      color: budget === b.id ? "var(--primary)" : "var(--muted-foreground)",
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <Icon name={b.icon as "leaf"} size={15} />
-                    </span>
-                    {budget === b.id && <Icon name="check-circle-2" size={16} style={{ color: "var(--primary)" }} />}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: budget === b.id ? "var(--primary)" : "var(--foreground)" }}>
-                      {b.label}
-                    </div>
-                    <div className="aigt-caption" style={{ marginTop: 2 }}>{b.sub}</div>
-                  </div>
-                  <div style={{
-                    fontSize: 11, color: budget === b.id ? "var(--primary)" : "var(--muted-foreground)",
-                    padding: "5px 8px",
-                    background: budget === b.id ? "color-mix(in oklch, var(--primary) 10%, transparent)" : "var(--surface-sunken)",
-                    borderRadius: "var(--radius-sm)",
-                    lineHeight: 1.4,
-                  }}>
-                    {b.cta}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </Card>
-
         </div>
 
         {/* ── Right: campaign brief summary ── */}
@@ -354,7 +297,7 @@ export default function CampaignPage() {
               </span>
               <div>
                 <div className="aigt-h6">Campaign Brief</div>
-                <div className="aigt-caption">{filledCount} / 5 diisi</div>
+                <div className="aigt-caption">{filledCount} / 4 diisi</div>
               </div>
             </div>
 
@@ -362,7 +305,7 @@ export default function CampaignPage() {
             <div style={{ height: 5, borderRadius: 999, background: "var(--muted)", overflow: "hidden", marginBottom: 16 }}>
               <div style={{
                 height: "100%", borderRadius: 999,
-                width: `${(filledCount / 5) * 100}%`,
+                width: `${(filledCount / 4) * 100}%`,
                 background: canContinue ? "var(--success)" : "var(--primary)",
                 transition: "width .3s ease",
               }} />
@@ -374,7 +317,6 @@ export default function CampaignPage() {
                 { label: "Platform",  value: selectedPlatform?.label,                          icon: "monitor"       },
                 { label: "Momen",     value: selectedMomen?.label,                             icon: "calendar"      },
                 { label: "Gaya",      value: selectedGaya ? `${selectedGaya.label} · ${selectedLokasi?.label}` : null, icon: "type" },
-                { label: "Budget",    value: selectedBudget ? `${selectedBudget.label} (${selectedBudget.sub})` : null, icon: "banknote" },
               ].map((row) => (
                 <div key={row.label} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   <span style={{
@@ -416,7 +358,7 @@ export default function CampaignPage() {
 
           {!canContinue && (
             <div style={{ fontSize: 11, color: "var(--muted-foreground)", textAlign: "center" }}>
-              Isi semua {5 - filledCount} kriteria yang tersisa
+              Isi semua {4 - filledCount} kriteria yang tersisa
             </div>
           )}
         </div>
