@@ -1,10 +1,142 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
+import { LandingNavbar } from "@/components/landing/navbar";
+import { FeatureCard } from "@/components/landing/feature-card";
+
+/* ── SEO Metadata ─────────────────────────────────────────── */
+
+const BASE_URL = "https://aigt.id";
+
+export const metadata: Metadata = {
+  title: "AI-GT — Buat Konten Instagram, TikTok & WhatsApp dalam 10 Detik",
+  description:
+    "AI-GT membantu UMKM Indonesia buat konten sosial media berkualitas secara otomatis dengan AI. Generate caption, visual, dan jadwal posting Instagram, TikTok, WhatsApp — tanpa skill desain. Gratis 20 konten/bulan.",
+  keywords: [
+    "AI konten UMKM",
+    "generate konten otomatis",
+    "buat konten instagram otomatis",
+    "AI marketing Indonesia",
+    "konten TikTok otomatis",
+    "konten WhatsApp bisnis",
+    "tools UMKM digital",
+    "caption Instagram AI",
+    "AI content generator Indonesia",
+  ],
+  authors: [{ name: "AI-GT" }],
+  creator: "AI-GT",
+  publisher: "AI-GT",
+  metadataBase: new URL(BASE_URL),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: BASE_URL,
+    siteName: "AI-GT",
+    title: "AI-GT — Konten Sosial Media Siap dalam 10 Detik",
+    description:
+      "Buat konten Instagram, TikTok & WhatsApp secara otomatis dengan AI. Dirancang khusus untuk UMKM Indonesia. Gratis 20 konten/bulan — tanpa kartu kredit.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "AI-GT — AI Content Studio untuk UMKM Indonesia",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI-GT — Konten Sosial Media Siap dalam 10 Detik",
+    description:
+      "Buat konten Instagram, TikTok & WhatsApp secara otomatis dengan AI. Gratis untuk UMKM Indonesia.",
+    images: ["/opengraph-image"],
+    creator: "@aigtid",
+    site: "@aigtid",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+/* ── JSON-LD Structured Data ──────────────────────────────── */
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "AI-GT",
+      url: BASE_URL,
+      description:
+        "Platform AI untuk UMKM Indonesia buat konten Instagram, TikTok, dan WhatsApp secara otomatis dalam hitungan detik.",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      inLanguage: "id",
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Starter",
+          price: "0",
+          priceCurrency: "IDR",
+          description: "20 generate konten per bulan — gratis selamanya",
+        },
+        {
+          "@type": "Offer",
+          name: "Pro",
+          price: "99000",
+          priceCurrency: "IDR",
+          description: "80 generate per bulan, thematic image AI, 3 profil bisnis",
+          billingIncrement: "P1M",
+        },
+        {
+          "@type": "Offer",
+          name: "Business",
+          price: "249000",
+          priceCurrency: "IDR",
+          description: "300 generate per bulan, riwayat tak terbatas, 10 profil bisnis",
+          billingIncrement: "P1M",
+        },
+      ],
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.8",
+        ratingCount: "12000",
+        bestRating: "5",
+      },
+    },
+    {
+      "@type": "Organization",
+      name: "AI-GT",
+      url: BASE_URL,
+      logo: `${BASE_URL}/icon`,
+      sameAs: [],
+    },
+    {
+      "@type": "WebSite",
+      url: BASE_URL,
+      name: "AI-GT",
+      description: "AI Content Studio untuk UMKM Indonesia",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${BASE_URL}/templates?q={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
 
 /* ── Data ─────────────────────────────────────────────────── */
 
@@ -99,82 +231,28 @@ const STATS = [
   { value: "< 10 dtk",label: "Waktu generate"      },
 ];
 
-/* ── Navbar ───────────────────────────────────────────────── */
-
-function Navbar() {
-  const [open, setOpen] = useState(false);
-  return (
-    <nav style={{
-      position: "sticky", top: 0, zIndex: 100,
-      display: "flex", alignItems: "center", gap: 32,
-      padding: "0 32px", height: 60,
-      background: "color-mix(in oklch, var(--card) 90%, transparent)",
-      backdropFilter: "blur(12px)",
-      borderBottom: "1px solid var(--border)",
-    }}>
-      {/* Logo */}
-      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-        <span style={{
-          width: 32, height: 32, borderRadius: "var(--radius-md)",
-          background: "var(--aigt-spark)", color: "#fff",
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          <Icon name="sparkles" size={16} />
-        </span>
-        <span style={{ fontSize: "var(--text-sm)", fontWeight: 800, letterSpacing: "-.01em", color: "var(--foreground)" }}>
-          AI-GT
-        </span>
-      </Link>
-
-      {/* Center nav */}
-      <div style={{ display: "flex", gap: 4, flex: 1 }}>
-        {[
-          { label: "Fitur",  href: "#features" },
-          { label: "Cara Kerja", href: "#steps"    },
-          { label: "Harga",  href: "#pricing" },
-        ].map((l) => (
-          <a key={l.label} href={l.href} style={{
-            padding: "6px 12px", borderRadius: "var(--radius-md)",
-            fontSize: "var(--text-xs)", fontWeight: 500,
-            color: "var(--muted-foreground)", textDecoration: "none",
-            transition: "color .15s",
-          }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            {l.label}
-          </a>
-        ))}
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Link href="/login">
-          <Button variant="ghost" size="sm">Masuk</Button>
-        </Link>
-        <Link href="/register">
-          <Button size="sm" icon="sparkles">Daftar Gratis</Button>
-        </Link>
-      </div>
-    </nav>
-  );
-}
-
 /* ── Page ─────────────────────────────────────────────────── */
 
 export default function LandingPage() {
   return (
     <div style={{ fontFamily: "var(--font-sans)", background: "var(--background)", color: "var(--foreground)", minHeight: "100vh" }}>
-      <Navbar />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <LandingNavbar />
 
       {/* ── Hero ── */}
-      <section style={{
-        padding: "80px 32px 72px",
-        maxWidth: 1100, margin: "0 auto",
-        display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
-        gap: 28,
-      }}>
+      <section
+        aria-label="Hero"
+        style={{
+          padding: "80px 32px 72px",
+          maxWidth: 1100, margin: "0 auto",
+          display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+          gap: 28,
+        }}
+      >
         <Badge variant="secondary" icon="sparkles" style={{ fontSize: 11, padding: "4px 12px" }}>
           AI Content Studio untuk UMKM Indonesia
         </Badge>
@@ -228,14 +306,18 @@ export default function LandingPage() {
         </div>
 
         {/* Hero visual — mock UI */}
-        <div style={{
-          width: "100%", maxWidth: 860, marginTop: 8,
-          borderRadius: "var(--radius-xl)",
-          border: "1px solid var(--border)",
-          background: "var(--card)",
-          boxShadow: "0 24px 80px color-mix(in oklch, var(--primary) 10%, rgba(0,0,0,.12))",
-          overflow: "hidden",
-        }}>
+        <div
+          role="img"
+          aria-label="Tampilan dashboard AI-GT — platform generate konten otomatis untuk UMKM"
+          style={{
+            width: "100%", maxWidth: 860, marginTop: 8,
+            borderRadius: "var(--radius-xl)",
+            border: "1px solid var(--border)",
+            background: "var(--card)",
+            boxShadow: "0 24px 80px color-mix(in oklch, var(--primary) 10%, rgba(0,0,0,.12))",
+            overflow: "hidden",
+          }}
+        >
           {/* Mock topbar */}
           <div style={{
             height: 44, display: "flex", alignItems: "center", gap: 10,
@@ -322,7 +404,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats ── */}
-      <section style={{
+      <section aria-label="Statistik" style={{
         background: "var(--card)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
         padding: "32px 32px",
       }}>
@@ -344,10 +426,10 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" style={{ padding: "80px 32px", maxWidth: 1100, margin: "0 auto" }}>
+      <section id="features" aria-labelledby="features-heading" style={{ padding: "80px 32px", maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div className="aigt-label" style={{ marginBottom: 10 }}>Fitur Unggulan</div>
-          <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: "0 0 14px" }}>
+          <h2 id="features-heading" style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: "0 0 14px" }}>
             Semua yang kamu butuhkan, satu platform
           </h2>
           <p style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", maxWidth: 480, margin: "0 auto", lineHeight: 1.6 }}>
@@ -357,67 +439,37 @@ export default function LandingPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
           {FEATURES.map((f) => (
-            <div key={f.title} style={{
-              padding: "22px 22px 24px",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-xl)",
-              background: "var(--card)",
-              display: "flex", flexDirection: "column", gap: 12,
-              transition: "box-shadow .18s, transform .18s",
-            }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px color-mix(in oklch, var(--primary) 10%, rgba(0,0,0,.08))";
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                (e.currentTarget as HTMLElement).style.transform = "none";
-              }}
-            >
-              <span style={{
-                width: 44, height: 44, borderRadius: "var(--radius-lg)",
-                background: f.tint,
-                border: `1px solid color-mix(in oklch, ${f.color} 20%, transparent)`,
-                color: f.color,
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <Icon name={f.icon as "sparkles"} size={20} />
-              </span>
-              <div>
-                <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 6 }}>{f.title}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)", lineHeight: 1.65 }}>{f.desc}</div>
-              </div>
-            </div>
+            <FeatureCard key={f.title} icon={f.icon} title={f.title} desc={f.desc} color={f.color} tint={f.tint} />
           ))}
         </div>
       </section>
 
       {/* ── How it works ── */}
-      <section id="steps" style={{
+      <section id="steps" aria-labelledby="steps-heading" style={{
         padding: "72px 32px",
         background: "var(--card)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
       }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <div className="aigt-label" style={{ marginBottom: 10 }}>Cara Kerja</div>
-            <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: 0 }}>
+            <h2 id="steps-heading" style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: 0 }}>
               Dari ide ke konten siap post dalam 3 langkah
             </h2>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, position: "relative" }}>
+          <ol style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, position: "relative", listStyle: "none", padding: 0, margin: 0 }}>
             {/* connector line */}
-            <div style={{
+            <div aria-hidden="true" style={{
               position: "absolute", top: 28, left: "16.67%", right: "16.67%",
               height: 1, background: "var(--border)", zIndex: 0,
             }} />
 
             {STEPS.map((s) => (
-              <div key={s.num} style={{
+              <li key={s.num} style={{
                 display: "flex", flexDirection: "column", alignItems: "center",
                 textAlign: "center", gap: 16, padding: "0 32px", position: "relative", zIndex: 1,
               }}>
-                <div style={{
+                <div aria-hidden="true" style={{
                   width: 56, height: 56, borderRadius: "50%",
                   background: "var(--primary)", color: "#fff",
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -430,17 +482,17 @@ export default function LandingPage() {
                   <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: 8 }}>{s.title}</div>
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)", lineHeight: 1.65 }}>{s.desc}</div>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
       {/* ── Pricing ── */}
-      <section id="pricing" style={{ padding: "80px 32px", maxWidth: 1100, margin: "0 auto" }}>
+      <section id="pricing" aria-labelledby="pricing-heading" style={{ padding: "80px 32px", maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div className="aigt-label" style={{ marginBottom: 10 }}>Harga</div>
-          <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: "0 0 14px" }}>
+          <h2 id="pricing-heading" style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-.02em", margin: "0 0 14px" }}>
             Mulai gratis, upgrade kapan saja
           </h2>
           <p style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>
@@ -489,14 +541,14 @@ export default function LandingPage() {
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>{plan.desc}</div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 22 }}>
+                <ul style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 22, listStyle: "none", padding: 0, margin: "0 0 22px" }}>
                   {plan.features.map((f) => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)" }}>
+                    <li key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)" }}>
                       <Icon name="check" size={13} style={{ color: plan.highlight ? "var(--primary)" : "var(--success)", flexShrink: 0 }} />
                       {f}
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
 
                 <Link href={plan.href} style={{ display: "block" }}>
                   <Button
@@ -514,7 +566,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA Banner ── */}
-      <section style={{
+      <section aria-label="Daftar sekarang" style={{
         padding: "72px 32px",
         background: "var(--aigt-spark-soft)",
         borderTop: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
@@ -525,7 +577,7 @@ export default function LandingPage() {
           display: "flex", flexDirection: "column", alignItems: "center",
           textAlign: "center", gap: 20,
         }}>
-          <span style={{
+          <span aria-hidden="true" style={{
             width: 56, height: 56, borderRadius: "var(--radius-xl)",
             background: "var(--aigt-spark)", color: "#fff",
             display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -566,7 +618,7 @@ export default function LandingPage() {
           flexWrap: "wrap", gap: 16,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{
+            <span aria-hidden="true" style={{
               width: 26, height: 26, borderRadius: "var(--radius-sm)",
               background: "var(--aigt-spark)", color: "#fff",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -578,19 +630,19 @@ export default function LandingPage() {
               · Content Studio untuk UMKM Indonesia
             </span>
           </div>
-          <div style={{ display: "flex", gap: 20 }}>
-            {["Kebijakan Privasi", "Syarat Layanan", "Hubungi Kami"].map((l) => (
-              <a key={l} href="#" style={{
-                fontSize: "var(--text-xs)", color: "var(--muted-foreground)",
-                textDecoration: "none", transition: "color .15s",
-              }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-              >
-                {l}
-              </a>
-            ))}
-          </div>
+          <nav aria-label="Footer navigation">
+            <div style={{ display: "flex", gap: 20 }}>
+              {[
+                { label: "Kebijakan Privasi", href: "/privacy" },
+                { label: "Syarat Layanan",    href: "/terms"   },
+                { label: "Hubungi Kami",      href: "/contact" },
+              ].map((l) => (
+                <Link key={l.label} href={l.href} className="aigt-footer-link">
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
           <div style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
             © 2026 AI-GT. All rights reserved.
           </div>
