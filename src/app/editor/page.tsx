@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -157,6 +158,9 @@ function EditorCanvas({
 type TabId = "teks" | "typography" | "thematic";
 
 export default function EditorPage() {
+  const searchParams  = useSearchParams();
+  const isReuse       = searchParams.get("mode") === "reuse";
+
   const [tab, setTab]         = useState<TabId>("teks");
   const [saved, setSaved]     = useState(false);
 
@@ -196,14 +200,30 @@ export default function EditorPage() {
         borderBottom: "1px solid var(--border)",
         background: "var(--card)",
       }}>
-        <Link href="/generate">
-          <Button size="sm" variant="ghost" icon="arrow-left">Kembali ke Hasil</Button>
+        <Link href={isReuse ? "/history" : "/generate"}>
+          <Button size="sm" variant="ghost" icon="arrow-left">
+            {isReuse ? "Kembali ke Riwayat" : "Kembali ke Hasil"}
+          </Button>
         </Link>
 
         <div style={{ width: 1, height: 20, background: "var(--border)" }} />
 
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
           <span className="aigt-h6" style={{ fontSize: "var(--text-sm)" }}>Flash Sale Akhir Pekan</span>
+          {isReuse && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "3px 10px", borderRadius: 999,
+              background: "color-mix(in oklch, var(--chart-5) 12%, var(--card))",
+              border: "1px solid color-mix(in oklch, var(--chart-5) 35%, transparent)",
+              fontSize: 11, fontWeight: 600,
+              color: "var(--chart-5)",
+              flexShrink: 0,
+            }}>
+              <Icon name="refresh-cw" size={11} />
+              Re Use Content
+            </div>
+          )}
         </div>
 
         {/* Autosave indicator */}

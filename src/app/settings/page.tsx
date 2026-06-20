@@ -160,28 +160,112 @@ function TabProfil() {
 
       <Section title="Paket & Kuota">
         <div style={{
-          padding: 18, border: "1px solid var(--border)", borderRadius: "var(--radius-xl)",
-          background: "var(--card)", display: "flex", flexDirection: "column", gap: 14,
+          border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)",
+          borderRadius: "var(--radius-xl)",
+          background: "var(--tint-primary)",
+          overflow: "hidden",
         }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Paket Pro</div>
+          {/* Plan header */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 14,
+            padding: "16px 18px",
+            borderBottom: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
+          }}>
+            <span style={{
+              width: 40, height: 40, borderRadius: "var(--radius-lg)", flexShrink: 0,
+              background: "var(--primary)", color: "#fff",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="crown" size={18} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--primary)" }}>Paket Pro</div>
               <div className="aigt-caption" style={{ marginTop: 2 }}>Aktif hingga 30 Juli 2026</div>
             </div>
             <span style={{
               padding: "3px 10px", borderRadius: "var(--radius-full)",
               background: "var(--tint-success)", color: "var(--success)",
               fontSize: "var(--text-xs)", fontWeight: 600,
+              flexShrink: 0,
             }}>Aktif</span>
           </div>
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span className="aigt-caption">Kuota generate bulan ini</span>
-              <span style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>52 / 80</span>
+
+          {/* Usage stats */}
+          <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Generate quota */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
+                  <Icon name="sparkles" size={12} style={{ color: "var(--primary)" }} />
+                  Kuota generate bulan ini
+                </span>
+                <span className="aigt-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)" }}>
+                  52 / 80
+                </span>
+              </div>
+              <ProgressBar value={65} color="primary" height={6} />
+              <div className="aigt-caption" style={{ marginTop: 5 }}>28 generate tersisa · reset tiap tanggal 1</div>
             </div>
-            <ProgressBar value={65} color="primary" height={6} />
+
+            {/* Storage */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
+                  <Icon name="database" size={12} style={{ color: "var(--muted-foreground)" }} />
+                  Storage riwayat
+                </span>
+                <span className="aigt-mono" style={{ fontSize: 11, fontWeight: 600 }}>
+                  12 / 50 slot
+                </span>
+              </div>
+              <ProgressBar value={24} color="primary" height={6} />
+              <div className="aigt-caption" style={{ marginTop: 5 }}>38 slot tersisa · <a href="/subscription" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>Tambah storage</a></div>
+            </div>
+
+            {/* Plan features summary */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+              padding: "12px 14px",
+              background: "var(--card)",
+              border: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
+              borderRadius: "var(--radius-lg)",
+            }}>
+              {[
+                { label: "80 generate / bulan",    icon: "sparkles"   },
+                { label: "50 slot riwayat",         icon: "database"   },
+                { label: "3 profil bisnis",          icon: "store"      },
+                { label: "Thematic image AI",        icon: "image"      },
+                { label: "Export tanpa watermark",   icon: "download"   },
+                { label: "Template lengkap",         icon: "layout-grid"},
+              ].map((f) => (
+                <div key={f.label} style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontSize: "var(--text-xs)", color: "var(--foreground)",
+                }}>
+                  <Icon name={f.icon as "sparkles"} size={11} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                  {f.label}
+                </div>
+              ))}
+            </div>
           </div>
-          <Button size="sm" variant="outline" icon="arrow-up-circle">Upgrade ke Business</Button>
+
+          {/* Footer actions */}
+          <div style={{
+            padding: "12px 18px",
+            borderTop: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
+            display: "flex", gap: 8,
+          }}>
+            <Button size="sm" icon="arrow-up-circle"
+              onClick={() => toast({ title: "Mengarahkan ke halaman upgrade…", variant: "info" })}
+            >
+              Upgrade ke Business
+            </Button>
+            <Button size="sm" variant="outline" icon="external-link"
+              onClick={() => window.location.href = "/subscription"}
+            >
+              Kelola langganan
+            </Button>
+          </div>
         </div>
       </Section>
 
@@ -240,8 +324,6 @@ function TabProfilBisnis() {
   const [logo, setLogo]                 = useState(false);
   const [tagline, setTagline]           = useState("Teman ngopi sore kamu");
   const [color, setColor]               = useState(user?.brandColor ?? "#2F6BFF");
-  const [lang, setLang]                 = useState("Indonesia");
-  const [tone, setTone]                 = useState("Casual");
   const [saving, setSaving]             = useState(false);
 
   const initial = (businessName.trim()[0] || "S").toUpperCase();
@@ -376,52 +458,6 @@ function TabProfilBisnis() {
                 onChange={(e) => setColor(e.target.value)}
                 style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties}
               />
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── Preferensi Konten ── */}
-      <Section title="Preferensi Konten">
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div>
-            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Bahasa konten</label>
-            <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-              {["Indonesia", "English", "Campur"].map((l) => (
-                <button
-                  key={l} type="button"
-                  onClick={() => setLang(l)}
-                  style={{
-                    padding: "7px 14px", border: "none", cursor: "pointer",
-                    fontFamily: "var(--font-sans)", fontSize: "var(--text-xs)", fontWeight: 500,
-                    background: lang === l ? "var(--card)" : "transparent",
-                    color: lang === l ? "var(--foreground)" : "var(--muted-foreground)",
-                    borderRadius: "var(--radius-md)",
-                    boxShadow: lang === l ? "var(--shadow-xs)" : undefined,
-                  }}
-                >{l}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Select
-              label="Gaya bahasa"
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              options={["Formal", "Casual", "Persuasive", "Fun & Playful", "Inspiratif"]}
-            />
-            <Select
-              label="Target audiens"
-              options={["Anak muda (18–25)", "Keluarga", "Profesional (25–40)", "Umum"]}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Platform default</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-              <Switch label="Instagram" defaultChecked />
-              <Switch label="WhatsApp Story" defaultChecked />
-              <Switch label="TikTok" />
-              <Switch label="Facebook" />
             </div>
           </div>
         </div>

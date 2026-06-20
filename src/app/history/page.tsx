@@ -43,7 +43,7 @@ function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
           className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
           style={{ position: "absolute", inset: "12px 12px auto 12px" }}
         >
-          <Link href="/create" style={{ display: "block" }}>
+          <Link href={`/editor?mode=reuse&id=${it.id}`} style={{ display: "block" }}>
             <Button icon="refresh-cw" style={{ width: "100%" }}>Re Use Content</Button>
           </Link>
         </div>
@@ -131,9 +131,16 @@ export default function HistoryPage() {
                 <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: isWarn ? "var(--chart-5)" : "var(--foreground)" }}>
                   Penyimpanan Riwayat
                 </span>
-                <span className="aigt-mono" style={{ fontSize: 11, color: isWarn ? "var(--chart-5)" : "var(--muted-foreground)", fontWeight: 600 }}>
-                  {used} / {limit} konten ({pct}%)
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="aigt-mono" style={{ fontSize: 11, color: isWarn ? "var(--chart-5)" : "var(--muted-foreground)", fontWeight: 600 }}>
+                    {used} / {limit} konten ({pct}%)
+                  </span>
+                  <Link href="/subscription">
+                    <Button size="sm" variant="outline" icon="plus-circle" style={{ height: 24, fontSize: 10, padding: "0 8px" }}>
+                      Tambah Storage
+                    </Button>
+                  </Link>
+                </div>
               </div>
               <div style={{ height: 5, borderRadius: 999, background: "var(--surface-sunken)", overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${pct}%`, borderRadius: 999, background: barColor, transition: "width .4s ease" }} />

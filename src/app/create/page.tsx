@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { PosterThumb } from "@/components/poster-thumb";
 
 const LOCKED_ELEMENTS = [
@@ -41,6 +43,8 @@ export default function CreatePage() {
   const [thematicMode, setThematicMode] = useState<ThematicMode>("skip");
   const [theme, setTheme]   = useState<string | null>(null);
   const [gaya, setGaya]     = useState<string | null>(null);
+  const [lang, setLang]     = useState("Indonesia");
+  const [targetAudiens, setTargetAudiens] = useState("Anak muda (18–25)");
 
   const selectedGaya  = GAYA_BAHASA.find((g) => g.id === gaya);
   const selectedTheme = THEMES.find((t) => t.id === theme);
@@ -303,6 +307,66 @@ export default function CreatePage() {
                   )}
                 </button>
               ))}
+            </div>
+          </Card>
+
+          {/* Section C: Preferensi Konten */}
+          <Card variant="elevated" padding={20}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <span style={{
+                width: 38, height: 38, borderRadius: "var(--radius-lg)", flexShrink: 0,
+                background: "var(--tint-primary)", color: "var(--primary)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon name="sliders-horizontal" size={18} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="aigt-h5">Preferensi Konten</div>
+                <div className="aigt-caption" style={{ marginTop: 3 }}>
+                  Bahasa, audiens, dan platform yang akan digunakan AI saat generate.
+                </div>
+              </div>
+              <Badge variant="secondary" style={{ flexShrink: 0 }}>Opsional</Badge>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <div>
+                <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Bahasa konten</label>
+                <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+                  {["Indonesia", "English", "Campur"].map((l) => (
+                    <button
+                      key={l} type="button"
+                      onClick={() => setLang(l)}
+                      style={{
+                        padding: "7px 14px", border: "none", cursor: "pointer",
+                        fontFamily: "var(--font-sans)", fontSize: "var(--text-xs)", fontWeight: 500,
+                        background: lang === l ? "var(--card)" : "transparent",
+                        color: lang === l ? "var(--foreground)" : "var(--muted-foreground)",
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: lang === l ? "var(--shadow-xs)" : undefined,
+                        transition: "all .15s ease",
+                      }}
+                    >{l}</button>
+                  ))}
+                </div>
+              </div>
+
+              <Select
+                label="Target audiens"
+                value={targetAudiens}
+                onChange={(e) => setTargetAudiens(e.target.value)}
+                options={["Anak muda (18–25)", "Keluarga", "Profesional (25–40)", "Umum"]}
+              />
+
+              <div>
+                <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Platform default</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+                  <Switch label="Instagram" defaultChecked />
+                  <Switch label="WhatsApp Story" defaultChecked />
+                  <Switch label="TikTok" />
+                  <Switch label="Facebook" />
+                </div>
+              </div>
             </div>
           </Card>
 

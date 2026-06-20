@@ -241,7 +241,7 @@ export default function OnboardingPage() {
           </div>
         </div>
         <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/" className="aigt-caption" style={{ textDecoration: "none" }}>Lewati untuk sekarang</Link>
+          <Link href="/dashboard" className="aigt-caption" style={{ textDecoration: "none" }}>Lewati untuk sekarang</Link>
           <ThemeToggle />
         </div>
       </aside>

@@ -13,11 +13,6 @@ export function TopNav({ title, actions }: TopNavProps) {
     <header className="aigt-top">
       <strong style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{title}</strong>
       <div style={{ flex: 1 }} />
-      <div className="aigt-search">
-        <Icon name="search" size={14} />
-        <span>Cari template, konten…</span>
-        <kbd>⌘K</kbd>
-      </div>
       {actions}
       <button className="aigt-iconbtn" title="Notifikasi">
         <Icon name="bell" size={17} />

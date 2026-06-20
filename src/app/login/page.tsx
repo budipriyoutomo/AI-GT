@@ -21,7 +21,7 @@ function DemoButton() {
       login("demo@aigt.id", "demo1234");
     }
     setLoading(false);
-    router.replace("/");
+    router.replace("/dashboard");
   }
 
   return (
@@ -61,7 +61,7 @@ export default function LoginPage() {
     if (err) {
       setError(err);
     } else {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }
 
