@@ -52,7 +52,7 @@ export default function OnboardingPage() {
     } else {
       updateProfile({ businessName: name || user?.businessName, industry, brandColor: color });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }
 
