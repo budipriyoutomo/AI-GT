@@ -48,15 +48,18 @@ function TabProfil() {
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError]     = useState<string | null>(null);
 
-  function handleSaveProfile(e: FormEvent) {
+  async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSavingProfile(true);
-    setTimeout(() => {
-      updateProfile({ name: name.trim(), businessName: businessName.trim() || name.trim() });
-      setSavingProfile(false);
+    try {
+      await updateProfile({ businessName: businessName.trim() || name.trim() });
       toast({ title: "Profil disimpan", variant: "success" });
-    }, 400);
+    } catch {
+      toast({ title: "Gagal menyimpan profil", variant: "error" });
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function handleChangePassword(e: FormEvent) {
@@ -328,14 +331,17 @@ function TabProfilBisnis() {
 
   const initial = (businessName.trim()[0] || "S").toUpperCase();
 
-  function handleSave(e: FormEvent) {
+  async function handleSave(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      updateProfile({ businessName: businessName.trim(), industry, brandColor: color });
-      setSaving(false);
+    try {
+      await updateProfile({ businessName: businessName.trim(), industry, brandColor: color });
       toast({ title: "Profil bisnis disimpan", variant: "success" });
-    }, 400);
+    } catch {
+      toast({ title: "Gagal menyimpan profil bisnis", variant: "error" });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

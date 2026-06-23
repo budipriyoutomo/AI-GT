@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
@@ -12,44 +12,35 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { PosterThumb } from "@/components/poster-thumb";
+import { toast } from "@/components/ui/toast";
+import { templatesApi } from "@/api/templatesApi";
+import type { Template } from "@/types/template";
 
-const CATS = ["Semua", "Promo & Diskon", "Menu / Produk", "Quote", "Event", "Seasonal / Tematik", "Greeting"];
+const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-4", "--chart-5", "--chart-2"];
 const FORMATS = ["Semua", "Single", "Carousel"];
-
-type Template = {
-  id: number;
-  title: string;
-  kicker: string;
-  cta: string | null;
-  cat: string;
-  fmt: string;
-  ind: string;
-  accent: string;
-  uses: string;
-  seasonal?: boolean;
-  theme?: string;
-};
-
-const TEMPLATES: Template[] = [
-  { id: 1,  title: "Flash Sale Akhir Pekan",       kicker: "Weekend Sale",  cta: "Belanja",          cat: "Promo & Diskon",     fmt: "Carousel", ind: "F&B / Kuliner",          accent: "--chart-1", uses: "2.4k" },
-  { id: 2,  title: "Menu Baru Spesial",             kicker: "New Menu",      cta: "Coba Sekarang",    cat: "Menu / Produk",      fmt: "Single",   ind: "F&B / Kuliner",          accent: "--chart-3", uses: "1.9k" },
-  { id: 3,  title: "Quote Pagi Penuh Semangat",     kicker: "Daily Quote",   cta: null,               cat: "Quote",              fmt: "Single",   ind: "Umum",                   accent: "--chart-4", uses: "3.1k" },
-  { id: 4,  title: "Diskon Spesial 50%",            kicker: "Mega Sale",     cta: "Klaim Diskon",     cat: "Promo & Diskon",     fmt: "Single",   ind: "Fashion & Retail",       accent: "--chart-5", uses: "4.2k" },
-  { id: 5,  title: "Grand Opening Cabang Baru",     kicker: "Event",         cta: "Hadir Yuk",        cat: "Event",              fmt: "Carousel", ind: "Jasa & Layanan",         accent: "--chart-2", uses: "890"  },
-  { id: 6,  title: "Koleksi Terbaru 2026",          kicker: "New Drop",      cta: "Lihat Koleksi",    cat: "Menu / Produk",      fmt: "Carousel", ind: "Fashion & Retail",       accent: "--chart-4", uses: "1.5k" },
-  { id: 7,  title: "Selamat Hari Raya",             kicker: "Greeting",      cta: null,               cat: "Greeting",           fmt: "Single",   ind: "Umum",                   accent: "--chart-3", uses: "2.7k" },
-  { id: 8,  title: "Buy 1 Get 1 Free",              kicker: "Promo",         cta: "Ambil Sekarang",   cat: "Promo & Diskon",     fmt: "Single",   ind: "F&B / Kuliner",          accent: "--chart-1", uses: "5.0k" },
-  { id: 9,  title: "Testimoni Pelanggan",           kicker: "Review",        cta: null,               cat: "Quote",              fmt: "Carousel", ind: "Jasa & Layanan",         accent: "--chart-2", uses: "760"  },
-  { id: 10, title: "Promo Gajian Hemat",            kicker: "Payday Deal",   cta: "Pesan Sekarang",   cat: "Promo & Diskon",     fmt: "Carousel", ind: "F&B / Kuliner",          accent: "--chart-5", uses: "1.2k" },
-  { id: 11, title: "Produk Best Seller",            kicker: "Best Seller",   cta: "Order Yuk",        cat: "Menu / Produk",      fmt: "Single",   ind: "Kesehatan & Kecantikan", accent: "--chart-4", uses: "980"  },
-  { id: 12, title: "Workshop Akhir Bulan",          kicker: "Event",         cta: "Daftar",           cat: "Event",              fmt: "Single",   ind: "Edukasi",                accent: "--chart-1", uses: "430"  },
-  { id: 13, title: "Promo Spesial Lebaran",         kicker: "Idul Fitri",    cta: "Klaim Promo",      cat: "Seasonal / Tematik", fmt: "Single",   ind: "Umum",                   accent: "--chart-3", uses: "6.1k", seasonal: true, theme: "Lebaran"    },
-  { id: 14, title: "Harbolnas 12.12 Diskon Besar",  kicker: "Harbolnas",     cta: "Belanja Sekarang", cat: "Seasonal / Tematik", fmt: "Carousel", ind: "Umum",                   accent: "--chart-1", uses: "4.8k", seasonal: true, theme: "Harbolnas"   },
-  { id: 15, title: "Apresiasi Hari Buruh",          kicker: "Hari Buruh",    cta: "Lihat Promo",      cat: "Seasonal / Tematik", fmt: "Single",   ind: "Umum",                   accent: "--chart-2", uses: "1.3k", seasonal: true, theme: "Hari Buruh"  },
-  { id: 16, title: "Kemerdekaan 17 Agustus",        kicker: "HUT RI",        cta: "Rayakan Bersama",  cat: "Seasonal / Tematik", fmt: "Carousel", ind: "Umum",                   accent: "--chart-5", uses: "3.2k", seasonal: true, theme: "HUT RI"      },
+const INDUSTRIES = [
+  "Semua industri",
+  "F&B / Kuliner",
+  "Fashion & Retail",
+  "Jasa & Layanan",
+  "Kesehatan & Kecantikan",
+  "Edukasi",
 ];
 
-function TemplateCard({ t, fav, onFav }: { t: Template; fav: boolean; onFav: () => void }) {
+function TemplateCard({
+  t,
+  idx,
+  fav,
+  onFav,
+}: {
+  t: Template;
+  idx: number;
+  fav: boolean;
+  onFav: () => void;
+}) {
+  const accent = ACCENT_POOL[idx % ACCENT_POOL.length];
+  const kicker = t.theme || t.industry;
+
   return (
     <div style={{ position: "relative" }} className="group">
       <button
@@ -69,10 +60,18 @@ function TemplateCard({ t, fav, onFav }: { t: Template; fav: boolean; onFav: () 
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ position: "relative" }}>
-          <PosterThumb title={t.title} kicker={t.kicker} cta={t.cta} accent={t.accent} ratio="4 / 5" />
+          {t.thumbnail_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={t.thumbnail_url}
+              alt={t.name}
+              style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: "var(--radius-md)" }}
+            />
+          ) : (
+            <PosterThumb title={t.name} kicker={kicker} cta={null} accent={accent} ratio="4 / 5" />
+          )}
 
-          {/* Seasonal: visual bawaan indicator */}
-          {t.seasonal && (
+          {t.is_premium && (
             <div style={{
               position: "absolute", bottom: 10, left: 10,
               display: "inline-flex", alignItems: "center", gap: 4,
@@ -83,54 +82,70 @@ function TemplateCard({ t, fav, onFav }: { t: Template; fav: boolean; onFav: () 
               color: "var(--foreground)",
               border: "1px solid var(--border)",
             }}>
-              <Icon name="image" size={11} />
-              Visual bawaan
+              <Icon name="crown" size={11} style={{ color: "var(--primary)" }} />
+              Premium
             </div>
           )}
 
-          {/* Hover: Pakai Template button — now points to /create */}
           <div
             className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
             style={{ position: "absolute", inset: "12px 12px auto 12px" }}
           >
-            <Link href="/create" style={{ display: "block" }}>
+            <Link href={`/create?templateId=${t.id}`} style={{ display: "block" }}>
               <Button icon="sparkles" style={{ width: "100%" }}>Pakai Template</Button>
             </Link>
           </div>
         </div>
 
         <div style={{ marginTop: 11, flex: 1 }}>
-          <div className="aigt-h6" style={{ fontSize: "var(--text-sm)" }}>{t.title}</div>
-          <div className="aigt-caption" style={{ marginTop: 3 }}>{t.ind}</div>
+          <div className="aigt-h6" style={{ fontSize: "var(--text-sm)" }}>{t.name}</div>
+          <div className="aigt-caption" style={{ marginTop: 3 }}>{t.industry}</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-          <Badge variant="secondary">{t.fmt}</Badge>
-          {t.seasonal && t.theme && (
-            <Badge variant="info">{t.theme}</Badge>
-          )}
-          <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--muted-foreground)" }}>
-            <Icon name="users" size={12} />
-            {t.uses}
-          </span>
+          <Badge variant="secondary">{t.content_type}</Badge>
+          {t.theme && <Badge variant="info">{t.theme}</Badge>}
         </div>
       </Card>
     </div>
   );
 }
 
-export default function TemplatesPage() {
-  const [cat, setCat] = useState("Semua");
-  const [fmt, setFmt] = useState("Semua");
-  const [q, setQ] = useState("");
-  const [favs, setFavs] = useState<Record<number, boolean>>({});
-
-  const list = TEMPLATES.filter(
-    (t) =>
-      (cat === "Semua" || t.cat === cat) &&
-      (fmt === "Semua" || t.fmt === fmt) &&
-      (q === "" || t.title.toLowerCase().includes(q.toLowerCase()))
+function SkeletonCard() {
+  return (
+    <div style={{ borderRadius: "var(--radius-xl)", overflow: "hidden", border: "1px solid var(--border)", background: "var(--card)" }}>
+      <div style={{ aspectRatio: "4 / 5", background: "var(--surface-sunken)", animation: "pulse 2s ease-in-out infinite" }} />
+      <div style={{ padding: 12 }}>
+        <div style={{ height: 14, borderRadius: 6, background: "var(--surface-sunken)", marginBottom: 8, width: "75%", animation: "pulse 2s ease-in-out infinite" }} />
+        <div style={{ height: 10, borderRadius: 6, background: "var(--surface-sunken)", width: "55%", animation: "pulse 2s ease-in-out infinite" }} />
+      </div>
+    </div>
   );
+}
+
+export default function TemplatesPage() {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fmt, setFmt] = useState("Semua");
+  const [industry, setIndustry] = useState("Semua industri");
+  const [q, setQ] = useState("");
+  const [favs, setFavs] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    templatesApi.list()
+      .then(setTemplates)
+      .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const list = useMemo(() => {
+    return templates.filter((t) => {
+      if (fmt !== "Semua" && t.content_type !== fmt) return false;
+      if (industry !== "Semua industri" && t.industry !== industry) return false;
+      if (q && !t.name.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    });
+  }, [templates, fmt, industry, q]);
 
   return (
     <Shell
@@ -167,14 +182,14 @@ export default function TemplatesPage() {
           </div>
         </div>
         <Link href="/campaign">
-          <Button size="sm" icon="arrow-right" iconRight="arrow-right" variant="outline">
+          <Button size="sm" iconRight="arrow-right" variant="outline">
             Mulai Campaign
           </Button>
         </Link>
       </div>
 
       {/* Filter bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ width: 260 }}>
           <Input icon="search" placeholder="Cari template…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -184,63 +199,51 @@ export default function TemplatesPage() {
           tabs={FORMATS.map((f) => ({ value: f, label: f === "Semua" ? "Semua format" : f }))}
         />
         <div style={{ marginLeft: "auto", width: 200 }}>
-          <Select options={["Semua industri", "F&B / Kuliner", "Fashion & Retail", "Jasa & Layanan", "Kesehatan & Kecantikan", "Edukasi"]} />
+          <Select
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+            options={INDUSTRIES}
+          />
         </div>
       </div>
 
-      {/* Category chips */}
-      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 22 }}>
-        {CATS.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCat(c)}
-            style={{
-              padding: "6px 13px", borderRadius: 999,
-              border: `1px solid ${cat === c ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-              background: cat === c ? "var(--tint-primary)" : "var(--card)",
-              color: cat === c ? "var(--primary)" : "var(--muted-foreground)",
-              fontSize: "var(--text-xs)", fontWeight: cat === c ? 600 : 500,
-              cursor: "pointer", whiteSpace: "nowrap",
-              transition: "all .15s ease",
-              display: "inline-flex", alignItems: "center", gap: 5,
-            }}
-          >
-            {c === "Seasonal / Tematik" && <Icon name="calendar-heart" size={12} />}
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {/* Seasonal info note */}
-      {cat === "Seasonal / Tematik" && (
-        <div style={{
-          display: "flex", alignItems: "flex-start", gap: 10,
-          padding: "10px 14px", marginBottom: 18,
-          background: "var(--surface-sunken)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
-          fontSize: "var(--text-xs)", color: "var(--muted-foreground)", lineHeight: 1.55,
-        }}>
-          <Icon name="info" size={14} style={{ color: "var(--info)", marginTop: 1, flex: "none" }} />
-          <span>
-            Template seasonal sudah include <strong style={{ color: "var(--foreground)" }}>visual bawaan</strong> sesuai tema — berbeda dengan{" "}
-            <strong style={{ color: "var(--foreground)" }}>Thematic Image</strong> di step generate yang merupakan elemen visual tambahan yang di-generate AI secara unik per sesi.
-          </span>
+      {/* Count */}
+      {!loading && (
+        <div className="aigt-caption" style={{ marginBottom: 16 }}>
+          {list.length} template
+          {(fmt !== "Semua" || industry !== "Semua industri" || q) ? " (difilter)" : ""}
         </div>
       )}
 
       {/* Grid */}
-      {list.length === 0 ? (
+      {loading ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : list.length === 0 ? (
         <Card variant="sunken" padding={48} style={{ textAlign: "center", color: "var(--muted-foreground)" }}>
           <Icon name="search-x" size={28} />
-          <p style={{ marginTop: 10 }}>Tidak ada template yang cocok.</p>
+          <p style={{ marginTop: 10 }}>
+            {templates.length === 0
+              ? "Belum ada template yang tersedia."
+              : "Tidak ada template yang cocok dengan filter."}
+          </p>
+          {templates.length > 0 && (
+            <button
+              onClick={() => { setQ(""); setFmt("Semua"); setIndustry("Semua industri"); }}
+              style={{ marginTop: 12, background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "var(--text-xs)", fontWeight: 600 }}
+            >
+              Reset filter
+            </button>
+          )}
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {list.map((t) => (
+          {list.map((t, i) => (
             <TemplateCard
               key={t.id}
               t={t}
+              idx={i}
               fav={!!favs[t.id]}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
             />
