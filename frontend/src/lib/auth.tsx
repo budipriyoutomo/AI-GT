@@ -1,99 +1,131 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { authApi } from "@/api/authApi";
+import { companyProfileApi } from "@/api/companyProfileApi";
+import { clearToken, getToken } from "@/lib/apiClient";
+import { ApiClientError } from "@/lib/apiClient";
 
-export interface User {
+export interface UserContext {
+  id: string;
   name: string;
   email: string;
-  businessName: string;
+  businessName?: string;
   industry?: string;
   brandColor?: string;
 }
 
-interface StoredUser extends User {
-  password: string;
-}
-
 interface AuthContextValue {
-  user: User | null;
-  login: (email: string, password: string) => string | null;
-  register: (name: string, email: string, password: string, businessName: string) => string | null;
+  user: UserContext | null;
+  login: (email: string, password: string) => Promise<string | null>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    businessName?: string,
+  ) => Promise<string | null>;
   logout: () => void;
-  updateProfile: (data: Partial<Omit<User, "email">>) => void;
+  updateProfile: (data: Partial<Omit<UserContext, "id" | "email">>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const SESSION_KEY = "aigt_session";
-const USERS_KEY = "aigt_users";
-
-function getUsers(): StoredUser[] {
+async function loadUserContext(): Promise<UserContext | null> {
+  if (!getToken()) return null;
   try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]");
+    const user = await authApi.getMe();
+    let businessName: string | undefined;
+    let industry: string | undefined;
+    let brandColor: string | undefined;
+    try {
+      const profile = await companyProfileApi.get();
+      businessName = profile.business_name;
+      industry = profile.industry;
+      brandColor = profile.brand_colors?.[0];
+    } catch {
+      // profile belum dibuat — bukan error
+    }
+    return { id: user.id, name: user.name, email: user.email, businessName, industry, brandColor };
   } catch {
-    return [];
+    clearToken();
+    return null;
   }
-}
-
-function saveUsers(users: StoredUser[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserContext | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-    setReady(true);
+    loadUserContext()
+      .then(setUser)
+      .finally(() => setReady(true));
   }, []);
 
-  function login(email: string, password: string): string | null {
-    const users = getUsers();
-    const found = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    if (!found) return "Email atau password salah.";
-    const { password: _, ...session } = found;
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    setUser(session);
-    return null;
-  }
-
-  function register(name: string, email: string, password: string, businessName: string): string | null {
-    const users = getUsers();
-    if (users.find((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      return "Email sudah terdaftar.";
+  async function login(email: string, password: string): Promise<string | null> {
+    try {
+      const { user: u } = await authApi.login(email, password);
+      let businessName: string | undefined;
+      let industry: string | undefined;
+      let brandColor: string | undefined;
+      try {
+        const profile = await companyProfileApi.get();
+        businessName = profile.business_name;
+        industry = profile.industry;
+        brandColor = profile.brand_colors?.[0];
+      } catch {
+        // profile belum ada
+      }
+      setUser({ id: u.id, name: u.name, email: u.email, businessName, industry, brandColor });
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
     }
-    const newUser: StoredUser = { name, email, password, businessName };
-    saveUsers([...users, newUser]);
-    const session: User = { name, email, businessName };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    setUser(session);
-    return null;
   }
 
-  function updateProfile(data: Partial<Omit<User, "email">>) {
+  async function register(
+    name: string,
+    email: string,
+    password: string,
+    _businessName?: string,
+  ): Promise<string | null> {
+    try {
+      const { user: u } = await authApi.register(name, email, password);
+      setUser({ id: u.id, name: u.name, email: u.email });
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
+    }
+  }
+
+  async function updateProfile(
+    data: Partial<Omit<UserContext, "id" | "email">>,
+  ): Promise<void> {
     if (!user) return;
-    const updated: User = { ...user, ...data };
-    // sync to stored users list
-    const users = getUsers();
-    const idx = users.findIndex((u) => u.email.toLowerCase() === user.email.toLowerCase());
-    if (idx !== -1) {
-      users[idx] = { ...users[idx], ...data };
-      saveUsers(users);
+    const payload: Record<string, unknown> = {};
+    if (data.businessName !== undefined) payload.business_name = data.businessName;
+    if (data.industry !== undefined) payload.industry = data.industry;
+    if (data.brandColor !== undefined) payload.brand_colors = [data.brandColor];
+
+    try {
+      await companyProfileApi.update(payload);
+    } catch (err) {
+      // Jika profile belum ada, buat baru (error code PROFILE_NOT_FOUND)
+      if (err instanceof ApiClientError && err.status === 404) {
+        await companyProfileApi.create({
+          business_name: (data.businessName ?? user.businessName ?? user.name),
+          industry: (data.industry ?? user.industry ?? "Umum"),
+          brand_colors: data.brandColor ? [data.brandColor] : undefined,
+        });
+      }
     }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-    setUser(updated);
+    setUser((prev) => prev ? { ...prev, ...data } : prev);
   }
 
   function logout() {
-    localStorage.removeItem(SESSION_KEY);
+    authApi.logout();
     setUser(null);
   }
 

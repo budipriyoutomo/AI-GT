@@ -21,7 +21,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -39,7 +39,7 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const err = register(name, email, password, businessName || name);
+    const err = await register(name, email, password, businessName || name);
     setLoading(false);
 
     if (err) {

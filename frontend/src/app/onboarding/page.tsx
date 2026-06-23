@@ -46,11 +46,11 @@ export default function OnboardingPage() {
   const last = STEPS.length - 1;
   const initial = (name.trim()[0] || "S").toUpperCase();
 
-  function next() {
+  async function next() {
     if (step < last) {
       setStep(step + 1);
     } else {
-      updateProfile({ businessName: name || user?.businessName, industry, brandColor: color });
+      await updateProfile({ businessName: name || user?.businessName, industry, brandColor: color });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
       router.replace("/dashboard");
     }

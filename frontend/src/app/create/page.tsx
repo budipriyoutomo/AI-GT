@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,10 @@ import { Icon } from "@/components/ui/icon";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { PosterThumb } from "@/components/poster-thumb";
+import { toast } from "@/components/ui/toast";
+import { generateApi } from "@/api/generateApi";
+import { templatesApi } from "@/api/templatesApi";
+import type { Template } from "@/types/template";
 
 const LOCKED_ELEMENTS = [
   { label: "Layout & komposisi", icon: "layout-grid" },
@@ -39,20 +44,62 @@ const GAYA_BAHASA = [
 
 type ThematicMode = "skip" | "add";
 
+const LANG_TO_PREFERENCE: Record<string, string> = {
+  Indonesia: "id",
+  English: "en",
+  Campur: "id",
+};
+
 export default function CreatePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get("templateId");
+
+  const [template, setTemplate] = useState<Template | null>(null);
   const [thematicMode, setThematicMode] = useState<ThematicMode>("skip");
   const [theme, setTheme]   = useState<string | null>(null);
   const [gaya, setGaya]     = useState<string | null>(null);
   const [lang, setLang]     = useState("Indonesia");
   const [targetAudiens, setTargetAudiens] = useState("Anak muda (18–25)");
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    if (templateId) {
+      templatesApi.get(templateId).then(setTemplate).catch(() => {});
+    }
+  }, [templateId]);
 
   const selectedGaya  = GAYA_BAHASA.find((g) => g.id === gaya);
   const selectedTheme = THEMES.find((t) => t.id === theme);
-  const canGenerate   = gaya !== null;
+  const canGenerate   = gaya !== null && !!templateId;
 
   function handleThematicMode(mode: ThematicMode) {
     setThematicMode(mode);
     if (mode === "skip") setTheme(null);
+  }
+
+  async function handleGenerate() {
+    if (!canGenerate || !templateId) return;
+    setGenerating(true);
+    try {
+      const session = await generateApi.createSession({
+        template_id: templateId,
+        language_style: gaya!,
+        thematic_image_theme: thematicMode === "add" && theme ? theme : undefined,
+        campaign_data: {
+          target_audience: targetAudiens,
+          language_preference: LANG_TO_PREFERENCE[lang] ?? "id",
+        },
+      });
+      router.push(`/generate?sessionId=${session.id}`);
+    } catch (err) {
+      toast({
+        title: "Gagal memulai generate",
+        desc: err instanceof Error ? err.message : "Coba lagi",
+        variant: "error",
+      });
+      setGenerating(false);
+    }
   }
 
   return (
@@ -402,11 +449,13 @@ export default function CreatePage() {
                 </div>
               )}
             </div>
-            <Link href={canGenerate ? "/generate" : "#"} style={{ pointerEvents: canGenerate ? "auto" : "none" }}>
-              <Button icon="sparkles" disabled={!canGenerate}>
-                Generate
-              </Button>
-            </Link>
+            <Button
+              icon="sparkles"
+              disabled={!canGenerate || generating}
+              onClick={handleGenerate}
+            >
+              {generating ? "Memulai…" : "Generate"}
+            </Button>
           </div>
 
         </div>

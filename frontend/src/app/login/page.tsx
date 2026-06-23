@@ -13,15 +13,15 @@ function DemoButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  function handleDemo() {
+  async function handleDemo() {
     setLoading(true);
-    const err = login("demo@aigt.id", "demo1234");
+    let err = await login("demo@aigt.id", "demo1234");
     if (err) {
-      register("Demo User", "demo@aigt.id", "demo1234", "Toko Demo");
-      login("demo@aigt.id", "demo1234");
+      await register("Demo User", "demo@aigt.id", "demo1234");
+      err = await login("demo@aigt.id", "demo1234");
     }
     setLoading(false);
-    router.replace("/dashboard");
+    if (!err) router.replace("/dashboard");
   }
 
   return (
@@ -48,7 +48,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!email || !password) {
@@ -56,7 +56,7 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const err = login(email, password);
+    const err = await login(email, password);
     setLoading(false);
     if (err) {
       setError(err);
