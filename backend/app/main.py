@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth as auth_router
+from app.routers import company_profile as company_profile_router
+from app.routers import templates as templates_router
 from app.utils.exceptions import AppError, app_error_handler
 
 
@@ -29,6 +31,8 @@ app.add_middleware(
 app.add_exception_handler(AppError, app_error_handler)
 
 app.include_router(auth_router.router)
+app.include_router(company_profile_router.router)
+app.include_router(templates_router.router)
 
 
 @app.get("/health")

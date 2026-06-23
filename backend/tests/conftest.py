@@ -14,7 +14,7 @@ os.environ.setdefault("REPLICATE_API_TOKEN", "test")
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import User  # noqa: E402
+from app.models import CompanyProfile, Template, User  # noqa: E402
 from app.services.auth_service import get_auth_provider  # noqa: E402
 
 TEST_ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
@@ -84,3 +84,64 @@ async def auth_headers(verified_user: User) -> dict:
     provider = get_auth_provider()
     token = provider.create_token(str(verified_user.id))
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def other_user(db: AsyncSession) -> User:
+    """User lain — untuk test forbidden access."""
+    provider = get_auth_provider()
+    user = User(
+        id=uuid.uuid4(),
+        email="other@example.com",
+        password_hash=provider.hash_password("password123"),
+        name="Other User",
+        is_verified=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def other_auth_headers(other_user: User) -> dict:
+    provider = get_auth_provider()
+    token = provider.create_token(str(other_user.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def company_profile(db: AsyncSession, verified_user: User) -> CompanyProfile:
+    """Company profile untuk verified_user."""
+    profile = CompanyProfile(
+        id=uuid.uuid4(),
+        user_id=verified_user.id,
+        business_name="Toko Budi",
+        industry="fnb",
+        language_preference="id",
+        brand_colors=["#FF5733", "#FFC300"],
+    )
+    db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+@pytest_asyncio.fixture
+async def sample_template(db: AsyncSession) -> Template:
+    """Template aktif untuk digunakan di berbagai test."""
+    template = Template(
+        id=uuid.uuid4(),
+        name="Template Lebaran FnB",
+        industry="fnb",
+        theme="seasonal_lebaran",
+        content_type="single",
+        thumbnail_url="https://r2.example.com/templates/thumbnails/tmpl-1.png",
+        template_config={"layout": "grid", "background": "#FFFFFF"},
+        is_premium=False,
+        is_active=True,
+    )
+    db.add(template)
+    await db.commit()
+    await db.refresh(template)
+    return template
