@@ -18,6 +18,7 @@ from app.main import app  # noqa: E402
 from app.models import CompanyProfile, Template, User  # noqa: E402
 from app.models.generate_session import GenerateSession  # noqa: E402
 from app.models.generate_variant import GenerateVariant  # noqa: E402
+from app.models.project import Project  # noqa: E402
 from app.services.auth_service import get_auth_provider  # noqa: E402
 
 TEST_ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
@@ -208,3 +209,30 @@ async def expired_session(
     await db.commit()
     await db.refresh(session)
     return session
+
+
+@pytest_asyncio.fixture
+async def project(
+    db: AsyncSession,
+    verified_user: User,
+    completed_session: tuple[GenerateSession, list[GenerateVariant]],
+) -> Project:
+    """Project yang sudah dibuat dari completed_session, variant pertama."""
+    session, variants = completed_session
+    variant = variants[0]
+    p = Project(
+        id=uuid.uuid4(),
+        user_id=verified_user.id,
+        session_id=session.id,
+        variant_id=variant.id,
+        title="Kampanye Lebaran",
+        final_config={
+            "copy": variant.copy_data,
+            "typography": variant.typography_data,
+            "thematic_image_url": variant.thematic_image_url,
+        },
+    )
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return p
