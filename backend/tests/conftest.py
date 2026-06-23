@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytest_asyncio
@@ -15,6 +16,8 @@ os.environ.setdefault("REPLICATE_API_TOKEN", "test")
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import CompanyProfile, Template, User  # noqa: E402
+from app.models.generate_session import GenerateSession  # noqa: E402
+from app.models.generate_variant import GenerateVariant  # noqa: E402
 from app.services.auth_service import get_auth_provider  # noqa: E402
 
 TEST_ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
@@ -145,3 +148,63 @@ async def sample_template(db: AsyncSession) -> Template:
     await db.commit()
     await db.refresh(template)
     return template
+
+
+@pytest_asyncio.fixture
+async def completed_session(
+    db: AsyncSession,
+    verified_user: User,
+    sample_template: Template,
+    company_profile: CompanyProfile,
+) -> tuple[GenerateSession, list[GenerateVariant]]:
+    """Session sudah completed dengan 3 variants — untuk test polling."""
+    session = GenerateSession(
+        id=uuid.uuid4(),
+        user_id=verified_user.id,
+        template_id=sample_template.id,
+        language_style="casual",
+        status="completed",
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    db.add(session)
+    await db.flush()
+
+    variants = []
+    for i in range(1, 4):
+        v = GenerateVariant(
+            id=uuid.uuid4(),
+            session_id=session.id,
+            variant_number=i,
+            copy_data={"headline": f"Judul {i}", "body": "Body copy.", "cta": "Pesan Sekarang"},
+            typography_data={"headline_font": "Montserrat", "body_font": "Lato", "headline_size": 36, "body_size": 16, "letter_spacing": 0.5},
+            thematic_image_url=f"https://r2.example.com/temp/img{i}.png",
+        )
+        db.add(v)
+        variants.append(v)
+
+    await db.commit()
+    await db.refresh(session)
+    for v in variants:
+        await db.refresh(v)
+    return session, variants
+
+
+@pytest_asyncio.fixture
+async def expired_session(
+    db: AsyncSession,
+    verified_user: User,
+    sample_template: Template,
+) -> GenerateSession:
+    """Session sudah expired."""
+    session = GenerateSession(
+        id=uuid.uuid4(),
+        user_id=verified_user.id,
+        template_id=sample_template.id,
+        language_style="casual",
+        status="processing",
+        expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
