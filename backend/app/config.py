@@ -7,10 +7,17 @@ class Settings(BaseSettings):
     # Database
     database_url: str
 
-    # JWT
-    jwt_secret_key: str
+    # Auth provider — ganti via env, tidak perlu ubah kode
+    # Pilihan: "jwt" | "supabase"
+    auth_provider: str = "jwt"
+
+    # JWT (dipakai jika auth_provider=jwt)
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 24
+
+    # Supabase (dipakai jika auth_provider=supabase)
+    supabase_jwt_secret: str = ""
 
     # AI — copy
     ai_copy_provider: str = "anthropic"

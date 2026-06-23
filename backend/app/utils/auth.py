@@ -1,36 +1,18 @@
-from datetime import datetime, timedelta, timezone
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from app.database import get_db
+from app.models.user import User
+from app.services import auth_service
 
-from app.config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+_bearer = HTTPBearer()
 
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
-
-
-def create_access_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expire_hours)
-    return jwt.encode(
-        {"sub": user_id, "exp": expire},
-        settings.jwt_secret_key,
-        algorithm=settings.jwt_algorithm,
-    )
-
-
-def decode_access_token(token: str) -> str:
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise ValueError("Invalid token")
-        return user_id
-    except JWTError:
-        raise ValueError("Token expired or invalid")
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """FastAPI dependency — inject user terautentikasi ke endpoint manapun."""
+    user_id = auth_service.verify_token(credentials.credentials)
+    return await auth_service.get_user_by_id(db, user_id)

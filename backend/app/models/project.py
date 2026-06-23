@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -22,7 +22,7 @@ class Project(Base):
         UUID(as_uuid=True), ForeignKey("generate_variants.id"), nullable=False
     )
     title: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    final_config: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    final_config: Mapped[dict] = mapped_column(JSON, nullable=False)
     exported_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_exported: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
