@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
@@ -15,47 +15,91 @@ import { PosterThumb } from "@/components/poster-thumb";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
+import { projectsApi } from "@/api/projectsApi";
+import type { Project } from "@/types/project";
+
+const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
 
 const QUICK = [
-  { label: "Promo Diskon", icon: "percent" },
-  { label: "Menu Baru", icon: "utensils" },
-  { label: "Quote Harian", icon: "quote" },
-  { label: "Info Toko", icon: "store" },
+  { label: "Promo Diskon", icon: "percent"  },
+  { label: "Menu Baru",    icon: "utensils" },
+  { label: "Quote Harian", icon: "quote"    },
+  { label: "Info Toko",    icon: "store"    },
 ];
 
-const HISTORY = [
-  { id: "GEN-2026-0481", title: "Diskon Akhir Pekan 25%", kicker: "Weekend Sale", cta: "Belanja Sekarang", accent: "--chart-1", platform: "instagram", plat: "Instagram", type: "Carousel", status: "Published", date: "17 Jun, 09:24" },
-  { id: "GEN-2026-0479", title: "Menu Baru: Es Kopi Aren", kicker: "New Arrival", cta: "Coba Hari Ini", accent: "--chart-3", platform: "instagram", plat: "Instagram", type: "Single", status: "Published", date: "16 Jun, 18:02" },
-  { id: "GEN-2026-0477", title: "Buy 1 Get 1 Setiap Senin", kicker: "Promo", cta: "Jangan Lewatkan", accent: "--chart-2", platform: "megaphone", plat: "WhatsApp", type: "Single", status: "Draft", date: "16 Jun, 11:40" },
-  { id: "GEN-2026-0474", title: "Selamat Pagi, Senja Lovers", kicker: "Daily Quote", cta: null, accent: "--chart-4", platform: "instagram", plat: "Instagram", type: "Single", status: "Published", date: "15 Jun, 07:15" },
-  { id: "GEN-2026-0470", title: "Grand Opening Cabang Bekasi", kicker: "Event", cta: "Hadir Yuk", accent: "--chart-5", platform: "facebook", plat: "Facebook", type: "Carousel", status: "Generating", date: "14 Jun, 20:31" },
-  { id: "GEN-2026-0468", title: "Paket Hemat Berdua 49K", kicker: "Bundle", cta: "Pesan Sekarang", accent: "--chart-1", platform: "instagram", plat: "Instagram", type: "Single", status: "Published", date: "14 Jun, 13:08" },
-  { id: "GEN-2026-0463", title: "Gratis Ongkir Min. 50K", kicker: "Free Delivery", cta: "Order Sekarang", accent: "--chart-2", platform: "megaphone", plat: "WhatsApp", type: "Single", status: "Draft", date: "13 Jun, 16:55" },
-  { id: "GEN-2026-0459", title: "Terima Kasih 10rb Followers", kicker: "Milestone", cta: null, accent: "--chart-4", platform: "instagram", plat: "Instagram", type: "Carousel", status: "Published", date: "12 Jun, 10:12" },
-];
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("id-ID", {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+}
 
-const STATUS_VARIANT: Record<string, "success" | "warning" | "info"> = {
-  Published: "success",
-  Draft: "warning",
-  Generating: "info",
-};
+function ProjectCard({
+  project,
+  onDelete,
+}: {
+  project: Project;
+  onDelete: () => void;
+}) {
+  const accent   = ACCENT_POOL[parseInt(project.id.slice(-1), 16) % ACCENT_POOL.length];
+  const headline = project.final_config?.copy?.headline ?? project.title;
+  const cta      = project.final_config?.copy?.cta ?? null;
 
-function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
+  async function handleDelete() {
+    try {
+      await projectsApi.delete(project.id);
+      toast({ title: "Konten dihapus", desc: project.title, variant: "info" });
+      onDelete();
+    } catch {
+      toast({ title: "Gagal menghapus", variant: "error" });
+    }
+  }
+
   return (
     <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
-      <PosterThumb title={it.title} kicker={it.kicker} cta={it.cta} accent={it.accent} platform={it.platform} ratio="4 / 3" />
+      <div style={{ position: "relative" }}>
+        {project.exported_image_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={project.exported_image_url}
+            alt={headline}
+            style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: "var(--radius-md)" }}
+          />
+        ) : (
+          <PosterThumb
+            title={headline}
+            kicker={project.id.slice(0, 8).toUpperCase()}
+            cta={cta}
+            accent={accent}
+            ratio="4 / 3"
+          />
+        )}
+
+        {/* Hover: edit button */}
+        <div
+          className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
+          style={{ position: "absolute", inset: "10px 10px auto 10px" }}
+        >
+          <Link href={`/editor?projectId=${project.id}`} style={{ display: "block" }}>
+            <Button icon="pencil" style={{ width: "100%" }} size="sm">Edit</Button>
+          </Link>
+        </div>
+      </div>
+
       <div style={{ marginTop: 11 }}>
-        <div className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</div>
-        <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>{it.id}</div>
+        <div className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.title}</div>
+        <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>
+          #{project.id.slice(0, 8).toUpperCase()}
+        </div>
       </div>
-      <div style={{ display: "flex", gap: 6, marginTop: 9 }}>
-        <Badge variant="secondary" icon={it.platform}>{it.plat}</Badge>
-        <Badge variant="outline">{it.type}</Badge>
-      </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-        <Badge variant={STATUS_VARIANT[it.status]} dot>{it.status}</Badge>
+        <Badge variant={project.is_exported ? "success" : "warning"} dot>
+          {project.is_exported ? "Exported" : "Draft"}
+        </Badge>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{it.date}</span>
+          <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
+            {formatDate(project.created_at)}
+          </span>
           <DropdownMenu
             trigger={
               <button className="aigt-iconbtn" style={{ width: 26, height: 26 }}>
@@ -63,11 +107,9 @@ function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
               </button>
             }
             items={[
-              { label: "Edit", icon: "pencil" },
-              { label: "Duplikat", icon: "copy" },
-              { label: "Export PNG", icon: "download", onClick: () => toast({ title: "Export PNG dimulai", desc: it.id, variant: "info" }) },
+              { label: "Edit di Canvas", icon: "pencil", onClick: () => window.location.href = `/editor?projectId=${project.id}` },
               { divider: true },
-              { label: "Hapus", icon: "trash-2", danger: true },
+              { label: "Hapus", icon: "trash-2", danger: true, onClick: handleDelete },
             ]}
           />
         </div>
@@ -78,9 +120,36 @@ function HistoryCard({ it }: { it: typeof HISTORY[0] }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [filter, setFilter] = useState("Semua");
-  const list = filter === "Semua" ? HISTORY : HISTORY.filter((h) => h.status === filter);
+  const [projects,  setProjects]  = useState<Project[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filter,    setFilter]    = useState("Semua");
+
   const firstName = user?.name?.split(" ")[0] ?? "sana";
+
+  useEffect(() => {
+    projectsApi.list()
+      .then(setProjects)
+      .catch(() => toast({ title: "Gagal memuat data", variant: "error" }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  /* Derived stats */
+  const totalGenerated = projects.length;
+  const totalExported  = projects.filter((p) => p.is_exported).length;
+
+  /* Recent 8, filtered */
+  const recent = useMemo(() => {
+    const sorted = [...projects].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    if (filter === "Exported") return sorted.filter((p) => p.is_exported).slice(0, 8);
+    if (filter === "Draft")    return sorted.filter((p) => !p.is_exported).slice(0, 8);
+    return sorted.slice(0, 8);
+  }, [projects, filter]);
+
+  function handleDelete(id: string) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+  }
 
   return (
     <Shell
@@ -91,13 +160,21 @@ export default function DashboardPage() {
       <PageHead title={`Halo, ${firstName} 👋`} subtitle="Ringkasan workspace dan konten yang baru kamu buat." />
 
       {/* Create banner */}
-      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "20px 22px", background: "var(--aigt-spark-soft)", border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)", borderRadius: "var(--radius-xl)", marginBottom: 12 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 20,
+        padding: "20px 22px",
+        background: "var(--aigt-spark-soft)",
+        border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
+        borderRadius: "var(--radius-xl)", marginBottom: 12,
+      }}>
         <span className="aigt-mark" style={{ width: 44, height: 44, borderRadius: "var(--radius-xl)" }}>
           <Icon name="sparkles" size={22} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="aigt-h4">Mau buat konten apa hari ini?</div>
-          <div className="aigt-caption" style={{ marginTop: 3, marginBottom: 12 }}>Pilih tipe cepat atau jelajahi galeri template lengkap.</div>
+          <div className="aigt-caption" style={{ marginTop: 3, marginBottom: 12 }}>
+            Pilih tipe cepat atau jelajahi galeri template lengkap.
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {QUICK.map((q) => (
               <Link key={q.label} href="/templates">
@@ -112,25 +189,61 @@ export default function DashboardPage() {
       </div>
 
       {/* Generate by Campaign banner */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 22px", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", marginBottom: 20 }}>
-        <span style={{ width: 38, height: 38, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16,
+        padding: "14px 22px",
+        background: "var(--card)", border: "1px solid var(--border)",
+        borderRadius: "var(--radius-xl)", marginBottom: 20,
+      }}>
+        <span style={{
+          width: 38, height: 38, borderRadius: "var(--radius-lg)",
+          background: "var(--tint-primary)", color: "var(--primary)",
+          display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
           <Icon name="target" size={18} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Generate by Campaign</div>
-          <div className="aigt-caption" style={{ marginTop: 2 }}>Definisikan goal, platform, dan momen — AI suggest template dan generate konten yang lebih strategic.</div>
+          <div className="aigt-caption" style={{ marginTop: 2 }}>
+            Definisikan goal, platform, dan momen — AI suggest template dan generate konten yang lebih strategic.
+          </div>
         </div>
         <Link href="/campaign" style={{ flexShrink: 0 }}>
           <Button size="sm" variant="outline" icon="target">Mulai Campaign</Button>
         </Link>
       </div>
 
-      {/* KPIs */}
+      {/* KPI stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
-        <StatCard title="Konten digenerate" value="248" icon="sparkles" variant="primary" trend={{ value: "+32 (7h)", positive: true }} />
-        <StatCard title="Dipublikasikan" value="176" icon="send" variant="success" trend={{ value: "+18", positive: true }} />
-        <StatCard title="Terjadwal" value="9" icon="calendar-clock" variant="warning" subtitle="3 hari ke depan" />
-        <div style={{ borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", background: "var(--card)", boxShadow: "var(--shadow-sm)", padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 100 }}>
+        <StatCard
+          title="Konten digenerate"
+          value={loading ? "—" : String(totalGenerated)}
+          icon="sparkles"
+          variant="primary"
+        />
+        <StatCard
+          title="Exported"
+          value={loading ? "—" : String(totalExported)}
+          icon="download"
+          variant="success"
+          trend={totalGenerated > 0 ? {
+            value: `${Math.round((totalExported / totalGenerated) * 100)}% export rate`,
+            positive: true,
+          } : undefined}
+        />
+        <StatCard
+          title="Draft"
+          value={loading ? "—" : String(totalGenerated - totalExported)}
+          icon="file-pen"
+          variant="warning"
+          subtitle="Belum diexport"
+        />
+        {/* Quota — static until billing module */}
+        <div style={{
+          borderRadius: "var(--radius-xl)", border: "1px solid var(--border)",
+          background: "var(--card)", boxShadow: "var(--shadow-sm)",
+          padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 100,
+        }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--muted-foreground)" }}>Kuota paket Pro</p>
             <span style={{ width: 32, height: 32, borderRadius: "var(--radius-md)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
@@ -138,23 +251,54 @@ export default function DashboardPage() {
             </span>
           </div>
           <p style={{ margin: "6px 0 0", fontSize: "var(--text-2xl)", fontWeight: 700, lineHeight: 1 }}>
-            52<span style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", fontWeight: 500 }}> / 80</span>
+            {loading ? "—" : totalGenerated}
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", fontWeight: 500 }}> / 80</span>
           </p>
-          <div style={{ marginTop: 12 }}><ProgressBar value={65} color="primary" height={6} /></div>
+          <div style={{ marginTop: 12 }}>
+            <ProgressBar value={loading ? 0 : Math.min((totalGenerated / 80) * 100, 100)} color="primary" height={6} />
+          </div>
         </div>
       </div>
 
-      {/* History */}
+      {/* Recent history */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
           <h2 className="aigt-h3">Riwayat generate terakhir</h2>
-          <p className="aigt-caption" style={{ marginTop: 4 }}>{list.length} konten</p>
+          <p className="aigt-caption" style={{ marginTop: 4 }}>
+            {loading ? "Memuat…" : `${recent.length} dari ${totalGenerated} konten`}
+          </p>
         </div>
-        <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Published", "Draft", "Generating"]} />
+        <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Exported", "Draft"]} />
+        <Link href="/history">
+          <Button size="sm" variant="ghost" icon="arrow-right" iconRight="arrow-right">Lihat semua</Button>
+        </Link>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        {list.map((it) => <HistoryCard key={it.id} it={it} />)}
-      </div>
+
+      {/* Grid */}
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "48px 0", color: "var(--muted-foreground)" }}>
+          <Icon name="loader-2" size={20} style={{ animation: "spin 1s linear infinite" }} />
+          <span style={{ fontSize: "var(--text-sm)" }}>Memuat konten…</span>
+        </div>
+      ) : recent.length === 0 ? (
+        <Card variant="sunken" padding={40} style={{ textAlign: "center", color: "var(--muted-foreground)" }}>
+          <Icon name={filter !== "Semua" ? "search-x" : "folder-open"} size={32} style={{ opacity: 0.4 }} />
+          <p style={{ marginTop: 10, fontSize: "var(--text-sm)" }}>
+            {filter !== "Semua" ? "Tidak ada konten dengan filter ini" : "Belum ada konten. Yuk buat yang pertama!"}
+          </p>
+          {filter === "Semua" && (
+            <Link href="/templates" style={{ marginTop: 12, display: "inline-block" }}>
+              <Button size="sm" icon="plus">Buat konten</Button>
+            </Link>
+          )}
+        </Card>
+      ) : (
+        <div className="group" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+          {recent.map((p) => (
+            <ProjectCard key={p.id} project={p} onDelete={() => handleDelete(p.id)} />
+          ))}
+        </div>
+      )}
     </Shell>
   );
 }

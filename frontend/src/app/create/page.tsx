@@ -150,18 +150,27 @@ export default function CreatePage() {
         <div style={{ position: "sticky", top: 24 }}>
           <Card variant="elevated" padding={16}>
             <div className="aigt-label" style={{ marginBottom: 10 }}>Template dipilih</div>
-            <PosterThumb
-              title="Flash Sale Akhir Pekan"
-              kicker="Weekend Sale"
-              cta="Belanja"
-              accent="--chart-1"
-              ratio="4 / 5"
-            />
+            {template?.thumbnail_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={template.thumbnail_url}
+                alt={template.name}
+                style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: "var(--radius-md)" }}
+              />
+            ) : (
+              <PosterThumb
+                title={template?.name ?? (templateId ? "Memuat…" : "Template")}
+                kicker={template?.theme ?? template?.industry ?? ""}
+                cta={null}
+                accent="--chart-1"
+                ratio="4 / 5"
+              />
+            )}
             <div style={{ marginTop: 12 }}>
-              <div className="aigt-h6">Flash Sale Akhir Pekan</div>
+              <div className="aigt-h6">{template?.name ?? (templateId ? "Memuat template…" : "Pilih template dulu")}</div>
               <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                <Badge variant="secondary">Carousel</Badge>
-                <Badge variant="secondary">F&B / Kuliner</Badge>
+                {template?.content_type && <Badge variant="secondary">{template.content_type}</Badge>}
+                {template?.industry && <Badge variant="secondary">{template.industry}</Badge>}
               </div>
             </div>
 

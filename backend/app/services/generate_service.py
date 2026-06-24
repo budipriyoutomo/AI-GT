@@ -9,13 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from urllib.parse import urlparse
+
 from app.models.company_profile import CompanyProfile
 from app.models.generate_session import GenerateSession
 from app.models.generate_variant import GenerateVariant
 from app.models.project import Project
 from app.models.template import Template
 from app.schemas.generate import CreateSessionRequest
-from app.services import ai_service
+from app.services import ai_service, storage_service
 from app.services.providers.ai_types import CopyError, CopyInput, ImageInput
 from app.utils.exceptions import AppError, ErrorCode
 
@@ -90,10 +92,29 @@ async def select_variant(
     variant.is_selected = True
     project_id = uuid.uuid4()
 
+    # Move thematic image from temp/ to permanent/ before creating the project.
+    # If the move fails (e.g. R2 not configured in dev), fall back to the temp URL
+    # so the session is not blocked — the image may expire after 1h in that case.
+    thematic_url = variant.thematic_image_url
+    if thematic_url:
+        try:
+            temp_key = urlparse(thematic_url).path.lstrip("/")
+            if temp_key.startswith("temp/"):
+                thematic_url = storage_service.move_to_permanent(
+                    temp_key, str(user_id), str(project_id)
+                )
+        except AppError:
+            logger.warning(
+                "select_variant: failed to move thematic image to permanent, keeping temp URL. "
+                "session_id=%s variant_id=%s",
+                session_id,
+                variant_id,
+            )
+
     final_config: dict = {
         "copy": variant.copy_data,
         "typography": variant.typography_data,
-        "thematic_image_url": variant.thematic_image_url,
+        "thematic_image_url": thematic_url,
     }
 
     project = Project(

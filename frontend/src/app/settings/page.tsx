@@ -322,10 +322,10 @@ function TabProfilBisnis() {
 
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
   const [industry, setIndustry]         = useState(user?.industry ?? "F&B / Kuliner");
-  const [city, setCity]                 = useState("Bandung");
-  const [desc, setDesc]                 = useState("Coffee shop lokal dengan suasana hangat, menyajikan kopi specialty dan camilan untuk teman ngobrol sore.");
+  const [city, setCity]                 = useState("");
+  const [desc, setDesc]                 = useState("");
   const [logo, setLogo]                 = useState(false);
-  const [tagline, setTagline]           = useState("Teman ngopi sore kamu");
+  const [tagline, setTagline]           = useState("");
   const [color, setColor]               = useState(user?.brandColor ?? "#2F6BFF");
   const [saving, setSaving]             = useState(false);
 

@@ -37,5 +37,8 @@ class Settings(BaseSettings):
     cloudflare_r2_secret_key: str = ""
     cloudflare_r2_bucket_name: str = "ai-gt-bucket"
 
+    # CORS — comma-separated list of allowed origins
+    cors_origins: str = "http://localhost:3000"
+
 
 settings = Settings()

@@ -4,6 +4,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routers import auth as auth_router
 from app.routers import company_profile as company_profile_router
 from app.routers import generate as generate_router
@@ -30,7 +31,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,4 +48,4 @@ app.include_router(projects_router.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"success": True, "data": {"status": "ok"}}
