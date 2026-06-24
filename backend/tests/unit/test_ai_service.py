@@ -61,6 +61,26 @@ def _make_image_provider(result=_MOCK_IMAGE_RESULT, side_effect=None):
     return mock
 
 
+class TestGetCopyProvider:
+    def test_get_copy_provider_anthropic(self):
+        from app.services.providers.anthropic_copy import AnthropicCopyProvider
+        with patch.object(ai_service.settings, "ai_copy_provider", "anthropic"):
+            provider = ai_service.get_copy_provider()
+        assert isinstance(provider, AnthropicCopyProvider)
+
+    def test_get_copy_provider_deepseek(self):
+        from app.services.providers.deepseek_copy import DeepSeekCopyProvider
+        with patch.object(ai_service.settings, "ai_copy_provider", "deepseek"):
+            with patch("app.services.providers.deepseek_copy.openai.AsyncOpenAI"):
+                provider = ai_service.get_copy_provider()
+        assert isinstance(provider, DeepSeekCopyProvider)
+
+    def test_get_copy_provider_unknown_raises(self):
+        with patch.object(ai_service.settings, "ai_copy_provider", "unknown_provider"):
+            with pytest.raises(ValueError, match="Unknown copy provider"):
+                ai_service.get_copy_provider()
+
+
 class TestGenerateCopyWithRetry:
     async def test_copy_success(self):
         with patch.object(ai_service, "get_copy_provider", return_value=_make_copy_provider()):

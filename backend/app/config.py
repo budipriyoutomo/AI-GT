@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # API keys
     anthropic_api_key: str = ""
     replicate_api_token: str = ""
+    deepseek_api_key: str = ""
 
     # Cloudflare R2
     cloudflare_r2_account_id: str = ""

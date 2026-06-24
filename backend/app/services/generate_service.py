@@ -1,10 +1,12 @@
 """
 Generate service — orchestrasi session, AI call (background), dan pilih varian.
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -130,6 +132,23 @@ async def select_variant(
     return project
 
 
+async def _persist_image(url: str, session_id: str) -> str:
+    """Download image from provider URL and upload to R2 temp storage.
+    Falls back to the original URL if R2 is not configured or download fails.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, storage_service.upload_temp, resp.content, session_id
+        )
+    except Exception as e:
+        logger.warning("persist_image failed for session %s: %s — using raw URL", session_id, e)
+        return url
+
+
 async def run_generation_task(session_id: uuid.UUID) -> None:
     """Background task — dipanggil setelah create_session return. Buat DB session sendiri."""
     from app.database import AsyncSessionLocal
@@ -181,7 +200,8 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
 
     for variant_data in copy_result.variants:
         idx = variant_data.variant_number - 1
-        image_url = image_result.image_urls[idx] if idx < len(image_result.image_urls) else None
+        raw_url = image_result.image_urls[idx] if idx < len(image_result.image_urls) else None
+        image_url = await _persist_image(raw_url, str(session_id)) if raw_url else None
         variant = GenerateVariant(
             id=uuid.uuid4(),
             session_id=session_id,

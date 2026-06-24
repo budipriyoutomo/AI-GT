@@ -31,6 +31,9 @@ def get_copy_provider():
     if provider_name == "anthropic":
         from app.services.providers.anthropic_copy import AnthropicCopyProvider
         return AnthropicCopyProvider()
+    if provider_name == "deepseek":
+        from app.services.providers.deepseek_copy import DeepSeekCopyProvider
+        return DeepSeekCopyProvider()
     raise ValueError(f"Unknown copy provider: {provider_name}")
 
 

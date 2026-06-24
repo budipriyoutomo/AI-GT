@@ -30,7 +30,7 @@ class TestCreateSession:
         assert res.status_code == 201
         body = res.json()
         assert body["success"] is True
-        assert "session_id" in body["data"]
+        assert "id" in body["data"]
         assert body["data"]["status"] == "processing"
 
     async def test_create_session_no_company_profile(
@@ -138,7 +138,8 @@ class TestSelectVariant:
         assert res.status_code == 200
         body = res.json()
         assert body["success"] is True
-        assert "project_id" in body["data"]
+        assert "id" in body["data"]
+        assert "final_config" in body["data"]
 
     async def test_select_variant_session_expired(
         self,

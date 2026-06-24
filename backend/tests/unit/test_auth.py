@@ -20,6 +20,9 @@ class TestRegister:
         assert body["success"] is True
         assert "access_token" in body["data"]
         assert body["data"]["token_type"] == "bearer"
+        assert "user" in body["data"]
+        assert body["data"]["user"]["email"] == "budi@example.com"
+        assert body["data"]["user"]["name"] == "Budi"
 
     async def test_register_duplicate_email(self, client: AsyncClient, verified_user: User):
         res = await client.post("/api/v1/auth/register", json={
@@ -57,6 +60,8 @@ class TestLogin:
         assert body["success"] is True
         assert "access_token" in body["data"]
         assert body["data"]["token_type"] == "bearer"
+        assert "user" in body["data"]
+        assert body["data"]["user"]["email"] == verified_user.email
 
     async def test_login_wrong_password(self, client: AsyncClient, verified_user: User):
         res = await client.post("/api/v1/auth/login", json={

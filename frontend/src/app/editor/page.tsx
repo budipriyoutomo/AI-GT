@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import FabricCanvas, { type FabricCanvasHandle, type CanvasContent } from "@/components/editor/FabricCanvas";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -16,25 +17,78 @@ import type { Project } from "@/types/project";
 /* ── Constants ────────────────────────────────────────────── */
 
 const FONTS_HEADLINE = [
-  { id: "syne",    label: "Syne",       preview: "800 18px 'Syne', sans-serif"          },
-  { id: "inter",   label: "Inter",      preview: "700 18px Inter, sans-serif"           },
-  { id: "georgia", label: "Georgia",    preview: "700 18px Georgia, serif"              },
-  { id: "mono",    label: "Space Mono", preview: "700 15px 'Space Mono', monospace"     },
+  { id: "syne",    label: "Syne",       preview: "800 17px 'Syne', sans-serif"       },
+  { id: "inter",   label: "Inter",      preview: "700 17px Inter, sans-serif"        },
+  { id: "georgia", label: "Georgia",    preview: "700 17px Georgia, serif"           },
+  { id: "mono",    label: "Space Mono", preview: "700 14px 'Space Mono', monospace"  },
 ];
 
 const FONTS_BODY = [
-  { id: "inter",   label: "Inter",      preview: "400 12px Inter, sans-serif"           },
-  { id: "georgia", label: "Georgia",    preview: "400 12px Georgia, serif"              },
-  { id: "syne",    label: "Syne",       preview: "400 12px 'Syne', sans-serif"          },
+  { id: "inter",   label: "Inter",      preview: "400 13px Inter, sans-serif"        },
+  { id: "georgia", label: "Georgia",    preview: "400 13px Georgia, serif"           },
+  { id: "syne",    label: "Syne",       preview: "400 13px 'Syne', sans-serif"       },
 ];
 
-const LOCKED = [
+const LOCKED_ITEMS = [
   { label: "Layout & komposisi", icon: "layout-grid" },
   { label: "Background",         icon: "image"        },
   { label: "Color scheme",       icon: "palette"      },
 ];
 
-type TabId = "teks" | "typography" | "thematic";
+const EDITABLE_ITEMS = [
+  { label: "Copy & teks",   icon: "type"          },
+  { label: "Typography",    icon: "text-cursor-input" },
+  { label: "Thematic image", icon: "image-plus"   },
+];
+
+type TabId = "teks" | "tipografi" | "thematic";
+
+/* ── Section header ───────────────────────────────────────── */
+
+function SectionLabel({ icon, children }: { icon: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+      <Icon name={icon} size={12} style={{ color: "var(--muted-foreground)" }} />
+      <span className="aigt-label">{children}</span>
+    </div>
+  );
+}
+
+/* ── Field label ──────────────────────────────────────────── */
+
+function FieldLabel({ children, mono, value }: { children: React.ReactNode; mono?: boolean; value?: string | number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+      <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)" }}>{children}</label>
+      {value !== undefined && (
+        <span className={mono ? "aigt-mono" : ""} style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600 }}>{value}</span>
+      )}
+    </div>
+  );
+}
+
+/* ── Font picker button ───────────────────────────────────── */
+
+function FontButton({
+  label, preview, selected, onClick,
+}: { label: string; preview: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "9px 12px", borderRadius: "var(--radius-md)", textAlign: "left",
+      border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+      background: selected ? "var(--tint-primary)" : "var(--surface-sunken)",
+      cursor: "pointer", transition: "all .15s ease", width: "100%",
+    }}>
+      <span style={{ fontSize: "var(--text-xs)", fontWeight: selected ? 600 : 400, color: selected ? "var(--primary)" : "var(--foreground)" }}>
+        {label}
+      </span>
+      <span style={{ font: preview, color: selected ? "var(--primary)" : "var(--muted-foreground)", opacity: selected ? 1 : 0.7 }}>
+        Aa
+      </span>
+    </button>
+  );
+}
 
 /* ── Editor page ──────────────────────────────────────────── */
 
@@ -42,13 +96,11 @@ export default function EditorPage() {
   const searchParams = useSearchParams();
   const projectId    = searchParams.get("projectId");
 
-  /* Project state */
-  const [project,    setProject]    = useState<Project | null>(null);
-  const [loadError,  setLoadError]  = useState(false);
-  const [loading,    setLoading]    = useState(true);
+  const [project,       setProject]       = useState<Project | null>(null);
+  const [loadError,     setLoadError]     = useState(false);
+  const [loading,       setLoading]       = useState(true);
   const [projectLoaded, setProjectLoaded] = useState(false);
 
-  /* Content state (editable) */
   const [headline,      setHeadline]      = useState("");
   const [body,          setBody]          = useState("");
   const [cta,           setCta]           = useState("");
@@ -59,7 +111,6 @@ export default function EditorPage() {
   const [thematicImageUrl, setThematicImageUrl] = useState<string | null>(null);
   const [thematicVisible,  setThematicVisible]  = useState(true);
 
-  /* UI state */
   const [tab,       setTab]       = useState<TabId>("teks");
   const [exporting, setExporting] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -69,7 +120,6 @@ export default function EditorPage() {
   /* ── Load project ── */
   useEffect(() => {
     if (!projectId) { setLoading(false); setLoadError(true); return; }
-
     projectsApi.get(projectId)
       .then((p) => {
         setProject(p);
@@ -126,10 +176,7 @@ export default function EditorPage() {
       const blob = await canvasRef.current.exportPng();
       if (!blob) throw new Error("Canvas kosong");
 
-      const updated = await projectsApi.export(project.id, blob);
-      setProject(updated);
-
-      /* Trigger browser download */
+      // Trigger local download first — always succeeds regardless of R2
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -137,15 +184,22 @@ export default function EditorPage() {
       a.click();
       URL.revokeObjectURL(url);
 
-      toast({ title: "Export berhasil!", desc: "PNG tersimpan di Projects", variant: "success" });
+      // Then upload to R2 and mark project as exported
+      try {
+        const updated = await projectsApi.export(project.id, blob);
+        setProject(updated);
+      } catch {
+        // R2 upload failed, but user already has the PNG — not a blocking error
+      }
+
+      toast({ title: "Export berhasil!", desc: "PNG tersimpan di perangkat kamu", variant: "success" });
     } catch {
-      toast({ title: "Export gagal", variant: "error" });
+      toast({ title: "Export gagal", desc: "Canvas tidak bisa di-render", variant: "error" });
     } finally {
       setExporting(false);
     }
   }
 
-  /* ── Canvas content (memoized via object spread) ── */
   const canvasContent: CanvasContent = {
     headline,
     body,
@@ -159,99 +213,136 @@ export default function EditorPage() {
     thematicVisible,
   };
 
-  /* ── Loading / error states ── */
+  /* ── Loading ── */
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", gap: 10, background: "var(--background)", color: "var(--muted-foreground)" }}>
-        <Icon name="loader-2" size={22} style={{ animation: "spin 1s linear infinite" }} />
+        <Icon name="loader-2" size={20} style={{ animation: "spin 1s linear infinite" }} />
         <span style={{ fontSize: "var(--text-sm)" }}>Memuat editor…</span>
       </div>
     );
   }
 
+  /* ── Error ── */
   if (loadError || !project) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 16, background: "var(--background)" }}>
-        <Icon name="alert-triangle" size={32} style={{ color: "var(--destructive)", opacity: 0.7 }} />
-        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Project tidak ditemukan</div>
-        <Link href="/history"><Button size="sm" icon="arrow-left">Kembali ke Riwayat</Button></Link>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 14, background: "var(--background)" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "var(--radius-xl)", background: "var(--tint-destructive)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name="alert-triangle" size={24} style={{ color: "var(--destructive)" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-base)", fontWeight: 600, marginBottom: 4 }}>Project tidak ditemukan</div>
+          <div className="aigt-caption">Periksa URL atau kembali ke halaman riwayat</div>
+        </div>
+        <Link href="/history"><Button size="sm" variant="outline" icon="arrow-left">Kembali ke Riwayat</Button></Link>
       </div>
     );
   }
 
+  /* ── Editor ── */
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "var(--background)" }}>
 
-      {/* ── Top bar ── */}
-      <div style={{
+      {/* ════════════════════ Top bar ════════════════════ */}
+      <header style={{
         height: 56, flexShrink: 0,
-        display: "flex", alignItems: "center", gap: 14,
-        padding: "0 20px",
+        display: "flex", alignItems: "center", gap: 0,
+        paddingInline: 16,
         borderBottom: "1px solid var(--border)",
         background: "var(--card)",
+        boxShadow: "0 1px 0 var(--border)",
       }}>
-        <Link href="/history">
-          <Button size="sm" variant="ghost" icon="arrow-left">Kembali</Button>
-        </Link>
+        {/* Left: back + divider + project name */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+          <Link href="/history" style={{ textDecoration: "none", flexShrink: 0 }}>
+            <Button size="sm" variant="ghost" icon="arrow-left">Kembali</Button>
+          </Link>
 
-        <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+          <div style={{ width: 1, height: 20, background: "var(--border)", flexShrink: 0 }} />
 
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <span className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {project.title}
-          </span>
-          {project.is_exported && (
-            <Badge variant="success" dot>Exported</Badge>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: "var(--radius-md)", flexShrink: 0,
+              background: "var(--aigt-spark)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="layers" size={14} style={{ color: "#fff" }} />
+            </div>
+            <span style={{
+              fontSize: "var(--text-sm)", fontWeight: 600,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--foreground)",
+            }}>
+              {project.title}
+            </span>
+            {project.is_exported && (
+              <Badge variant="success" dot>Exported</Badge>
+            )}
+          </div>
         </div>
 
-        {/* Save indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--muted-foreground)", flexShrink: 0 }}>
-          <Icon name="cloud-check" size={13} style={{ color: lastSaved ? "var(--success)" : "var(--muted-foreground)" }} />
-          {lastSaved
-            ? `Tersimpan ${lastSaved.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`
-            : "Autosave aktif"}
+        {/* Right: save + export */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Icon
+              name={lastSaved ? "cloud-check" : "cloud"}
+              size={14}
+              style={{ color: lastSaved ? "var(--success)" : "var(--muted-foreground)" }}
+            />
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>
+              {lastSaved
+                ? `Tersimpan ${lastSaved.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`
+                : "Autosave aktif"}
+            </span>
+          </div>
+
+          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+
+          <Button
+            size="sm"
+            icon={exporting ? "loader-2" : "download"}
+            disabled={exporting}
+            onClick={handleExport}
+          >
+            {exporting ? "Exporting…" : "Export PNG"}
+          </Button>
         </div>
+      </header>
 
-        <Button
-          size="sm"
-          icon="download"
-          disabled={exporting}
-          onClick={handleExport}
-        >
-          {exporting ? "Exporting…" : "Export PNG"}
-        </Button>
-      </div>
+      {/* ════════════════════ Main ════════════════════ */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "280px 1fr 240px" }}>
 
-      {/* ── Main area ── */}
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "260px 1fr 220px" }}>
-
-        {/* ── Left panel ── */}
-        <div style={{
+        {/* ════ Left panel ════ */}
+        <aside style={{
           borderRight: "1px solid var(--border)",
           background: "var(--card)",
           display: "flex", flexDirection: "column",
-          overflowY: "auto",
+          overflow: "hidden",
         }}>
+
           {/* Tab switcher */}
-          <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
+          <div style={{
+            display: "flex",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--card)",
+          }}>
             {([
-              { id: "teks",       label: "Teks",       icon: "type"         },
-              { id: "typography", label: "Typography", icon: "a-large-small" },
-              { id: "thematic",   label: "Thematic",   icon: "image"        },
+              { id: "teks",      label: "Teks",      icon: "type"              },
+              { id: "tipografi", label: "Tipografi",  icon: "case-sensitive"    },
+              { id: "thematic",  label: "Thematic",   icon: "image-plus"        },
             ] as const).map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 style={{
-                  flex: 1, padding: "12px 4px",
+                  flex: 1, padding: "11px 4px 10px",
                   border: "none", background: "transparent",
                   borderBottom: `2px solid ${tab === t.id ? "var(--primary)" : "transparent"}`,
                   color: tab === t.id ? "var(--primary)" : "var(--muted-foreground)",
-                  cursor: "pointer", fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
                   fontSize: 10, fontWeight: 600, letterSpacing: ".04em",
+                  fontFamily: "var(--font-sans)",
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                  transition: "all .15s ease",
+                  transition: "color .15s ease, border-color .15s ease",
                 }}
               >
                 <Icon name={t.icon as "type"} size={15} />
@@ -260,213 +351,289 @@ export default function EditorPage() {
             ))}
           </div>
 
-          <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Tab content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* ── Tab Teks ── */}
+            {/* ── Tab: Teks ── */}
             {tab === "teks" && (
               <>
                 <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, display: "block", marginBottom: 6 }}>Headline</label>
+                  <FieldLabel>Headline</FieldLabel>
                   <textarea
                     value={headline}
                     onChange={(e) => setHeadline(e.target.value)}
                     rows={3}
-                    className="w-full p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-none focus:border-[var(--ring)]"
                     placeholder="Judul utama konten…"
+                    className="w-full p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-none transition-colors focus:border-[var(--ring)]"
                   />
                 </div>
+
                 <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, display: "block", marginBottom: 6 }}>Body copy</label>
+                  <FieldLabel>Body copy</FieldLabel>
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    rows={3}
-                    className="w-full p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-none focus:border-[var(--ring)]"
-                    placeholder="Deskripsi singkat…"
+                    rows={4}
+                    placeholder="Deskripsi singkat produk atau promo…"
+                    className="w-full p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-none transition-colors focus:border-[var(--ring)]"
                   />
                 </div>
+
                 <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, display: "block", marginBottom: 6 }}>CTA</label>
-                  <Input value={cta} onChange={(e) => setCta(e.target.value)} placeholder="mis. Belanja Sekarang" />
+                  <FieldLabel>CTA Button</FieldLabel>
+                  <Input
+                    value={cta}
+                    onChange={(e) => setCta(e.target.value)}
+                    placeholder="mis. Belanja Sekarang"
+                  />
+                </div>
+
+                {/* AI note */}
+                <div style={{
+                  marginTop: "auto",
+                  padding: "10px 12px",
+                  background: "var(--tint-primary)",
+                  border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
+                  borderRadius: "var(--radius-md)",
+                  display: "flex", gap: 8, alignItems: "flex-start",
+                }}>
+                  <Icon name="sparkles" size={12} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 11, color: "var(--primary)", lineHeight: 1.5 }}>
+                    Teks di-generate AI dari brief kamu. Edit bebas sesuai kebutuhan.
+                  </span>
                 </div>
               </>
             )}
 
-            {/* ── Tab Typography ── */}
-            {tab === "typography" && (
+            {/* ── Tab: Tipografi ── */}
+            {tab === "tipografi" && (
               <>
                 <div style={{
-                  padding: "8px 12px",
-                  background: "color-mix(in oklch, var(--primary) 6%, var(--card))",
+                  padding: "9px 12px",
+                  background: "var(--tint-primary)",
                   border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
                   borderRadius: "var(--radius-md)",
-                  fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
+                  fontSize: 11, color: "var(--primary)", lineHeight: 1.5,
                   display: "flex", gap: 8, alignItems: "flex-start",
                 }}>
                   <Icon name="sparkles" size={12} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 1 }} />
-                  Typography di-generate AI. Kamu bisa override di sini.
+                  Typography di-suggest AI. Override di sini sesuai selera.
                 </div>
 
+                {/* Font headline */}
                 <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, display: "block", marginBottom: 8 }}>Font Headline</label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <FieldLabel>Font Headline</FieldLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                     {FONTS_HEADLINE.map((f) => (
-                      <button key={f.id} onClick={() => setHeadlineFont(f.id)} style={{
-                        padding: "8px 12px", borderRadius: "var(--radius-md)", textAlign: "left",
-                        border: `1px solid ${headlineFont === f.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                        background: headlineFont === f.id ? "var(--tint-primary)" : "var(--surface-sunken)",
-                        cursor: "pointer", fontFamily: "var(--font-sans)",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        transition: "all .15s ease",
-                      }}>
-                        <span style={{ fontSize: "var(--text-xs)", fontWeight: headlineFont === f.id ? 600 : 400, color: headlineFont === f.id ? "var(--primary)" : "var(--foreground)" }}>{f.label}</span>
-                        <span style={{ fontSize: 15, font: f.preview, color: "var(--muted-foreground)" }}>Aa</span>
-                      </button>
+                      <FontButton
+                        key={f.id}
+                        label={f.label}
+                        preview={f.preview}
+                        selected={headlineFont === f.id}
+                        onClick={() => setHeadlineFont(f.id)}
+                      />
                     ))}
                   </div>
                 </div>
 
+                {/* Font body */}
                 <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, display: "block", marginBottom: 8 }}>Font Body</label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <FieldLabel>Font Body</FieldLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                     {FONTS_BODY.map((f) => (
-                      <button key={f.id} onClick={() => setBodyFont(f.id)} style={{
-                        padding: "8px 12px", borderRadius: "var(--radius-md)", textAlign: "left",
-                        border: `1px solid ${bodyFont === f.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                        background: bodyFont === f.id ? "var(--tint-primary)" : "var(--surface-sunken)",
-                        cursor: "pointer", fontFamily: "var(--font-sans)",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        transition: "all .15s ease",
-                      }}>
-                        <span style={{ fontSize: "var(--text-xs)", fontWeight: bodyFont === f.id ? 600 : 400, color: bodyFont === f.id ? "var(--primary)" : "var(--foreground)" }}>{f.label}</span>
-                        <span style={{ fontSize: 12, font: f.preview, color: "var(--muted-foreground)" }}>Aa</span>
-                      </button>
+                      <FontButton
+                        key={f.id}
+                        label={f.label}
+                        preview={f.preview}
+                        selected={bodyFont === f.id}
+                        onClick={() => setBodyFont(f.id)}
+                      />
                     ))}
                   </div>
                 </div>
 
+                {/* Headline size */}
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <label style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>Ukuran Headline</label>
-                    <span className="aigt-mono" style={{ fontSize: 11, color: "var(--primary)" }}>{headlineSize}px</span>
-                  </div>
-                  <input type="range" min={16} max={48} value={headlineSize}
+                  <FieldLabel mono value={`${headlineSize}px`}>Ukuran Headline</FieldLabel>
+                  <input
+                    type="range" min={16} max={48} value={headlineSize}
                     onChange={(e) => setHeadlineSize(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "var(--primary)" }}
+                    style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
                   />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "var(--muted-foreground)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
                     <span>16px</span><span>48px</span>
                   </div>
                 </div>
 
+                {/* Letter spacing */}
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <label style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>Letter Spacing</label>
-                    <span className="aigt-mono" style={{ fontSize: 11, color: "var(--primary)" }}>{letterSpacing}px</span>
-                  </div>
-                  <input type="range" min={-2} max={10} value={letterSpacing}
+                  <FieldLabel mono value={`${letterSpacing}px`}>Letter Spacing</FieldLabel>
+                  <input
+                    type="range" min={-2} max={10} value={letterSpacing}
                     onChange={(e) => setLetterSpacing(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "var(--primary)" }}
+                    style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
                   />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
+                    <span>-2px</span><span>10px</span>
+                  </div>
                 </div>
               </>
             )}
 
-            {/* ── Tab Thematic ── */}
+            {/* ── Tab: Thematic ── */}
             {tab === "thematic" && (
               <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {/* Toggle row */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 14px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-lg)",
+                  background: "var(--surface-sunken)",
+                }}>
                   <div>
-                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Thematic Image</div>
+                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--foreground)" }}>Thematic Image</div>
                     <div className="aigt-caption" style={{ marginTop: 2 }}>
-                      {thematicImageUrl ? "Di-generate AI · unik per sesi" : "Tidak tersedia di sesi ini"}
+                      {thematicImageUrl ? "Tampilkan di canvas" : "Tidak tersedia"}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setThematicVisible(!thematicVisible)}
+                  <Switch
+                    checked={thematicVisible && !!thematicImageUrl}
                     disabled={!thematicImageUrl}
-                    style={{
-                      width: 40, height: 22, borderRadius: 999, border: "none", cursor: thematicImageUrl ? "pointer" : "not-allowed",
-                      background: thematicVisible && thematicImageUrl ? "var(--primary)" : "var(--muted)",
-                      position: "relative", transition: "background .2s ease",
-                      opacity: thematicImageUrl ? 1 : 0.5,
-                    }}
-                  >
-                    <span style={{
-                      position: "absolute", top: 3,
-                      left: thematicVisible && thematicImageUrl ? 20 : 3,
-                      width: 16, height: 16, borderRadius: 999,
-                      background: "#fff", transition: "left .2s ease",
-                    }} />
-                  </button>
+                    onChange={(v) => setThematicVisible(v)}
+                  />
                 </div>
 
-                {thematicImageUrl && thematicVisible && (
+                {/* Image preview */}
+                {thematicImageUrl ? (
                   <div style={{
-                    padding: "10px 12px",
-                    background: "var(--surface-sunken)",
+                    borderRadius: "var(--radius-lg)",
                     border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    display: "flex", alignItems: "center", gap: 10,
+                    overflow: "hidden",
+                    background: "var(--surface-sunken)",
                   }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={thematicImageUrl}
                       alt="Thematic"
-                      style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", objectFit: "cover", flexShrink: 0 }}
+                      style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
-                    <div>
-                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>Thematic Image</div>
-                      <div className="aigt-caption" style={{ marginTop: 2 }}>Dari sesi generate</div>
+                    <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Icon name="image" size={13} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>Thematic Image</div>
+                        <div className="aigt-caption" style={{ marginTop: 1 }}>Di-generate AI · unik per sesi</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: "28px 20px", textAlign: "center",
+                    border: "1.5px dashed var(--border)", borderRadius: "var(--radius-lg)",
+                    background: "var(--surface-sunken)",
+                  }}>
+                    <Icon name="image-off" size={28} style={{ color: "var(--muted-foreground)", opacity: 0.4, marginBottom: 10 }} />
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)", marginBottom: 4 }}>
+                      Tidak ada thematic image
+                    </div>
+                    <div className="aigt-caption" style={{ lineHeight: 1.5 }}>
+                      Pilih varian yang memiliki thematic image saat generate.
                     </div>
                   </div>
                 )}
 
-                {!thematicImageUrl && (
-                  <div style={{
-                    padding: 20, textAlign: "center",
-                    border: "1px dashed var(--border)", borderRadius: "var(--radius-lg)",
-                    background: "var(--surface-sunken)", color: "var(--muted-foreground)",
-                    fontSize: "var(--text-xs)", lineHeight: 1.5,
-                  }}>
-                    Sesi ini tidak memiliki thematic image.<br />
-                    Pilih varian lain yang memiliki thematic image saat generate.
-                  </div>
-                )}
+                <div style={{
+                  padding: "10px 12px",
+                  background: "var(--surface-sunken)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
+                  display: "flex", gap: 8, alignItems: "flex-start",
+                }}>
+                  <Icon name="info" size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                  Thematic image adalah layer opsional. Session tetap selesai meski image tidak tersedia.
+                </div>
               </>
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* ── Center: canvas ── */}
-        <div style={{
+        {/* ════ Canvas area ════ */}
+        <main style={{
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          background: "var(--surface-sunken)",
-          padding: 32, gap: 14, overflow: "auto",
+          padding: "32px 24px",
+          overflow: "auto",
+          /* subtle checkerboard */
+          backgroundImage: `
+            radial-gradient(circle at 50% 0, color-mix(in oklch, var(--primary) 4%, transparent) 0%, transparent 70%),
+            linear-gradient(45deg, color-mix(in oklch, var(--muted-foreground) 6%, transparent) 25%, transparent 25%),
+            linear-gradient(-45deg, color-mix(in oklch, var(--muted-foreground) 6%, transparent) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, color-mix(in oklch, var(--muted-foreground) 6%, transparent) 75%),
+            linear-gradient(-45deg, transparent 75%, color-mix(in oklch, var(--muted-foreground) 6%, transparent) 75%)
+          `,
+          backgroundSize: "100% 100%, 20px 20px, 20px 20px, 20px 20px, 20px 20px",
+          backgroundPosition: "0 0, 0 0, 0 10px, 10px -10px, -10px 0px",
+          backgroundColor: "var(--surface-sunken)",
+          gap: 16,
         }}>
-          <FabricCanvas ref={canvasRef} content={canvasContent} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted-foreground)" }}>
-            <Icon name="info" size={12} />
-            Pratinjau — export PNG lebih tajam (800 × 1000 px)
+          {/* Canvas card */}
+          <div style={{
+            borderRadius: "var(--radius-xl)",
+            boxShadow: "0 12px 48px color-mix(in oklch, var(--foreground) 12%, transparent), 0 4px 16px color-mix(in oklch, var(--foreground) 8%, transparent)",
+            overflow: "hidden",
+          }}>
+            <FabricCanvas ref={canvasRef} content={canvasContent} />
           </div>
-        </div>
 
-        {/* ── Right panel ── */}
-        <div style={{
+          {/* Info strip */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12,
+            fontSize: 11, color: "var(--muted-foreground)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <Icon name="info" size={11} />
+              Pratinjau canvas — hasil export 800 × 1000 px
+            </div>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <Icon name="zoom-in" size={11} />
+              45% zoom
+            </div>
+          </div>
+        </main>
+
+        {/* ════ Right panel ════ */}
+        <aside style={{
           borderLeft: "1px solid var(--border)",
           background: "var(--card)",
           overflowY: "auto",
           display: "flex", flexDirection: "column",
         }}>
+
           {/* Project info */}
-          <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
-            <div className="aigt-label" style={{ marginBottom: 10 }}>Project</div>
-            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, lineHeight: 1.3 }}>{project.title}</div>
-            <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 4 }}>
-              #{project.id.slice(0, 8).toUpperCase()}
+          <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
+            <SectionLabel icon="folder">Project</SectionLabel>
+
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: "var(--radius-lg)", flexShrink: 0,
+                background: "var(--aigt-spark)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon name="layers" size={16} style={{ color: "#fff" }} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, lineHeight: 1.3, wordBreak: "break-word" }}>
+                  {project.title}
+                </div>
+                <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>
+                  #{project.id.slice(0, 8).toUpperCase()}
+                </div>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+
+            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
               <Badge variant={project.is_exported ? "success" : "warning"} dot>
                 {project.is_exported ? "Exported" : "Draft"}
               </Badge>
@@ -474,46 +641,57 @@ export default function EditorPage() {
           </div>
 
           {/* Locked elements */}
-          <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-              <Icon name="lock" size={13} style={{ color: "var(--muted-foreground)" }} />
-              <span className="aigt-label">Terkunci</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {LOCKED.map((el) => (
+          <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
+            <SectionLabel icon="lock">Terkunci</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {LOCKED_ITEMS.map((el) => (
                 <div key={el.label} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                  display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
                   background: "var(--surface-sunken)", border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--muted-foreground)",
+                  borderRadius: "var(--radius-md)",
                 }}>
-                  <Icon name={el.icon as "image"} size={12} style={{ flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>{el.label}</span>
-                  <Icon name="lock" size={11} style={{ opacity: 0.45 }} />
+                  <Icon name={el.icon as "image"} size={12} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>{el.label}</span>
+                  <Icon name="lock" size={10} style={{ color: "var(--muted-foreground)", opacity: 0.4, flexShrink: 0 }} />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Editable */}
-          <div style={{ padding: 16, borderBottom: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-              <Icon name="pencil" size={13} style={{ color: "var(--primary)" }} />
-              <span className="aigt-label">Bisa Diedit</span>
+          {/* Editable elements */}
+          <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
+            <SectionLabel icon="pencil">Bisa Diedit</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {EDITABLE_ITEMS.map((el) => (
+                <div key={el.label} style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+                  background: "var(--tint-primary)",
+                  border: "1px solid color-mix(in oklch, var(--primary) 18%, transparent)",
+                  borderRadius: "var(--radius-md)",
+                }}>
+                  <Icon name={el.icon as "type"} size={12} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--primary)", fontWeight: 500 }}>{el.label}</span>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Keyboard shortcuts hint */}
+          <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
+            <SectionLabel icon="keyboard">Tips</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
-                { label: "Copy & teks",   icon: "type"          },
-                { label: "Typography",    icon: "a-large-small" },
-                { label: "Thematic img",  icon: "image"         },
-              ].map((el) => (
-                <div key={el.label} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                  background: "color-mix(in oklch, var(--primary) 5%, var(--card))",
-                  border: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
-                  borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--primary)", fontWeight: 500,
-                }}>
-                  <Icon name={el.icon as "type"} size={12} style={{ flexShrink: 0 }} />
-                  {el.label}
+                { key: "Ctrl+S", desc: "Manual save" },
+                { key: "Ctrl+Z", desc: "Undo teks" },
+              ].map((tip) => (
+                <div key={tip.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>{tip.desc}</span>
+                  <kbd style={{
+                    fontSize: 10, fontFamily: "var(--font-mono)",
+                    background: "var(--surface-sunken)", border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)", padding: "2px 6px",
+                    color: "var(--muted-foreground)",
+                  }}>{tip.key}</kbd>
                 </div>
               ))}
             </div>
@@ -521,17 +699,28 @@ export default function EditorPage() {
 
           {/* Export history */}
           {project.exported_image_url && (
-            <div style={{ padding: 16 }}>
-              <div className="aigt-label" style={{ marginBottom: 10 }}>Export Terakhir</div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={project.exported_image_url}
-                alt="export"
-                style={{ width: "100%", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}
-              />
+            <div style={{ padding: "16px" }}>
+              <SectionLabel icon="image">Export Terakhir</SectionLabel>
+              <div style={{
+                borderRadius: "var(--radius-lg)",
+                overflow: "hidden",
+                border: "1px solid var(--border)",
+                background: "var(--surface-sunken)",
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={project.exported_image_url}
+                  alt="Export terakhir"
+                  style={{ width: "100%", display: "block", aspectRatio: "4/5", objectFit: "cover" }}
+                />
+                <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 6 }}>
+                  <Icon name="circle-check" size={12} style={{ color: "var(--success)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Sudah pernah diexport</span>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+        </aside>
 
       </div>
     </div>

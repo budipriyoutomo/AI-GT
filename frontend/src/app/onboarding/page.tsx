@@ -260,7 +260,7 @@ export default function OnboardingPage() {
         {/* Form */}
         <div style={{ flex: 1, overflowY: "auto", display: "flex", justifyContent: "center", padding: "40px 28px" }}>
           <div style={{ width: "100%", maxWidth: 560 }}>
-            <StepContent />
+            {StepContent()}
           </div>
         </div>
 

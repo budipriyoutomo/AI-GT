@@ -11,6 +11,7 @@ from app.schemas.generate import (
     SessionData,
     VariantData,
 )
+from app.schemas.project import ProjectData
 from app.services import generate_service
 from app.utils.auth import get_current_user
 
@@ -28,7 +29,7 @@ async def create_session(
     background_tasks.add_task(generate_service.run_generation_task, session.id)
     return {
         "success": True,
-        "data": {"session_id": str(session.id), "status": session.status},
+        "data": {"id": str(session.id), "status": session.status},
     }
 
 
@@ -53,4 +54,4 @@ async def select_variant(
     project = await generate_service.select_variant(
         db, current_user.id, session_id, body.variant_id
     )
-    return {"success": True, "data": {"project_id": str(project.id)}}
+    return {"success": True, "data": ProjectData.model_validate(project).model_dump()}

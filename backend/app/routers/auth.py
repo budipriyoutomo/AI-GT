@@ -17,17 +17,23 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     token = provider.create_token(str(user.id))
     return {
         "success": True,
-        "data": TokenData(access_token=token).model_dump(),
+        "data": {
+            **TokenData(access_token=token).model_dump(),
+            "user": UserData.model_validate(user).model_dump(),
+        },
         "message": "Registrasi berhasil. Silakan verifikasi email kamu.",
     }
 
 
 @router.post("/login")
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    _, token = await auth_service.login_user(db, body.email, body.password)
+    user, token = await auth_service.login_user(db, body.email, body.password)
     return {
         "success": True,
-        "data": TokenData(access_token=token).model_dump(),
+        "data": {
+            **TokenData(access_token=token).model_dump(),
+            "user": UserData.model_validate(user).model_dump(),
+        },
     }
 
 
