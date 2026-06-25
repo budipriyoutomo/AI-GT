@@ -87,6 +87,78 @@ async def _generate_images_safe(image_input: ImageInput, session_id: str) -> Ima
         return ImageResult()
 
 
+async def _call_copy_provider_raw(prompt: str, max_tokens: int = 2048) -> str:
+    """Kirim prompt bebas ke copy provider aktif, return teks hasil.
+
+    Default max_tokens=2048 agar cukup untuk reasoning model (DeepSeek R/Flash)
+    yang mengonsumsi ratusan token thinking sebelum menghasilkan output.
+    """
+    provider_name = settings.ai_copy_provider
+    if provider_name == "anthropic":
+        import anthropic as _anthropic
+        client = _anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        msg = await client.messages.create(
+            model=settings.ai_copy_model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text.strip()
+    if provider_name == "deepseek":
+        import openai as _openai
+        client = _openai.AsyncOpenAI(api_key=settings.deepseek_api_key, base_url="https://api.deepseek.com")
+        resp = await client.chat.completions.create(
+            model=settings.ai_copy_model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return (resp.choices[0].message.content or "").strip()
+    raise ValueError(f"Unknown copy provider: {provider_name}")
+
+
+async def generate_image_suggestions(
+    content_brief: str,
+    template_theme: str,
+    industry: str,
+    target_audience: str = "",
+    language_preference: str = "id",
+) -> list[str]:
+    """Generate 3 prompt saran gambar dari brief + preferensi konten. Return list kosong jika gagal."""
+    import json
+    import re
+    from app.services.providers.copy_prompt import IMAGE_SUGGESTIONS_PROMPT
+
+    prompt = IMAGE_SUGGESTIONS_PROMPT.format(
+        content_brief=content_brief,
+        template_theme=template_theme or "-",
+        industry=industry or "-",
+        target_audience=target_audience or "umum",
+        language_preference=language_preference or "id",
+    )
+    try:
+        raw = await asyncio.wait_for(_call_copy_provider_raw(prompt), timeout=30.0)
+        if not raw:
+            logger.warning("generate_image_suggestions: empty response from provider")
+            return []
+        # Strip markdown code blocks jika ada
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        # Ambil JSON object pertama yang ditemukan
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            raw = match.group()
+        data = json.loads(raw)
+        return data.get("suggestions", [])[:3]
+    except Exception as e:
+        logger.error("generate_image_suggestions gagal: %s", e)
+        return []
+
+
+async def generate_single_image(prompt: str) -> str | None:
+    """Generate satu gambar dari prompt teks. Return URL atau None jika gagal."""
+    image_input = ImageInput(theme=prompt, num_outputs=1)
+    result = await _generate_images_safe(image_input, "manual")
+    return result.image_urls[0] if result.image_urls else None
+
+
 async def generate_content(
     copy_input: CopyInput,
     image_input: ImageInput | None,

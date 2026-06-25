@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import FabricCanvas, { type FabricCanvasHandle, type CanvasContent } from "@/components/editor/FabricCanvas";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
+import { generateApi } from "@/api/generateApi";
 import type { Project } from "@/types/project";
 
 /* ── Constants ────────────────────────────────────────────── */
@@ -35,13 +36,7 @@ const LOCKED_ITEMS = [
   { label: "Color scheme",       icon: "palette"      },
 ];
 
-const EDITABLE_ITEMS = [
-  { label: "Copy & teks",   icon: "type"          },
-  { label: "Typography",    icon: "text-cursor-input" },
-  { label: "Thematic image", icon: "image-plus"   },
-];
-
-type TabId = "teks" | "tipografi" | "thematic";
+type TabId = "teks" | "tipografi" | "gambar";
 
 /* ── Section header ───────────────────────────────────────── */
 
@@ -111,6 +106,10 @@ export default function EditorPage() {
   const [thematicImageUrl, setThematicImageUrl] = useState<string | null>(null);
   const [thematicVisible,  setThematicVisible]  = useState(true);
 
+  const [imageSource,   setImageSource]   = useState<"upload" | "suggestion" | "none">("none");
+  const [imagePrompt,   setImagePrompt]   = useState("");
+  const [generatingImg, setGeneratingImg] = useState(false);
+
   const [tab,       setTab]       = useState<TabId>("teks");
   const [exporting, setExporting] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -123,7 +122,7 @@ export default function EditorPage() {
     projectsApi.get(projectId)
       .then((p) => {
         setProject(p);
-        const { copy, typography, thematic_image_url } = p.final_config;
+        const { copy, typography, thematic_image_url, image_source } = p.final_config;
         setHeadline(copy.headline);
         setBody(copy.body);
         setCta(copy.cta);
@@ -133,6 +132,8 @@ export default function EditorPage() {
         setLetterSpacing(typography.letter_spacing || 0);
         setThematicImageUrl(thematic_image_url);
         setThematicVisible(!!thematic_image_url);
+        setImageSource(image_source ?? "none");
+        setImagePrompt(p.final_config.image_prompt ?? "");
         setProjectLoaded(true);
       })
       .catch(() => setLoadError(true))
@@ -326,10 +327,10 @@ export default function EditorPage() {
             background: "var(--card)",
           }}>
             {([
-              { id: "teks",      label: "Teks",      icon: "type"              },
-              { id: "tipografi", label: "Tipografi",  icon: "case-sensitive"    },
-              { id: "thematic",  label: "Thematic",   icon: "image-plus"        },
-            ] as const).map((t) => (
+              { id: "teks",      label: "Teks",     icon: "type"           },
+              { id: "tipografi", label: "Tipografi", icon: "case-sensitive" },
+              ...(imageSource !== "none" ? [{ id: "gambar" as const, label: "Gambar", icon: "image-plus" }] : []),
+            ] as { id: TabId; label: string; icon: string }[]).map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
@@ -480,10 +481,9 @@ export default function EditorPage() {
               </>
             )}
 
-            {/* ── Tab: Thematic ── */}
-            {tab === "thematic" && (
+            {/* ── Tab: Gambar (Upload) ── */}
+            {tab === "gambar" && imageSource === "upload" && (
               <>
-                {/* Toggle row */}
                 <div style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "12px 14px",
@@ -492,9 +492,9 @@ export default function EditorPage() {
                   background: "var(--surface-sunken)",
                 }}>
                   <div>
-                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--foreground)" }}>Thematic Image</div>
+                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Gambar Upload</div>
                     <div className="aigt-caption" style={{ marginTop: 2 }}>
-                      {thematicImageUrl ? "Tampilkan di canvas" : "Tidak tersedia"}
+                      {thematicImageUrl ? "Tampilkan di canvas" : "Belum ada gambar"}
                     </div>
                   </div>
                   <Switch
@@ -504,56 +504,141 @@ export default function EditorPage() {
                   />
                 </div>
 
-                {/* Image preview */}
-                {thematicImageUrl ? (
-                  <div style={{
-                    borderRadius: "var(--radius-lg)",
-                    border: "1px solid var(--border)",
-                    overflow: "hidden",
-                    background: "var(--surface-sunken)",
-                  }}>
+                {/* Preview */}
+                {thematicImageUrl && (
+                  <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={thematicImageUrl}
-                      alt="Thematic"
+                      alt="Upload"
                       style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
-                    <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ padding: "9px 12px", display: "flex", alignItems: "center", gap: 8 }}>
                       <Icon name="image" size={13} style={{ color: "var(--muted-foreground)", flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>Thematic Image</div>
-                        <div className="aigt-caption" style={{ marginTop: 1 }}>Di-generate AI · unik per sesi</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{
-                    padding: "28px 20px", textAlign: "center",
-                    border: "1.5px dashed var(--border)", borderRadius: "var(--radius-lg)",
-                    background: "var(--surface-sunken)",
-                  }}>
-                    <Icon name="image-off" size={28} style={{ color: "var(--muted-foreground)", opacity: 0.4, marginBottom: 10 }} />
-                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)", marginBottom: 4 }}>
-                      Tidak ada thematic image
-                    </div>
-                    <div className="aigt-caption" style={{ lineHeight: 1.5 }}>
-                      Pilih varian yang memiliki thematic image saat generate.
+                      <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, flex: 1 }}>Gambar aktif</span>
+                      <button
+                        onClick={() => { setThematicImageUrl(null); setThematicVisible(false); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}
+                      >
+                        <Icon name="trash-2" size={12} /> Hapus
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <div style={{
-                  padding: "10px 12px",
-                  background: "var(--surface-sunken)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-md)",
-                  fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
-                  display: "flex", gap: 8, alignItems: "flex-start",
+                {/* Upload zone */}
+                <label style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, padding: "24px 16px", cursor: "pointer",
+                  border: "2px dashed color-mix(in oklch, var(--primary) 35%, transparent)",
+                  borderRadius: "var(--radius-lg)",
+                  background: "color-mix(in oklch, var(--primary) 4%, var(--card))",
                 }}>
-                  <Icon name="info" size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                  Thematic image adalah layer opsional. Session tetap selesai meski image tidak tersedia.
-                </div>
+                  <Icon name="upload-cloud" size={22} style={{ color: "var(--primary)" }} />
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 600 }}>
+                      {thematicImageUrl ? "Ganti gambar" : "Upload gambar"}
+                    </div>
+                    <div className="aigt-caption" style={{ marginTop: 2 }}>PNG, JPG, WEBP · maks 5 MB</div>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setThematicImageUrl(reader.result as string);
+                        setThematicVisible(true);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </>
+            )}
+
+            {/* ── Tab: Gambar (Suggestion) ── */}
+            {tab === "gambar" && imageSource === "suggestion" && (
+              <>
+                {/* Preview */}
+                {thematicImageUrl ? (
+                  <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={thematicImageUrl}
+                      alt="Generated"
+                      style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <div style={{ padding: "9px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Icon name="sparkles" size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--primary)" }}>AI Generated</span>
+                      </div>
+                      <Switch
+                        checked={thematicVisible}
+                        onChange={(v) => setThematicVisible(v)}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: 10, padding: "32px 16px",
+                    border: "1px dashed var(--border)", borderRadius: "var(--radius-lg)",
+                    background: "var(--surface-sunken)", textAlign: "center",
+                  }}>
+                    <Icon name="image" size={24} style={{ color: "var(--muted-foreground)", opacity: 0.4 }} />
+                    <div>
+                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 3 }}>Belum ada gambar</div>
+                      <div className="aigt-caption">Klik Generate Ulang untuk membuat gambar AI</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generate button */}
+                <Button
+                  icon={generatingImg ? "loader-2" : "sparkles"}
+                  disabled={generatingImg || !imagePrompt.trim()}
+                  onClick={async () => {
+                    setGeneratingImg(true);
+                    try {
+                      const result = await generateApi.generateImage(
+                        imagePrompt.trim(),
+                        project?.id,
+                      );
+                      if (result.url) {
+                        setThematicImageUrl(result.url);
+                        setThematicVisible(true);
+                        toast({ title: "Gambar berhasil di-generate!", variant: "success" });
+                      } else {
+                        toast({ title: "Generate gambar gagal", desc: "Coba lagi", variant: "error" });
+                      }
+                    } catch {
+                      toast({ title: "Generate gambar gagal", variant: "error" });
+                    } finally {
+                      setGeneratingImg(false);
+                    }
+                  }}
+                >
+                  {generatingImg ? "Generating…" : "Generate Ulang"}
+                </Button>
+
+                {imagePrompt && (
+                  <div style={{
+                    padding: "9px 12px",
+                    background: "var(--surface-sunken)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.55,
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: 3, color: "var(--foreground)" }}>Prompt aktif:</div>
+                    {imagePrompt}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -662,7 +747,11 @@ export default function EditorPage() {
           <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
             <SectionLabel icon="pencil">Bisa Diedit</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {EDITABLE_ITEMS.map((el) => (
+              {[
+                { label: "Copy & teks",  icon: "type"              },
+                { label: "Typography",   icon: "text-cursor-input" },
+                ...(imageSource !== "none" ? [{ label: imageSource === "upload" ? "Gambar upload" : "Image suggestion", icon: "image-plus" }] : []),
+              ].map((el) => (
                 <div key={el.label} style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
                   background: "var(--tint-primary)",

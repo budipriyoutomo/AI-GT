@@ -1,18 +1,39 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
+
+
+class CampaignData(BaseModel):
+    content_brief: str | None = None
+    image_source: Literal["upload", "suggestion", "none"] = "none"
+    image_prompt: str | None = None
+    target_audience: str | None = None
+    language_preference: str | None = None
+
+
+class ImageSuggestionsRequest(BaseModel):
+    content_brief: str
+    template_theme: str | None = None
+    industry: str | None = None
+    target_audience: str | None = None
+    language_preference: str | None = None
 
 
 class CreateSessionRequest(BaseModel):
     template_id: uuid.UUID
     language_style: str
-    thematic_image_theme: str | None = None
-    campaign_data: dict | None = None
+    campaign_data: CampaignData | None = None
 
 
 class SelectVariantRequest(BaseModel):
     variant_id: uuid.UUID
+
+
+class GenerateImageRequest(BaseModel):
+    prompt: str
+    project_id: uuid.UUID | None = None
 
 
 class VariantData(BaseModel):

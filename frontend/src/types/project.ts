@@ -12,6 +12,8 @@ export interface ProjectFinalConfig {
     letter_spacing: number;
   };
   thematic_image_url: string | null;
+  image_source: "upload" | "suggestion" | "none";
+  image_prompt: string;
 }
 
 export interface Project {

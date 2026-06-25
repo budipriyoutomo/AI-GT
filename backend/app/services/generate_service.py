@@ -48,8 +48,7 @@ async def create_session(
         user_id=user_id,
         template_id=data.template_id,
         language_style=data.language_style,
-        thematic_image_theme=data.thematic_image_theme,
-        campaign_data=data.campaign_data,
+        campaign_data=data.campaign_data.model_dump(exclude_none=True) if data.campaign_data else None,
         status="processing",
         expires_at=datetime.now(timezone.utc) + timedelta(hours=_SESSION_TTL_HOURS),
     )
@@ -94,29 +93,44 @@ async def select_variant(
     variant.is_selected = True
     project_id = uuid.uuid4()
 
-    # Move thematic image from temp/ to permanent/ before creating the project.
-    # If the move fails (e.g. R2 not configured in dev), fall back to the temp URL
-    # so the session is not blocked — the image may expire after 1h in that case.
+    # Pastikan thematic image tersimpan di R2 permanent sebelum project dibuat.
+    # Ada 3 kasus URL yang masuk:
+    #   1. temp/ R2 URL  → move ke permanent/ (happy path)
+    #   2. external URL (Replicate, dsb) → download + upload langsung ke permanent/
+    #      (terjadi jika _persist_image gagal saat generate)
+    #   3. permanent/ R2 URL → biarkan (sudah di tempat yang benar)
     thematic_url = variant.thematic_image_url
     if thematic_url:
         try:
-            temp_key = urlparse(thematic_url).path.lstrip("/")
-            if temp_key.startswith("temp/"):
+            path_key = urlparse(thematic_url).path.lstrip("/")
+            if path_key.startswith("temp/"):
                 thematic_url = storage_service.move_to_permanent(
-                    temp_key, str(user_id), str(project_id)
+                    path_key, str(user_id), str(project_id)
                 )
-        except AppError:
+            elif not path_key.startswith("permanent/"):
+                # URL eksternal — download dan upload langsung ke permanent
+                thematic_url = await _persist_image_permanent(
+                    thematic_url, str(user_id), str(project_id)
+                )
+            # else: sudah permanent/, tidak perlu tindakan
+        except Exception:
             logger.warning(
-                "select_variant: failed to move thematic image to permanent, keeping temp URL. "
+                "select_variant: failed to persist thematic image, keeping original URL. "
                 "session_id=%s variant_id=%s",
                 session_id,
                 variant_id,
             )
 
+    campaign = session.campaign_data or {}
+    image_source = campaign.get("image_source", "none")
+    image_prompt = campaign.get("image_prompt", "")
+
     final_config: dict = {
         "copy": variant.copy_data,
         "typography": variant.typography_data,
         "thematic_image_url": thematic_url,
+        "image_source": image_source,
+        "image_prompt": image_prompt,
     }
 
     project = Project(
@@ -132,10 +146,58 @@ async def select_variant(
     return project
 
 
-async def _persist_image(url: str, session_id: str) -> str:
-    """Download image from provider URL and upload to R2 temp storage.
-    Falls back to the original URL if R2 is not configured or download fails.
+async def regenerate_project_image(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    project_id: uuid.UUID,
+    prompt: str,
+) -> str | None:
+    """Generate image baru via AI, upload ke R2 permanent, update final_config project.
+
+    Dipanggil dari editor saat user klik 'Generate Ulang'. Return R2 URL atau None jika gagal.
     """
+    from sqlalchemy import select as _select
+    from app.models.project import Project as ProjectModel
+
+    raw_url = await ai_service.generate_single_image(prompt)
+    if not raw_url:
+        return None
+
+    # Download dari provider URL lalu upload ke R2 permanent
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(raw_url)
+            resp.raise_for_status()
+        loop = asyncio.get_event_loop()
+        r2_url = await loop.run_in_executor(
+            None,
+            storage_service.upload_permanent_thematic,
+            resp.content,
+            str(user_id),
+            str(project_id),
+        )
+    except Exception as e:
+        logger.warning("regenerate_project_image: upload failed, using raw URL: %s", e)
+        r2_url = raw_url
+
+    # Update final_config di DB
+    project = await db.scalar(
+        _select(ProjectModel).where(
+            ProjectModel.id == project_id,
+            ProjectModel.user_id == user_id,
+        )
+    )
+    if project:
+        config = dict(project.final_config)
+        config["thematic_image_url"] = r2_url
+        project.final_config = config
+        await db.commit()
+
+    return r2_url
+
+
+async def _persist_image(url: str, session_id: str) -> str:
+    """Download image dari provider URL dan upload ke R2 temp. Fallback ke URL asli jika gagal."""
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url)
@@ -146,6 +208,23 @@ async def _persist_image(url: str, session_id: str) -> str:
         )
     except Exception as e:
         logger.warning("persist_image failed for session %s: %s — using raw URL", session_id, e)
+        return url
+
+
+async def _persist_image_permanent(url: str, user_id: str, project_id: str) -> str:
+    """Download image dari URL eksternal dan upload langsung ke R2 permanent.
+    Dipakai sebagai fallback di select_variant jika _persist_image sebelumnya gagal.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, storage_service.upload_permanent_thematic, resp.content, user_id, project_id
+        )
+    except Exception as e:
+        logger.warning("persist_image_permanent failed user=%s project=%s: %s — using raw URL", user_id, project_id, e)
         return url
 
 
@@ -173,20 +252,23 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         await db.commit()
         return
 
+    campaign = session.campaign_data or {}
+    image_source = campaign.get("image_source", "none")
+    language_preference = campaign.get("language_preference") or profile.language_preference
+
     copy_input = CopyInput(
         business_name=profile.business_name,
         industry=profile.industry,
         brand_colors=profile.brand_colors,
         language_style=session.language_style,
-        language_preference=profile.language_preference,
-        campaign_data=session.campaign_data,
+        language_preference=language_preference,
         template_theme=template.theme,
+        content_brief=campaign.get("content_brief"),
+        target_audience=campaign.get("target_audience"),
+        campaign_data=campaign,
     )
-    image_input = (
-        ImageInput(theme=session.thematic_image_theme)
-        if session.thematic_image_theme
-        else None
-    )
+    image_prompt = campaign.get("image_prompt") or template.theme
+    image_input = ImageInput(theme=image_prompt) if image_source == "suggestion" else None
 
     try:
         copy_result, image_result = await ai_service.generate_content(

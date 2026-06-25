@@ -9,6 +9,8 @@ class CopyInput:
     language_preference: str
     template_theme: str
     brand_colors: list[str] | None = None
+    content_brief: str | None = None
+    target_audience: str | None = None
     campaign_data: dict | None = None
 
 

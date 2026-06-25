@@ -19,6 +19,8 @@ class AnthropicCopyProvider:
             language_style=input.language_style,
             language_preference=input.language_preference,
             brand_colors=", ".join(input.brand_colors) if input.brand_colors else "tidak ditentukan",
+            content_brief=input.content_brief or "tidak diisi",
+            target_audience=input.target_audience or "umum",
             campaign_data=json.dumps(input.campaign_data, ensure_ascii=False) if input.campaign_data else "{}",
         )
 

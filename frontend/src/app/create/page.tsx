@@ -23,16 +23,13 @@ const LOCKED_ELEMENTS = [
   { label: "Color scheme",       icon: "palette"     },
 ];
 
-const THEMES = [
-  { id: "lebaran",      label: "Lebaran / Idul Fitri", icon: "moon"         },
-  { id: "harbolnas",    label: "Harbolnas 12.12",       icon: "shopping-bag" },
-  { id: "hari-buruh",   label: "Hari Buruh",            icon: "hammer"       },
-  { id: "hut-ri",       label: "HUT RI 17 Agustus",    icon: "flag"         },
-  { id: "tahun-baru",   label: "Tahun Baru",            icon: "sparkles"     },
-  { id: "valentine",    label: "Valentine",             icon: "heart"        },
-  { id: "natal",        label: "Natal",                 icon: "gift"         },
-  { id: "grand-opening",label: "Grand Opening",         icon: "store"        },
-];
+const IMAGE_SOURCES = [
+  { id: "upload",     label: "Upload Image",      icon: "upload",    desc: "Gunakan foto atau aset brand milikmu sendiri"           },
+  { id: "suggestion", label: "Image Suggestion",  icon: "sparkles",  desc: "AI pilihkan gambar yang relevan dengan kontenmu"        },
+  { id: "none",       label: "Tanpa Gambar",       icon: "ban",       desc: "Hanya copy dan typography, tanpa elemen visual tambahan" },
+] as const;
+
+type ImageSource = typeof IMAGE_SOURCES[number]["id"];
 
 const GAYA_BAHASA = [
   { id: "formal",      label: "Formal",        icon: "briefcase",   desc: "Kalimat lengkap, profesional, tidak ada singkatan"         },
@@ -41,8 +38,6 @@ const GAYA_BAHASA = [
   { id: "fun",         label: "Fun & Playful", icon: "zap",         desc: "Wordplay, emoji, tone ringan dan menghibur"                },
   { id: "inspiratif",  label: "Inspiratif",    icon: "star",        desc: "Quote-driven, emosional, motivatif"                        },
 ];
-
-type ThematicMode = "skip" | "add";
 
 const LANG_TO_PREFERENCE: Record<string, string> = {
   Indonesia: "id",
@@ -56,10 +51,14 @@ export default function CreatePage() {
   const templateId = searchParams.get("templateId");
 
   const [template, setTemplate] = useState<Template | null>(null);
-  const [thematicMode, setThematicMode] = useState<ThematicMode>("skip");
-  const [theme, setTheme]   = useState<string | null>(null);
-  const [gaya, setGaya]     = useState<string | null>(null);
-  const [lang, setLang]     = useState("Indonesia");
+  const [content, setContent]   = useState("");
+  const [imageSrc, setImageSrc] = useState<ImageSource>("none");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [imageSuggestions,   setImageSuggestions]   = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedPrompt,     setSelectedPrompt]     = useState<string | null>(null);
+  const [gaya, setGaya]         = useState<string | null>(null);
+  const [lang, setLang]         = useState("Indonesia");
   const [targetAudiens, setTargetAudiens] = useState("Anak muda (18–25)");
   const [generating, setGenerating] = useState(false);
 
@@ -69,14 +68,10 @@ export default function CreatePage() {
     }
   }, [templateId]);
 
-  const selectedGaya  = GAYA_BAHASA.find((g) => g.id === gaya);
-  const selectedTheme = THEMES.find((t) => t.id === theme);
-  const canGenerate   = gaya !== null && !!templateId;
-
-  function handleThematicMode(mode: ThematicMode) {
-    setThematicMode(mode);
-    if (mode === "skip") setTheme(null);
-  }
+  const selectedGaya    = GAYA_BAHASA.find((g) => g.id === gaya);
+  const selectedImgSrc  = IMAGE_SOURCES.find((s) => s.id === imageSrc);
+  const canGenerate     = gaya !== null && !!templateId &&
+    (imageSrc !== "suggestion" || selectedPrompt !== null);
 
   async function handleGenerate() {
     if (!canGenerate || !templateId) return;
@@ -85,8 +80,10 @@ export default function CreatePage() {
       const session = await generateApi.createSession({
         template_id: templateId,
         language_style: gaya!,
-        thematic_image_theme: thematicMode === "add" && theme ? theme : undefined,
         campaign_data: {
+          content_brief: content || undefined,
+          image_source: imageSrc,
+          image_prompt: selectedPrompt || undefined,
           target_audience: targetAudiens,
           language_preference: LANG_TO_PREFERENCE[lang] ?? "id",
         },
@@ -114,7 +111,7 @@ export default function CreatePage() {
     >
       <PageHead
         title="Konfigurasi konten"
-        subtitle="Template sudah dipilih. Atur thematic image dan gaya bahasa sebelum generate."
+        subtitle="Template sudah dipilih. Isi brief konten, pilih sumber gambar, dan atur gaya bahasa sebelum generate."
       />
 
       {/* Breadcrumb stepper */}
@@ -171,6 +168,7 @@ export default function CreatePage() {
               <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
                 {template?.content_type && <Badge variant="secondary">{template.content_type}</Badge>}
                 {template?.industry && <Badge variant="secondary">{template.industry}</Badge>}
+                {template?.theme && <Badge variant="info">{template.theme}</Badge>}
               </div>
             </div>
 
@@ -214,7 +212,7 @@ export default function CreatePage() {
         {/* ── Right: configuration ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* Section A: Thematic Image */}
+          {/* Section A: Konten */}
           <Card variant="elevated" padding={20}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
               <span style={{
@@ -222,85 +220,43 @@ export default function CreatePage() {
                 background: "var(--tint-primary)", color: "var(--primary)",
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
               }}>
-                <Icon name="image" size={18} />
+                <Icon name="file-text" size={18} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="aigt-h5">Thematic Image</div>
+                <div className="aigt-h5">Konten</div>
                 <div className="aigt-caption" style={{ marginTop: 3 }}>
-                  Elemen visual AI yang unik per sesi — mencegah kontenmu terlihat sama dengan pengguna lain yang pakai template ini.
+                  Jelaskan produk, promo, atau pesan utama yang ingin kamu sampaikan. AI akan gunakan ini sebagai dasar generate copy.
                 </div>
               </div>
               <Badge variant="secondary" style={{ flexShrink: 0 }}>Opsional</Badge>
             </div>
-
-            {/* Skip / Add toggle */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {([
-                { val: "skip", label: "Lewati",      icon: "x"    },
-                { val: "add",  label: "Tambahkan",   icon: "plus" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.val}
-                  onClick={() => handleThematicMode(opt.val)}
-                  style={{
-                    flex: 1, padding: "10px 14px", borderRadius: "var(--radius-lg)",
-                    border: `1px solid ${thematicMode === opt.val ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                    background: thematicMode === opt.val ? "var(--tint-primary)" : "var(--card)",
-                    color: thematicMode === opt.val ? "var(--primary)" : "var(--muted-foreground)",
-                    cursor: "pointer", fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-sm)", fontWeight: thematicMode === opt.val ? 600 : 500,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                    transition: "all .15s ease",
-                  }}
-                >
-                  <Icon name={opt.icon as "x" | "plus"} size={14} />
-                  {opt.label}
-                </button>
-              ))}
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Contoh: Promo diskon 50% untuk semua menu minuman setiap hari Senin–Rabu, berlaku hingga akhir bulan. Target pelanggan setia yang sering order via online."
+              rows={4}
+              style={{
+                width: "100%", boxSizing: "border-box",
+                padding: "10px 12px", borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+                background: "var(--surface-sunken)",
+                color: "var(--foreground)",
+                fontSize: "var(--text-sm)", fontFamily: "var(--font-sans)",
+                lineHeight: 1.6, resize: "vertical", outline: "none",
+                transition: "border-color .15s ease, box-shadow .15s ease",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "var(--ring)";
+                e.target.style.boxShadow = "0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "var(--border)";
+                e.target.style.boxShadow = "none";
+              }}
+            />
+            <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted-foreground)", textAlign: "right" }}>
+              {content.length} karakter
             </div>
-
-            {/* Theme grid — hanya muncul jika mode "add" */}
-            {thematicMode === "add" && (
-              <div>
-                <div className="aigt-label" style={{ marginBottom: 10 }}>Pilih tema</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTheme(t.id)}
-                      style={{
-                        padding: "10px 12px", borderRadius: "var(--radius-lg)",
-                        border: `1px solid ${theme === t.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                        background: theme === t.id ? "var(--tint-primary)" : "var(--surface-sunken)",
-                        color: theme === t.id ? "var(--primary)" : "var(--foreground)",
-                        cursor: "pointer", fontFamily: "var(--font-sans)",
-                        fontSize: "var(--text-xs)", fontWeight: theme === t.id ? 600 : 400,
-                        display: "flex", alignItems: "center", gap: 8, textAlign: "left",
-                        transition: "all .15s ease",
-                      }}
-                    >
-                      <Icon name={t.icon as "moon"} size={13} style={{ flexShrink: 0 }} />
-                      <span style={{ flex: 1 }}>{t.label}</span>
-                      {theme === t.id && <Icon name="check" size={13} style={{ flexShrink: 0 }} />}
-                    </button>
-                  ))}
-                </div>
-
-                {theme && (
-                  <div style={{
-                    marginTop: 12, padding: "9px 12px",
-                    background: "color-mix(in oklch, var(--primary) 6%, var(--card))",
-                    border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.55,
-                    display: "flex", alignItems: "center", gap: 8,
-                  }}>
-                    <Icon name="sparkles" size={12} style={{ color: "var(--primary)", flexShrink: 0 }} />
-                    AI akan generate elemen visual <strong style={{ color: "var(--foreground)" }}>{selectedTheme?.label}</strong> yang unik saat kamu klik Generate.
-                  </div>
-                )}
-              </div>
-            )}
           </Card>
 
           {/* Section B: Gaya Bahasa */}
@@ -426,6 +382,219 @@ export default function CreatePage() {
             </div>
           </Card>
 
+          {/* Section D: Sumber Gambar */}
+          <Card variant="elevated" padding={20}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <span style={{
+                width: 38, height: 38, borderRadius: "var(--radius-lg)", flexShrink: 0,
+                background: "var(--tint-primary)", color: "var(--primary)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon name="image" size={18} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="aigt-h5">Sumber Gambar</div>
+                <div className="aigt-caption" style={{ marginTop: 3 }}>
+                  Pilih bagaimana elemen visual akan ditambahkan ke kontenmu.
+                </div>
+              </div>
+              <Badge variant="secondary" style={{ flexShrink: 0 }}>Opsional</Badge>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {IMAGE_SOURCES.map((src) => (
+                <button
+                  key={src.id}
+                  onClick={() => {
+                    setImageSrc(src.id);
+                    setUploadedFile(null);
+                    setImageSuggestions([]);
+                    setSelectedPrompt(null);
+                  }}
+                  style={{
+                    padding: "12px 14px", borderRadius: "var(--radius-lg)",
+                    border: `1px solid ${imageSrc === src.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
+                    background: imageSrc === src.id ? "var(--tint-primary)" : "var(--card)",
+                    cursor: "pointer", fontFamily: "var(--font-sans)", textAlign: "left",
+                    display: "flex", alignItems: "center", gap: 12,
+                    transition: "all .15s ease",
+                  }}
+                >
+                  <span style={{
+                    width: 34, height: 34, borderRadius: "var(--radius-md)", flexShrink: 0,
+                    background: imageSrc === src.id
+                      ? "color-mix(in oklch, var(--primary) 15%, transparent)"
+                      : "var(--surface-sunken)",
+                    border: `1px solid ${imageSrc === src.id ? "color-mix(in oklch, var(--primary) 25%, transparent)" : "var(--border)"}`,
+                    color: imageSrc === src.id ? "var(--primary)" : "var(--muted-foreground)",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon name={src.icon as "upload"} size={15} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: "var(--text-sm)", fontWeight: imageSrc === src.id ? 600 : 500,
+                      color: imageSrc === src.id ? "var(--primary)" : "var(--foreground)",
+                    }}>
+                      {src.label}
+                    </div>
+                    <div className="aigt-caption" style={{ marginTop: 2 }}>{src.desc}</div>
+                  </div>
+                  {imageSrc === src.id && (
+                    <Icon name="check-circle-2" size={17} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Upload zone — hanya muncul jika pilih "upload" */}
+            {imageSrc === "upload" && (
+              <div style={{ marginTop: 12 }}>
+                <label style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 8, padding: "24px 16px", cursor: "pointer",
+                  border: `2px dashed ${uploadedFile ? "var(--success)" : "color-mix(in oklch, var(--primary) 35%, transparent)"}`,
+                  borderRadius: "var(--radius-lg)",
+                  background: uploadedFile
+                    ? "color-mix(in oklch, var(--success) 6%, var(--card))"
+                    : "color-mix(in oklch, var(--primary) 4%, var(--card))",
+                  transition: "all .15s ease",
+                }}>
+                  <Icon
+                    name={uploadedFile ? "check-circle-2" : "upload-cloud"}
+                    size={24}
+                    style={{ color: uploadedFile ? "var(--success)" : "var(--primary)" }}
+                  />
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: uploadedFile ? "var(--success)" : "var(--foreground)" }}>
+                      {uploadedFile ? uploadedFile.name : "Klik untuk upload gambar"}
+                    </div>
+                    {!uploadedFile && (
+                      <div className="aigt-caption" style={{ marginTop: 3 }}>PNG, JPG, WEBP — maks. 5 MB</div>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: "none" }}
+                    onChange={(e) => setUploadedFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {uploadedFile && (
+                  <button
+                    onClick={() => setUploadedFile(null)}
+                    style={{
+                      marginTop: 8, background: "none", border: "none", cursor: "pointer",
+                      fontSize: "var(--text-xs)", color: "var(--muted-foreground)",
+                      display: "flex", alignItems: "center", gap: 4,
+                    }}
+                  >
+                    <Icon name="x" size={12} /> Hapus gambar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Image Suggestion prompts — muncul hanya jika pilih "suggestion" */}
+            {imageSrc === "suggestion" && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span className="aigt-label">Saran prompt gambar</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={loadingSuggestions ? "loader-2" : "sparkles"}
+                    disabled={!content.trim() || loadingSuggestions}
+                    onClick={async () => {
+                      setLoadingSuggestions(true);
+                      setSelectedPrompt(null);
+                      try {
+                        const result = await generateApi.getImageSuggestions({
+                          content_brief: content,
+                          template_theme: template?.theme,
+                          industry: template?.industry,
+                          target_audience: targetAudiens,
+                          language_preference: LANG_TO_PREFERENCE[lang] ?? "id",
+                        });
+                        setImageSuggestions(result.suggestions);
+                      } catch {
+                        toast({ title: "Gagal membuat saran prompt", variant: "error" });
+                      } finally {
+                        setLoadingSuggestions(false);
+                      }
+                    }}
+                  >
+                    {loadingSuggestions ? "Membuat saran…" : imageSuggestions.length ? "Buat Ulang" : "Buat Saran"}
+                  </Button>
+                </div>
+
+                {!content.trim() && (
+                  <div style={{
+                    padding: "12px 14px", borderRadius: "var(--radius-lg)",
+                    border: "1px dashed var(--border)",
+                    background: "var(--surface-sunken)",
+                    fontSize: "var(--text-xs)", color: "var(--muted-foreground)",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <Icon name="info" size={13} style={{ flexShrink: 0 }} />
+                    Isi brief konten di atas dulu agar saran prompt bisa dibuat.
+                  </div>
+                )}
+
+                {imageSuggestions.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {imageSuggestions.map((prompt, i) => {
+                      const isSelected = selectedPrompt === prompt;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedPrompt(isSelected ? null : prompt)}
+                          style={{
+                            padding: "11px 14px", borderRadius: "var(--radius-lg)", textAlign: "left",
+                            border: `1.5px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                            background: isSelected ? "var(--tint-primary)" : "var(--card)",
+                            cursor: "pointer", fontFamily: "var(--font-sans)",
+                            display: "flex", alignItems: "flex-start", gap: 10,
+                            transition: "all .15s ease",
+                          }}
+                        >
+                          <span style={{
+                            width: 20, height: 20, borderRadius: 999, flexShrink: 0, marginTop: 1,
+                            background: isSelected ? "var(--primary)" : "var(--surface-sunken)",
+                            border: `1.5px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            {isSelected && <Icon name="check" size={11} style={{ color: "#fff" }} />}
+                            {!isSelected && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
+                                {i + 1}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{
+                            flex: 1, fontSize: "var(--text-xs)", lineHeight: 1.55,
+                            color: isSelected ? "var(--primary)" : "var(--foreground)",
+                            fontWeight: isSelected ? 600 : 400,
+                          }}>
+                            {prompt}
+                          </span>
+                          {isSelected && (
+                            <Icon name="check-circle-2" size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {!selectedPrompt && (
+                      <p style={{ fontSize: 11, color: "var(--muted-foreground)", margin: 0 }}>
+                        Pilih salah satu prompt untuk melanjutkan.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
           {/* ── Generate CTA bar ── */}
           <div style={{
             display: "flex", alignItems: "center", gap: 14,
@@ -446,15 +615,16 @@ export default function CreatePage() {
                   </div>
                   <div className="aigt-caption" style={{ marginTop: 3 }}>
                     <span style={{ color: "var(--primary)", fontWeight: 500 }}>{selectedGaya?.label}</span>
-                    {selectedTheme && (
-                      <> · <span>{selectedTheme.label}</span></>
-                    )}
-                    {!selectedTheme && <> · Tanpa thematic image</>}
+                    {" · "}
+                    <span>{selectedImgSrc?.label ?? "Tanpa gambar"}</span>
+                    {content && <> · <span style={{ fontStyle: "italic" }}>Brief diisi</span></>}
                   </div>
                 </>
               ) : (
                 <div style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
-                  Pilih gaya bahasa untuk melanjutkan
+                  {imageSrc === "suggestion" && !selectedPrompt && gaya
+                    ? "Pilih satu prompt gambar untuk melanjutkan"
+                    : "Pilih gaya bahasa untuk melanjutkan"}
                 </div>
               )}
             </div>

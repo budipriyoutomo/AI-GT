@@ -21,20 +21,21 @@ _DEFAULT_NEGATIVE = "text, watermark, logo, blurry, low quality, distorted"
 
 _FLUX_MAX_STEPS = 4
 
-# Aspect ratio terdekat dari width/height
 _ASPECT_RATIO_MAP = [
-    (1.0,   "1:1"),
-    (1.333, "4:3"),
-    (0.75,  "3:4"),
-    (1.778, "16:9"),
-    (0.5625,"9:16"),
-    (1.25,  "5:4"),
-    (0.8,   "4:5"),
+    (1.0,    "1:1"),
+    (1.333,  "4:3"),
+    (0.75,   "3:4"),
+    (1.778,  "16:9"),
+    (0.5625, "9:16"),
+    (1.25,   "5:4"),
+    (0.8,    "4:5"),
 ]
 
 
 def _build_prompt(theme: str) -> str:
-    base = _THEME_PROMPTS.get(theme, f"{theme} themed marketing visual")
+    # Jika theme adalah key di _THEME_PROMPTS, expand ke deskripsi lengkap.
+    # Jika tidak (text prompt langsung dari user), gunakan apa adanya.
+    base = _THEME_PROMPTS.get(theme, theme)
     return f"{base}, high quality, professional marketing image, 4k"
 
 
@@ -43,46 +44,48 @@ def _width_height_to_aspect_ratio(width: int, height: int) -> str:
     return min(_ASPECT_RATIO_MAP, key=lambda x: abs(x[0] - ratio))[1]
 
 
-def _build_sdxl_input(prompt: str, input: ImageInput) -> dict:
+def _build_sdxl_input(prompt: str, inp: ImageInput) -> dict:
     return {
         "prompt": prompt,
         "negative_prompt": _DEFAULT_NEGATIVE,
-        "width": input.width,
-        "height": input.height,
-        "num_inference_steps": input.num_inference_steps,
-        "guidance_scale": input.guidance_scale,
-        "num_outputs": input.num_outputs,
+        "width": inp.width,
+        "height": inp.height,
+        "num_inference_steps": inp.num_inference_steps,
+        "guidance_scale": inp.guidance_scale,
+        "num_outputs": inp.num_outputs,
     }
 
 
-def _build_flux_input(prompt: str, input: ImageInput) -> dict:
+def _build_flux_input(prompt: str, inp: ImageInput) -> dict:
     return {
         "prompt": prompt,
-        "num_outputs": input.num_outputs,
-        "num_inference_steps": min(input.num_inference_steps, _FLUX_MAX_STEPS),
-        "aspect_ratio": _width_height_to_aspect_ratio(input.width, input.height),
+        "num_outputs": inp.num_outputs,
+        "num_inference_steps": min(inp.num_inference_steps, _FLUX_MAX_STEPS),
+        "aspect_ratio": _width_height_to_aspect_ratio(inp.width, inp.height),
         "output_format": "png",
     }
 
 
-def _build_model_input(model: str, prompt: str, input: ImageInput) -> dict:
+def _build_model_input(model: str, prompt: str, inp: ImageInput) -> dict:
     if "flux" in model:
-        return _build_flux_input(prompt, input)
-    return _build_sdxl_input(prompt, input)
+        return _build_flux_input(prompt, inp)
+    return _build_sdxl_input(prompt, inp)
 
 
 class ReplicateImageProvider:
-    async def generate_images(self, input: ImageInput) -> ImageResult:
-        model = settings.ai_image_model
-        prompt = _build_prompt(input.theme)
+    def _client(self) -> replicate.Client:
+        # Explicit token agar tidak bergantung pada env var REPLICATE_API_TOKEN.
+        return replicate.Client(api_token=settings.replicate_api_token)
 
-        output = await replicate.async_run(
+    async def generate_images(self, inp: ImageInput) -> ImageResult:
+        client = self._client()
+        model = settings.ai_image_model
+        prompt = _build_prompt(inp.theme)
+
+        output = await client.async_run(
             model,
-            input=_build_model_input(model, prompt, input),
+            input=_build_model_input(model, prompt, inp),
         )
 
         urls = [str(url) for url in output] if output else []
-        while len(urls) < 3:
-            urls.append(None)
-
         return ImageResult(image_urls=urls[:3])

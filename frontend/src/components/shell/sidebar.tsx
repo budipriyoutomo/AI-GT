@@ -24,7 +24,8 @@ const NAV = [
   {
     group: "Akun",
     items: [
-      { id: "settings", label: "Pengaturan", icon: "settings", href: "/settings" },
+      { id: "subscription", label: "Langganan", icon: "crown",    href: "/subscription" },
+      { id: "settings",     label: "Pengaturan", icon: "settings", href: "/settings"     },
     ],
   },
 ];
