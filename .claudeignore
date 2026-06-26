@@ -1,0 +1,19 @@
+# Build outputs
+.next/
+frontend/.next/
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Python venv & cache
+backend/aigt/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Lock files
+frontend/package-lock.json
+
+# Static assets
+frontend/public/
