@@ -16,6 +16,7 @@ class Template(Base):
     industry: Mapped[str] = mapped_column(String(50), nullable=False)
     theme: Mapped[str] = mapped_column(String(50), nullable=False)
     content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    layout_type: Mapped[str] = mapped_column(String, nullable=False, default="promo_simple")
     thumbnail_url: Mapped[str] = mapped_column(Text, nullable=False)
     template_config: Mapped[dict] = mapped_column(JSON, nullable=False)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -10,6 +10,7 @@ class TemplateData(BaseModel):
     industry: str
     theme: str
     content_type: str
+    layout_type: str
     thumbnail_url: str
     template_config: dict
     is_premium: bool

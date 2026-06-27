@@ -31,7 +31,11 @@ async def create_profile(
         user_id=user_id,
         business_name=data.business_name,
         industry=data.industry,
+        logo_url=data.logo_url,
         brand_colors=data.brand_colors,
+        brand_font=data.brand_font,
+        tagline=data.tagline,
+        contact=data.contact.model_dump() if data.contact else None,
         language_preference=data.language_preference,
     )
     db.add(profile)
@@ -45,7 +49,11 @@ async def update_profile(
 ) -> CompanyProfile:
     profile = await get_profile(db, user_id)
 
-    for field, value in data.model_dump(exclude_unset=True).items():
+    update_data = data.model_dump(exclude_unset=True)
+    if "contact" in update_data and update_data["contact"] is not None:
+        update_data["contact"] = data.contact.model_dump()
+
+    for field, value in update_data.items():
         setattr(profile, field, value)
 
     await db.commit()

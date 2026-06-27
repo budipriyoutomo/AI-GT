@@ -19,6 +19,9 @@ class CompanyProfile(Base):
     industry: Mapped[str] = mapped_column(String(50), nullable=False)
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     brand_colors: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    brand_font: Mapped[str | None] = mapped_column(String, nullable=True)
+    tagline: Mapped[str | None] = mapped_column(String, nullable=True)
+    contact: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     language_preference: Mapped[str] = mapped_column(String(10), default="id")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
