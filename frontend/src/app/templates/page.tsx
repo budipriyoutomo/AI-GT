@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, CSSProperties } from "react";
 import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
@@ -11,12 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
-import { PosterThumb } from "@/components/poster-thumb";
 import { toast } from "@/components/ui/toast";
 import { templatesApi } from "@/api/templatesApi";
-import type { Template } from "@/types/template";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import type { TemplateListItem, PreviewConfig } from "@/types/template";
 
-const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-4", "--chart-5", "--chart-2"];
 const FORMATS = ["Semua", "Single", "Carousel"];
 const INDUSTRIES = [
   "Semua industri",
@@ -27,20 +26,185 @@ const INDUSTRIES = [
   "Edukasi",
 ];
 
+// Posisi zone (0–1) → CSS absolute dalam persen
+const toPos = (x: number, y: number, w: number, h: number): CSSProperties => ({
+  position: "absolute",
+  left: `${x * 100}%`,
+  top: `${y * 100}%`,
+  width: `${w * 100}%`,
+  height: `${h * 100}%`,
+  overflow: "hidden",
+});
+
+// Font size dari ruang 1080px → cqw agar skala otomatis dengan lebar container
+const cqw = (px: number | null): string | undefined =>
+  px != null ? `${((px / 1080) * 100).toFixed(3)}cqw` : undefined;
+
+// Hex (#RGB / #RRGGBB) → rgba(). Penting: fade gradien HARUS ke warna-sama-alpha-0,
+// bukan keyword `transparent` (= rgba(0,0,0,0)) yang bikin gradien lewat hitam.
+function hexToRgba(hex: string, alpha: number): string {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function TemplatePreview({ cfg, thumbnailUrl }: { cfg: PreviewConfig; thumbnailUrl: string | null }) {
+  const { color_scheme, font_family, zones } = cfg;
+  const profile = DEFAULT_COMPANY_PROFILE;
+
+  const resolveColor = (role: string | null): string =>
+    role ? (color_scheme as Record<string, string>)[role] ?? role : "inherit";
+
+  const cs = color_scheme as Record<string, string>;
+  const primary = cs.primary ?? "#111111";
+  const accent = cs.accent ?? primary;
+
+  // Warna headline selalu accent
+  const headlineColor = resolveColor(zones.headline?.style.accentColor ?? "accent");
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: "4 / 5",
+        backgroundColor: "#111111",
+        borderRadius: "var(--radius-md)",
+        overflow: "hidden",
+        fontFamily: font_family || "Inter",
+        containerType: "inline-size" as CSSProperties["containerType"],
+      }}
+    >
+      {/* Background image */}
+      {thumbnailUrl && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={thumbnailUrl}
+          alt=""
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      )}
+
+      {/* Gradien: primary (bawah) → accent (tengah) → transparent (atas) */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `linear-gradient(to bottom, ${hexToRgba(primary, 0.92)} 0%, ${hexToRgba(accent, 0)} 70%)`,
+        }}
+      />
+
+      {/* Logo */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={profile.logo_url}
+        alt=""
+        style={{
+          ...toPos(zones.logo.x, zones.logo.y, zones.logo.width, zones.logo.height),
+          objectFit: "contain",
+        }}
+      />
+
+      {/* Text zones — flex column agar jarak headline↔body natural, tidak terikat zone height */}
+      {zones.headline && (
+      <div
+        style={{
+          position: "absolute",
+          left: `${zones.headline.x * 100}%`,
+          top: `${zones.headline.y * 100}%`,
+          width: `${zones.headline.width * 100}%`,
+          display: "flex",
+          flexDirection: "column",
+          gap: cqw(16),
+        }}
+      >
+        {zones.headline?.visible && (
+          <div
+            style={{
+              color: headlineColor,
+              fontSize: cqw(zones.headline.style.fontSize),
+              fontWeight: zones.headline.style.fontWeight ?? "bold",
+              lineHeight: 1.1,
+            }}
+          >
+            {zones.headline.value || profile.business_name}
+          </div>
+        )}
+
+        {zones.body?.visible && (
+          <div
+            style={{
+              color: resolveColor(zones.body.style.color),
+              fontSize: cqw(zones.body.style.fontSize),
+              fontWeight: zones.body.style.fontWeight ?? "normal",
+              lineHeight: 1.4,
+            }}
+          >
+            {zones.body.value || profile.tagline || "Deskripsi produk atau layananmu"}
+          </div>
+        )}
+
+        {zones.cta?.visible && (
+          <div
+            style={{
+              color: resolveColor(zones.cta.style.color),
+              fontSize: cqw(zones.cta.style.fontSize),
+              fontWeight: zones.cta.style.fontWeight ?? "bold",
+            }}
+          >
+            {zones.cta.value || "Hubungi Kami"}
+          </div>
+        )}
+      </div>
+      )}
+
+      {/* Footer */}
+      <div
+        style={{
+          ...toPos(zones.footer.x, zones.footer.y, zones.footer.width, zones.footer.height),
+          backgroundColor: zones.footer.style.backgroundColor,
+          opacity: zones.footer.style.opacity,
+          display: "flex",
+          alignItems: "center",
+          gap: "2%",
+          padding: "0 3%",
+        }}
+      >
+        {zones.footer.slots.map((slot) => {
+          const handle = profile.contact[slot as keyof typeof profile.contact];
+          return (
+            <span
+              key={slot}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4%",
+                color: resolveColor(zones.footer.style.color),
+                fontSize: cqw(zones.footer.style.fontSize),
+              }}
+            >
+              <Icon name={slot} size={8} />
+              {handle && <span>{handle}</span>}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TemplateCard({
   t,
-  idx,
   fav,
   onFav,
 }: {
-  t: Template;
-  idx: number;
+  t: TemplateListItem;
   fav: boolean;
   onFav: () => void;
 }) {
-  const accent = ACCENT_POOL[idx % ACCENT_POOL.length];
-  const kicker = t.theme || t.industry;
-
   return (
     <div style={{ position: "relative" }} className="group">
       <button
@@ -60,16 +224,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ position: "relative" }}>
-          {t.thumbnail_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={t.thumbnail_url}
-              alt={t.name}
-              style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: "var(--radius-md)" }}
-            />
-          ) : (
-            <PosterThumb title={t.name} kicker={kicker} cta={null} accent={accent} ratio="4 / 5" />
-          )}
+          <TemplatePreview cfg={t.preview_config} thumbnailUrl={t.thumbnail_url} />
 
           {t.is_premium && (
             <div style={{
@@ -81,6 +236,7 @@ function TemplateCard({
               fontSize: 10, fontWeight: 600,
               color: "var(--foreground)",
               border: "1px solid var(--border)",
+              zIndex: 1,
             }}>
               <Icon name="crown" size={11} style={{ color: "var(--primary)" }} />
               Premium
@@ -89,7 +245,7 @@ function TemplateCard({
 
           <div
             className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
-            style={{ position: "absolute", inset: "12px 12px auto 12px" }}
+            style={{ position: "absolute", inset: "12px 12px auto 12px", zIndex: 1 }}
           >
             <Link href={`/create?templateId=${t.id}`} style={{ display: "block" }}>
               <Button icon="sparkles" style={{ width: "100%" }}>Pakai Template</Button>
@@ -124,7 +280,7 @@ function SkeletonCard() {
 }
 
 export default function TemplatesPage() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fmt, setFmt] = useState("Semua");
   const [industry, setIndustry] = useState("Semua industri");
@@ -239,11 +395,10 @@ export default function TemplatesPage() {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {list.map((t, i) => (
+          {list.map((t) => (
             <TemplateCard
               key={t.id}
               t={t}
-              idx={i}
               fav={!!favs[t.id]}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
             />

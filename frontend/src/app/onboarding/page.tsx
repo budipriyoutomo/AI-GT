@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { FontSelect } from "@/components/ui/font-select";
 import { Switch } from "@/components/ui/switch";
 import { Icon } from "@/components/ui/icon";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -31,6 +32,9 @@ export default function OnboardingPage() {
   const [industry, setIndustry] = useState("F&B / Kuliner");
   const [logo, setLogo] = useState(false);
   const [color, setColor] = useState("#2F6BFF");
+  const [secondary, setSecondary] = useState("#7C3AED");
+  const [tagline, setTagline] = useState("");
+  const [font, setFont] = useState("Inter");
   const [lang, setLang] = useState("Indonesia");
   const [tone, setTone] = useState("Ramah & santai");
 
@@ -39,7 +43,10 @@ export default function OnboardingPage() {
     // pre-fill from saved profile
     if (user.businessName) setName(user.businessName);
     if (user.industry) setIndustry(user.industry);
-    if (user.brandColor) setColor(user.brandColor);
+    if (user.brandColors?.[0]) setColor(user.brandColors[0]);
+    if (user.brandColors?.[1]) setSecondary(user.brandColors[1]);
+    if (user.tagline) setTagline(user.tagline);
+    if (user.brandFont) setFont(user.brandFont);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,7 +57,13 @@ export default function OnboardingPage() {
     if (step < last) {
       setStep(step + 1);
     } else {
-      await updateProfile({ businessName: name || user?.businessName, industry, brandColor: color });
+      await updateProfile({
+        businessName: name || user?.businessName,
+        industry,
+        tagline: tagline.trim(),
+        brandColors: [color, secondary],
+        brandFont: font,
+      });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
       router.replace("/dashboard");
     }
@@ -113,7 +126,7 @@ export default function OnboardingPage() {
             </div>
           )}
         </div>
-        <Input label="Tagline (opsional)" defaultValue="Teman ngopi sore kamu" placeholder="mis. Teman ngopi sore kamu" />
+        <Input label="Tagline (opsional)" value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="mis. Teman ngopi sore kamu" />
       </div>
     );
 
@@ -145,9 +158,31 @@ export default function OnboardingPage() {
             <Input value={color.toUpperCase()} onChange={(e) => setColor(e.target.value)} style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties} />
           </div>
         </div>
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Warna sekunder</label>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            {COLORS.map((c) => (
+              <button
+                key={c} type="button"
+                onClick={() => setSecondary(c)}
+                aria-label={c}
+                style={{ width: 38, height: 38, borderRadius: 999, background: c, border: "2px solid transparent", cursor: "pointer", boxShadow: secondary === c ? `0 0 0 2px var(--card), 0 0 0 4px var(--foreground)` : undefined, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                {secondary === c && <Icon name="check" size={16} style={{ color: "#fff" }} />}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: secondary, border: "1px solid var(--border)", flex: "none" }} />
+            <Input value={secondary.toUpperCase()} onChange={(e) => setSecondary(e.target.value)} style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties} />
+          </div>
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <FontSelect label="Font brand" value={font} onChange={setFont} options={["Inter", "Poppins", "Montserrat", "Plus Jakarta Sans", "Nunito", "Lato", "Roboto", "Open Sans", "Playfair Display"]} />
+        </div>
         <div style={{ padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)", display: "flex", gap: 12, alignItems: "center" }}>
           <Icon name="info" size={16} style={{ color: "var(--info)" }} />
-          <span className="aigt-caption">Lihat pratinjau warna pada kartu brand di panel kiri secara langsung.</span>
+          <span className="aigt-caption">Warna utama & sekunder dipakai untuk mencocokkan template dengan brand kamu.</span>
         </div>
       </div>
     );

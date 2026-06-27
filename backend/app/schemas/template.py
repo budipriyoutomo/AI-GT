@@ -4,7 +4,9 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class TemplateData(BaseModel):
+class TemplateListData(BaseModel):
+    """Kolom ringan untuk list template — preview_config adalah subset dari template_config."""
+
     id: uuid.UUID
     name: str
     industry: str
@@ -12,8 +14,14 @@ class TemplateData(BaseModel):
     content_type: str
     layout_type: str
     thumbnail_url: str
-    template_config: dict
     is_premium: bool
-    created_at: datetime
+    preview_config: dict
 
     model_config = {"from_attributes": True}
+
+
+class TemplateData(TemplateListData):
+    template_config: dict
+    created_at: datetime
+    # preview_config tidak relevan di single view — sudah ada template_config
+    preview_config: dict = {}

@@ -6,6 +6,7 @@ import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { FontSelect } from "@/components/ui/font-select";
 import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
@@ -13,10 +14,17 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import type { CompanyContact } from "@/types/company-profile";
 
 /* ── Constants ────────────────────────────────────────────── */
 
 const BRAND_COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
+
+const FONT_OPTIONS = ["Inter", "Poppins", "Montserrat", "Plus Jakarta Sans", "Nunito", "Lato", "Roboto", "Open Sans", "Playfair Display"];
+
+const EMPTY_CONTACT: CompanyContact = {
+  website: "", phone: "", instagram: "", tiktok: "", youtube: "", hashtag: "",
+};
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -32,6 +40,39 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) {
+  return (
+    <div>
+      <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>{label}</label>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        {BRAND_COLORS.map((c) => (
+          <button
+            key={c} type="button"
+            onClick={() => onChange(c)}
+            aria-label={c}
+            style={{
+              width: 38, height: 38, borderRadius: 999, background: c,
+              border: "2px solid transparent", cursor: "pointer",
+              boxShadow: value === c ? `0 0 0 2px var(--card), 0 0 0 4px var(--foreground)` : undefined,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            {value === c && <Icon name="check" size={16} style={{ color: "#fff" }} />}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <span style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: value, border: "1px solid var(--border)", flex: "none" }} />
+        <Input
+          value={value.toUpperCase()}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties}
+        />
+      </div>
+    </div>
+  );
 }
 
 /* ── Tab: Profil ──────────────────────────────────────────── */
@@ -325,17 +366,31 @@ function TabProfilBisnis() {
   const [city, setCity]                 = useState("");
   const [desc, setDesc]                 = useState("");
   const [logo, setLogo]                 = useState(false);
-  const [tagline, setTagline]           = useState("");
-  const [color, setColor]               = useState(user?.brandColor ?? "#2F6BFF");
+  const [tagline, setTagline]           = useState(user?.tagline ?? "");
+  const [primary, setPrimary]           = useState(user?.brandColors?.[0] ?? "#2F6BFF");
+  const [secondary, setSecondary]       = useState(user?.brandColors?.[1] ?? "#7C3AED");
+  const [font, setFont]                 = useState(user?.brandFont ?? "Inter");
+  const [contact, setContact]           = useState<CompanyContact>(user?.contact ?? EMPTY_CONTACT);
   const [saving, setSaving]             = useState(false);
 
   const initial = (businessName.trim()[0] || "S").toUpperCase();
+
+  function setContactField(field: keyof CompanyContact, value: string) {
+    setContact((prev) => ({ ...prev, [field]: value }));
+  }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateProfile({ businessName: businessName.trim(), industry, brandColor: color });
+      await updateProfile({
+        businessName: businessName.trim(),
+        industry,
+        tagline: tagline.trim(),
+        brandColors: [primary, secondary],
+        brandFont: font,
+        contact,
+      });
       toast({ title: "Profil bisnis disimpan", variant: "success" });
     } catch {
       toast({ title: "Gagal menyimpan profil bisnis", variant: "error" });
@@ -395,7 +450,7 @@ function TabProfilBisnis() {
                 border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--card)",
               }}>
                 <span style={{
-                  width: 52, height: 52, borderRadius: "var(--radius-lg)", background: color, color: "#fff",
+                  width: 52, height: 52, borderRadius: "var(--radius-lg)", background: primary, color: "#fff",
                   display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22,
                 }}>{initial}</span>
                 <div style={{ flex: 1 }}>
@@ -434,38 +489,47 @@ function TabProfilBisnis() {
 
       {/* ── Warna Brand ── */}
       <Section title="Warna Brand">
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 8, display: "block" }}>Warna utama</label>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {BRAND_COLORS.map((c) => (
-                <button
-                  key={c} type="button"
-                  onClick={() => setColor(c)}
-                  aria-label={c}
-                  style={{
-                    width: 38, height: 38, borderRadius: 999, background: c,
-                    border: "2px solid transparent", cursor: "pointer",
-                    boxShadow: color === c ? `0 0 0 2px var(--card), 0 0 0 4px var(--foreground)` : undefined,
-                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  {color === c && <Icon name="check" size={16} style={{ color: "#fff" }} />}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Atau masukkan kode HEX</label>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: color, border: "1px solid var(--border)", flex: "none" }} />
-              <Input
-                value={color.toUpperCase()}
-                onChange={(e) => setColor(e.target.value)}
-                style={{ fontFamily: "var(--font-mono)" } as React.CSSProperties}
-              />
-            </div>
-          </div>
+        <p className="aigt-caption" style={{ marginTop: -12, marginBottom: 16 }}>
+          Warna utama & sekunder dipakai untuk mencocokkan template yang ditampilkan dengan brand kamu.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <ColorField label="Warna utama (primary)" value={primary} onChange={setPrimary} />
+          <ColorField label="Warna sekunder (secondary)" value={secondary} onChange={setSecondary} />
+        </div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, marginTop: 18,
+          padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)",
+        }}>
+          <span className="aigt-caption" style={{ flex: "none" }}>Pratinjau:</span>
+          <span style={{ width: 28, height: 28, borderRadius: 999, background: primary, border: "1px solid var(--border)" }} />
+          <span style={{ width: 28, height: 28, borderRadius: 999, background: secondary, border: "1px solid var(--border)" }} />
+          <span style={{
+            marginLeft: "auto", padding: "5px 14px", borderRadius: "var(--radius-md)",
+            background: primary, color: "#fff", fontSize: "var(--text-xs)", fontWeight: 700,
+            borderBottom: `3px solid ${secondary}`,
+          }}>Aa</span>
+        </div>
+      </Section>
+
+      {/* ── Font Brand ── */}
+      <Section title="Font Brand">
+        <FontSelect
+          label="Font utama"
+          value={font}
+          onChange={setFont}
+          options={FONT_OPTIONS}
+        />
+      </Section>
+
+      {/* ── Kontak & Sosial Media ── */}
+      <Section title="Kontak & Sosial Media">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <Input label="Website"   icon="globe"    value={contact.website}   onChange={(e) => setContactField("website", e.target.value)}   placeholder="www.contoh.com" />
+          <Input label="Telepon"   icon="phone"    value={contact.phone}     onChange={(e) => setContactField("phone", e.target.value)}     placeholder="08xxxxxxxxxx" />
+          <Input label="Instagram" icon="instagram" value={contact.instagram} onChange={(e) => setContactField("instagram", e.target.value)} placeholder="@usernamekamu" />
+          <Input label="TikTok"    icon="music"    value={contact.tiktok}    onChange={(e) => setContactField("tiktok", e.target.value)}    placeholder="@usernamekamu" />
+          <Input label="YouTube"   icon="youtube"  value={contact.youtube}   onChange={(e) => setContactField("youtube", e.target.value)}   placeholder="Channel kamu" />
+          <Input label="Hashtag"   icon="hash"     value={contact.hashtag}   onChange={(e) => setContactField("hashtag", e.target.value)}   placeholder="#brandkamu" />
         </div>
       </Section>
 
