@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
@@ -32,11 +33,13 @@ function TemplateCard({
   idx,
   fav,
   onFav,
+  href,
 }: {
   t: Template;
   idx: number;
   fav: boolean;
   onFav: () => void;
+  href: string;
 }) {
   const accent = ACCENT_POOL[idx % ACCENT_POOL.length];
   const kicker = t.theme || t.industry;
@@ -91,7 +94,7 @@ function TemplateCard({
             className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
             style={{ position: "absolute", inset: "12px 12px auto 12px" }}
           >
-            <Link href={`/create?templateId=${t.id}`} style={{ display: "block" }}>
+            <Link href={href} style={{ display: "block" }}>
               <Button icon="sparkles" style={{ width: "100%" }}>Pakai Template</Button>
             </Link>
           </div>
@@ -124,6 +127,10 @@ function SkeletonCard() {
 }
 
 export default function TemplatesPage() {
+  const searchParams = useSearchParams();
+  const goalParam    = searchParams.get("goal");
+  const platformParam = searchParams.get("platform");
+
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [fmt, setFmt] = useState("Semua");
@@ -143,9 +150,19 @@ export default function TemplatesPage() {
       if (fmt !== "Semua" && t.content_type !== fmt) return false;
       if (industry !== "Semua industri" && t.industry !== industry) return false;
       if (q && !t.name.toLowerCase().includes(q.toLowerCase())) return false;
+      // Filter by platform from query param (templates with null platform are shown to all)
+      if (platformParam && t.platform && t.platform !== platformParam) return false;
       return true;
     });
-  }, [templates, fmt, industry, q]);
+  }, [templates, fmt, industry, q, platformParam]);
+
+  // Build template link that preserves goal+platform context
+  function templateLink(templateId: string) {
+    const params = new URLSearchParams({ templateId });
+    if (goalParam) params.set("goal", goalParam);
+    if (platformParam) params.set("platform", platformParam);
+    return `/create?${params.toString()}`;
+  }
 
   return (
     <Shell
@@ -159,34 +176,20 @@ export default function TemplatesPage() {
     >
       <PageHead title="Galeri Template" subtitle="Pilih template, AI akan menyesuaikan copy dan typography dengan brand dan industrimu." />
 
-      {/* Generate by Campaign banner */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 16,
-        padding: "14px 18px",
-        background: "linear-gradient(135deg, color-mix(in oklch, var(--primary) 8%, var(--card)), color-mix(in oklch, var(--aigt-spark) 6%, var(--card)))",
-        border: "1px solid color-mix(in oklch, var(--primary) 20%, transparent)",
-        borderRadius: "var(--radius-xl)",
-        marginBottom: 20,
-      }}>
-        <span style={{
-          width: 38, height: 38, borderRadius: "var(--radius-lg)", flex: "none",
-          background: "var(--tint-primary)", color: "var(--primary)",
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Icon name="target" size={18} />
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, lineHeight: 1.2 }}>Generate by Campaign</div>
-          <div className="aigt-caption" style={{ marginTop: 3 }}>
-            Definisikan tujuan campaign-mu dulu — AI akan suggest template dan generate konten yang lebih strategic.
-          </div>
+      {/* Context bar: shows goal+platform from Step 1 */}
+      {(goalParam || platformParam) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 14px", background: "color-mix(in oklch, var(--info) 6%, var(--card))", border: "1px solid color-mix(in oklch, var(--info) 20%, transparent)", borderRadius: "var(--radius-lg)", flexWrap: "wrap" }}>
+          <Icon name="filter" size={14} style={{ color: "var(--info)", flexShrink: 0 }} />
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>Filter aktif:</span>
+          {goalParam && <Badge variant="info" icon="target">{goalParam}</Badge>}
+          {platformParam && <Badge variant="info" icon="monitor-smartphone">{platformParam}</Badge>}
+          <Link href="/create" style={{ marginLeft: "auto" }}>
+            <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 4 }}>
+              <Icon name="x" size={12} /> Hapus filter
+            </button>
+          </Link>
         </div>
-        <Link href="/campaign">
-          <Button size="sm" iconRight="arrow-right" variant="outline">
-            Mulai Campaign
-          </Button>
-        </Link>
-      </div>
+      )}
 
       {/* Filter bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
@@ -246,6 +249,7 @@ export default function TemplatesPage() {
               idx={i}
               fav={!!favs[t.id]}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
+              href={templateLink(t.id)}
             />
           ))}
         </div>

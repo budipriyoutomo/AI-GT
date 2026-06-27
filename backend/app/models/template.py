@@ -18,6 +18,7 @@ class Template(Base):
     content_type: Mapped[str] = mapped_column(String(20), nullable=False)
     thumbnail_url: Mapped[str] = mapped_column(Text, nullable=False)
     template_config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    platform: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(

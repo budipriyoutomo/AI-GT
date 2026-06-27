@@ -26,7 +26,10 @@ MOCK_COPY_INPUT = CopyInput(
     language_preference="id",
     template_theme="seasonal_lebaran",
     brand_colors=["#FF5733"],
-    campaign_data={"goal": "Tingkatkan penjualan"},
+    goal="promo",
+    platform="instagram_feed",
+    product_or_service="Nasi Goreng",
+    key_message="Enak dan murah",
 )
 
 MOCK_IMAGE_INPUT = ImageInput(theme="seasonal_lebaran")
@@ -44,8 +47,6 @@ _MOCK_COPY_RESULT = CopyResult(
 
 _MOCK_IMAGE_RESULT = ImageResult(image_urls=[
     "https://r2.example.com/temp/img1.png",
-    "https://r2.example.com/temp/img2.png",
-    "https://r2.example.com/temp/img3.png",
 ])
 
 
@@ -142,7 +143,7 @@ class TestGenerateImagesSafe:
         with patch.object(ai_service, "get_image_provider", return_value=_make_image_provider()):
             result = await ai_service._generate_images_safe(MOCK_IMAGE_INPUT, "session-1")
         assert result.image_urls[0] == "https://r2.example.com/temp/img1.png"
-        assert len(result.image_urls) == 3
+        assert len(result.image_urls) == 1
 
     async def test_image_timeout_returns_empty(self):
         async def slow(*_):
@@ -152,14 +153,14 @@ class TestGenerateImagesSafe:
             with patch.object(ai_service, "_IMAGE_TIMEOUT", 0.01):
                 result = await ai_service._generate_images_safe(MOCK_IMAGE_INPUT, "session-1")
 
-        assert result.image_urls == [None, None, None]
+        assert result.image_urls == [None]
 
     async def test_image_provider_error_returns_empty(self):
         bad = _make_image_provider(side_effect=RuntimeError("Replicate API error"))
         with patch.object(ai_service, "get_image_provider", return_value=bad):
             result = await ai_service._generate_images_safe(MOCK_IMAGE_INPUT, "session-1")
 
-        assert result.image_urls == [None, None, None]
+        assert result.image_urls == [None]
 
 
 class TestGenerateContent:
@@ -206,7 +207,7 @@ class TestGenerateContent:
                 )
 
         image_mock.generate_images.assert_not_called()
-        assert image_result.image_urls == [None, None, None]
+        assert image_result.image_urls == [None]
 
     async def test_generate_content_copy_failure_propagates(self):
         """Copy failure → raise CopyError (bukan ditangkap)."""
@@ -236,4 +237,4 @@ class TestGenerateContent:
                 )
 
         assert len(copy_result.variants) == 3
-        assert image_result.image_urls == [None, None, None]
+        assert image_result.image_urls == [None]

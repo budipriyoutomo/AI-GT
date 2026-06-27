@@ -45,9 +45,13 @@ function HistoryCard({ project, onDelete }: { project: Project; onDelete: () => 
             display: "flex", alignItems: "center", justifyContent: "center",
             overflow: "hidden",
           }}>
-            {project.exported_image_url ? (
+            {(project.thumbnail_url || project.exported_image_url) ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={project.exported_image_url} alt={headline} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img
+                src={project.thumbnail_url ?? project.exported_image_url!}
+                alt={headline}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             ) : (
               <div style={{ padding: 16, textAlign: "center" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: `var(${accent})` }}>Copy</div>

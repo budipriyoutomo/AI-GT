@@ -1,3 +1,85 @@
+def build_carousel_prompt(
+    slide_count: int,
+    business_name: str,
+    industry: str,
+    template_theme: str,
+    goal: str,
+    platform: str,
+    language_style: str,
+    language_preference: str,
+    brand_colors: str,
+    product_or_service: str,
+    key_message: str,
+    promo_detail: str,
+    additional_notes: str,
+) -> str:
+    """Bangun prompt carousel dengan contoh slide yang lengkap dan dinamis."""
+    penultimate = max(2, slide_count - 1)
+
+    slide_examples = []
+    slide_examples.append(
+        '{"slide_number": 1, "type": "cover", "headline": "Maks 10 kata", "body": "Maks 20 kata", "cta": "Maks 5 kata"}'
+    )
+    for i in range(2, slide_count):
+        slide_examples.append(
+            f'{{"slide_number": {i}, "type": "content", "headline": "Maks 10 kata", "body": "Maks 25 kata", "cta": null}}'
+        )
+    slide_examples.append(
+        f'{{"slide_number": {slide_count}, "type": "closing", "headline": "Maks 10 kata", "body": "Maks 20 kata", "cta": "Maks 5 kata"}}'
+    )
+    slides_json = ",\n          ".join(slide_examples)
+
+    return f"""Kamu adalah copywriter marketing profesional untuk UKM Indonesia.
+
+Buat copy untuk KONTEN CAROUSEL {slide_count} slide dengan data berikut:
+- Nama Bisnis: {business_name}
+- Industri: {industry}
+- Tema Template: {template_theme}
+- Tujuan Konten: {goal}
+- Platform: {platform}
+- Gaya Bahasa: {language_style}
+- Bahasa: {language_preference}
+- Warna Brand: {brand_colors}
+- Produk/Layanan: {product_or_service}
+- Pesan Utama: {key_message}
+- Detail Promo: {promo_detail}
+- Catatan Tambahan: {additional_notes}
+
+Struktur {slide_count} slide yang harus dibuat:
+- Slide 1 (cover): Headline utama yang menarik perhatian, body teaser singkat, CTA kuat
+- Slide 2 s/d {penultimate} (content): Subtopik/manfaat/poin berbeda per slide, body deskriptif, cta boleh null
+- Slide {slide_count} (closing): Rangkuman singkat, ajakan kuat, CTA utama
+
+Buat JSON dengan format berikut (HARUS valid JSON, tidak ada teks lain):
+{{
+  "variants": [
+    {{
+      "variant_number": 1,
+      "copy": {{
+        "content_type": "Carousel",
+        "slides": [
+          {slides_json}
+        ]
+      }},
+      "typography": {{
+        "headline_font": "NamaFont dari Google Fonts",
+        "body_font": "NamaFont dari Google Fonts",
+        "headline_size": 34,
+        "body_size": 15,
+        "letter_spacing": 0.5
+      }}
+    }}
+  ]
+}}
+
+PENTING:
+- Array slides HARUS berisi tepat {slide_count} elemen sesuai contoh di atas
+- Slide 1 selalu type "cover", slide {slide_count} selalu type "closing", sisanya type "content"
+- Setiap slide punya sudut pandang/poin yang BERBEDA
+- Gunakan bahasa {language_preference} untuk semua copy
+- Return HANYA JSON, tidak ada penjelasan tambahan
+"""
+
 IMAGE_SUGGESTIONS_PROMPT = """
 Kamu adalah creative director untuk konten marketing UKM Indonesia.
 
@@ -21,18 +103,22 @@ Return HANYA JSON valid (tidak ada teks lain):
 COPY_PROMPT_TEMPLATE = """
 Kamu adalah copywriter marketing profesional untuk UKM Indonesia.
 
-Buat 3 varian copy untuk konten marketing dengan data berikut:
+Buat 1 copy untuk konten marketing dengan data berikut:
 - Nama Bisnis: {business_name}
 - Industri: {industry}
 - Tema Template: {template_theme}
+- Tujuan Konten: {goal}
+- Platform: {platform}
 - Gaya Bahasa: {language_style}
 - Bahasa: {language_preference}
 - Warna Brand: {brand_colors}
-- Brief Konten: {content_brief}
-- Target Audiens: {target_audience}
+- Produk/Layanan: {product_or_service}
+- Pesan Utama: {key_message}
+- Detail Promo: {promo_detail}
+- Catatan Tambahan: {additional_notes}
 - Data Kampanye Tambahan: {campaign_data}
 
-Untuk setiap varian, buat JSON dengan format berikut (HARUS valid JSON, tidak ada teks lain):
+Buat JSON dengan format berikut (HARUS valid JSON, tidak ada teks lain):
 {{
   "variants": [
     {{
@@ -49,13 +135,11 @@ Untuk setiap varian, buat JSON dengan format berikut (HARUS valid JSON, tidak ad
         "body_size": 16,
         "letter_spacing": 0.5
       }}
-    }},
-    {{ "variant_number": 2, ... }},
-    {{ "variant_number": 3, ... }}
+    }}
   ]
 }}
 
-Pastikan setiap varian memiliki tone yang berbeda (misal: emosional, informatif, urgensi).
 Gunakan bahasa {language_preference} untuk semua copy.
+Pastikan copy sesuai tujuan {goal} dan dioptimalkan untuk platform {platform}.
 Return HANYA JSON, tidak ada penjelasan tambahan.
 """

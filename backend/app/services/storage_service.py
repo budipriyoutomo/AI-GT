@@ -83,6 +83,25 @@ def upload_permanent_thematic(file_data: bytes, user_id: str, project_id: str, c
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload gambar ke storage.")
 
 
+def upload_thumbnail(file_data: bytes, user_id: str, project_id: str, content_type: str = "image/png") -> str:
+    """Upload canvas snapshot ke permanent/thumbnails/{user_id}/{project_id}.png.
+    Dipanggil setelah setiap auto-save dari editor agar thumbnail tetap sinkron.
+    """
+    key = f"permanent/thumbnails/{user_id}/{project_id}.png"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=file_data,
+            ContentType=content_type,
+        )
+        return _public_url(key)
+    except Exception as e:
+        logger.error("upload_thumbnail failed project_id=%s: %s", project_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload thumbnail.")
+
+
 def upload_exported(file_data: bytes, user_id: str, project_id: str, content_type: str = "image/png") -> str:
     """Upload export final ke permanent/exported/{user_id}/{project_id}/export.png."""
     key = f"permanent/exported/{user_id}/{project_id}/export.png"

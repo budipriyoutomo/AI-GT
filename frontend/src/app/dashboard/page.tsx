@@ -57,10 +57,10 @@ function ProjectCard({
   return (
     <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative" }}>
-        {project.exported_image_url ? (
+        {(project.thumbnail_url || project.exported_image_url) ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={project.exported_image_url}
+            src={project.thumbnail_url ?? project.exported_image_url!}
             alt={headline}
             style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: "var(--radius-md)" }}
           />
@@ -187,31 +187,7 @@ export default function DashboardPage() {
           <Button icon="layout-grid" style={{ flex: "none" }}>Buka Galeri Template</Button>
         </Link>
       </div>
-
-      {/* Generate by Campaign banner */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 16,
-        padding: "14px 22px",
-        background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: "var(--radius-xl)", marginBottom: 20,
-      }}>
-        <span style={{
-          width: 38, height: 38, borderRadius: "var(--radius-lg)",
-          background: "var(--tint-primary)", color: "var(--primary)",
-          display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        }}>
-          <Icon name="target" size={18} />
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Generate by Campaign</div>
-          <div className="aigt-caption" style={{ marginTop: 2 }}>
-            Definisikan goal, platform, dan momen — AI suggest template dan generate konten yang lebih strategic.
-          </div>
-        </div>
-        <Link href="/campaign" style={{ flexShrink: 0 }}>
-          <Button size="sm" variant="outline" icon="target">Mulai Campaign</Button>
-        </Link>
-      </div>
+ 
 
       {/* KPI stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
@@ -287,7 +263,7 @@ export default function DashboardPage() {
             {filter !== "Semua" ? "Tidak ada konten dengan filter ini" : "Belum ada konten. Yuk buat yang pertama!"}
           </p>
           {filter === "Semua" && (
-            <Link href="/templates" style={{ marginTop: 12, display: "inline-block" }}>
+            <Link href="/create" style={{ marginTop: 12, display: "inline-block" }}>
               <Button size="sm" icon="plus">Buat konten</Button>
             </Link>
           )}
