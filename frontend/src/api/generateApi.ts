@@ -3,6 +3,13 @@ import type { GenerateSession } from "@/types/generate-session";
 import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from "@/types/generate-session";
 import type { Project } from "@/types/project";
 
+export interface CarouselSettings {
+  slide_count: number;
+  story_flow: string;
+  custom_flow?: string | null;
+  slide_directions?: (string | null)[];
+}
+
 export interface CreateSessionRequest {
   template_id: string;
   goal: GoalEnum;
@@ -15,7 +22,7 @@ export interface CreateSessionRequest {
   key_message: string;
   promo_detail?: string | null;
   additional_notes?: string | null;
-  campaign_data?: null;
+  campaign_data?: CarouselSettings | null;
 }
 
 export const generateApi = {

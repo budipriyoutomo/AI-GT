@@ -30,7 +30,7 @@ export interface CanvasContent {
 
 const W = 800;
 const H = 1000;
-const DEFAULT_ZOOM = 0.45;
+const DEFAULT_ZOOM = 0.55;
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -73,14 +73,17 @@ interface CanvasObjs {
 
 /* ── Component ────────────────────────────────────────────── */
 
-const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zoom?: number }>(
-  ({ content, zoom = DEFAULT_ZOOM }, ref) => {
+const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zoom?: number; onReady?: () => void }>(
+  ({ content, zoom = DEFAULT_ZOOM, onReady }, ref) => {
     const elRef = useRef<HTMLCanvasElement>(null);
     const objRef = useRef<CanvasObjs>({
       canvas: null, headline: null, body: null,
       ctaBg: null, ctaText: null, thematic: null, strip: null,
     });
     const prevThematicUrlRef = useRef<string | null | undefined>(undefined);
+    // Always call the latest onReady — init effect only runs once so we need the ref
+    const onReadyRef = useRef(onReady);
+    onReadyRef.current = onReady;
 
     useImperativeHandle(ref, () => ({
       exportPng: () =>
@@ -237,7 +240,7 @@ const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zo
         canvas.add(bg, topBlock, strip, thematicPlaceholder, sep, kicker, headlineObj, bodyObj, ctaBg, ctaText);
         canvas.renderAll();
 
-        /* Load real thematic image if available */
+        /* Load real thematic image if available, then signal ready */
         if (content.thematicImageUrl && content.thematicVisible) {
           FabricImage.fromURL(content.thematicImageUrl, { crossOrigin: "anonymous" })
             .then((img) => {
@@ -250,7 +253,10 @@ const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zo
               objRef.current.thematic = img;
               canvas.renderAll();
             })
-            .catch(() => { /* keep placeholder on image load failure */ });
+            .catch(() => { /* keep placeholder on image load failure */ })
+            .finally(() => { if (alive) onReadyRef.current?.(); });
+        } else {
+          onReadyRef.current?.();
         }
       });
 

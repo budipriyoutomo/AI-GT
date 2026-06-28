@@ -124,13 +124,14 @@ export default function EditorPage() {
   const [tab,       setTab]       = useState<TabId>("teks");
   const [exporting, setExporting] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [zoom,      setZoom]      = useState(0.45);
+  const [zoom,      setZoom]      = useState(0.55);
 
   // Carousel state
   const [slides,       setSlides]       = useState<CarouselSlide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const canvasRef = useRef<FabricCanvasHandle>(null);
+  const canvasRef   = useRef<FabricCanvasHandle>(null);
+  const projectRef  = useRef<Project | null>(null);  // always holds latest project for onReady closure
 
   // Carousel helpers — primary: copy.content_type, fallback: template_config.content_type
   const isCarousel =
@@ -151,6 +152,7 @@ export default function EditorPage() {
     projectsApi.get(projectId)
       .then((p) => {
         setProject(p);
+        projectRef.current = p;
         const { copy, typography, thematic_image_url, image_source } = p.final_config;
         const carouselMode =
           copy.content_type === "Carousel" ||
@@ -223,7 +225,7 @@ export default function EditorPage() {
       if (canvasRef.current) {
         canvasRef.current.exportPng().then(async (blob) => {
           if (!blob) return;
-          try { await projectsApi.thumbnail(project.id, blob); } catch { /* silent */ }
+          try { await projectsApi.thumbnail(project.id, blob); } catch (e) { console.warn("[thumbnail] auto-save upload failed:", e); }
         });
       }
     } catch {
@@ -236,6 +238,16 @@ export default function EditorPage() {
     doSave,
     [slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, letterSpacing, thematicVisible, imageSource, imagePrompt],
   );
+
+  // Capture thumbnail as soon as canvas finishes initializing (even if user never edits)
+  const handleCanvasReady = useCallback(() => {
+    const proj = projectRef.current;
+    if (!proj || !canvasRef.current) return;
+    canvasRef.current.exportPng().then(async (blob) => {
+      if (!blob) return;
+      try { await projectsApi.thumbnail(proj.id, blob); } catch (e) { console.warn("[thumbnail] onReady upload failed:", e); }
+    });
+  }, []);
 
   /* ── Ctrl+S shortcut ── */
   useEffect(() => {
@@ -945,28 +957,28 @@ export default function EditorPage() {
           {/* Carousel slide navigator */}
           {isCarousel && (
             <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "7px 14px",
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "9px 20px",
               background: "var(--card)",
               border: "1px solid var(--border)",
               borderRadius: "var(--radius-xl)",
-              fontSize: 11,
+              fontSize: 13,
             }}>
-              <Icon name="layers" size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <Icon name="layers" size={15} style={{ color: "var(--primary)", flexShrink: 0 }} />
 
               {slides.length === 0 ? (
                 /* No slide data — project was created before carousel support */
-                <span style={{ fontSize: 10, color: "var(--warning)", fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: "var(--warning)", fontWeight: 600 }}>
                   Carousel — generate ulang untuk mendapatkan data slide
                 </span>
               ) : (
                 <>
                   {/* Slide type label */}
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "capitalize", minWidth: 44 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "capitalize", minWidth: 48 }}>
                     {slides[currentSlide]?.type ?? "slide"}
                   </span>
 
-                  <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+                  <div style={{ width: 1, height: 16, background: "var(--border)", flexShrink: 0 }} />
 
                   {/* Prev */}
                   <button
@@ -974,25 +986,25 @@ export default function EditorPage() {
                     disabled={currentSlide === 0}
                     style={{ background: "none", border: "none", padding: 2, cursor: currentSlide === 0 ? "default" : "pointer", color: currentSlide === 0 ? "var(--border)" : "var(--muted-foreground)", display: "flex", alignItems: "center" }}
                   >
-                    <Icon name="chevron-left" size={15} />
+                    <Icon name="chevron-left" size={17} />
                   </button>
 
                   {/* Slide dots */}
-                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                     {slides.map((s, i) => (
                       <button
                         key={i}
                         onClick={() => setCurrentSlide(i)}
                         title={`Slide ${i + 1}: ${s.type}`}
                         style={{
-                          width: i === currentSlide ? 26 : 20,
-                          height: 20,
+                          width: i === currentSlide ? 30 : 24,
+                          height: 24,
                           borderRadius: 999,
                           border: "none",
                           cursor: "pointer",
                           background: i === currentSlide ? "var(--primary)" : "var(--border)",
                           color: i === currentSlide ? "#fff" : "var(--muted-foreground)",
-                          fontSize: 9, fontWeight: 700,
+                          fontSize: 11, fontWeight: 700,
                           display: "flex", alignItems: "center", justifyContent: "center",
                           transition: "all .15s ease",
                           flexShrink: 0,
@@ -1009,12 +1021,12 @@ export default function EditorPage() {
                     disabled={currentSlide === slides.length - 1}
                     style={{ background: "none", border: "none", padding: 2, cursor: currentSlide === slides.length - 1 ? "default" : "pointer", color: currentSlide === slides.length - 1 ? "var(--border)" : "var(--muted-foreground)", display: "flex", alignItems: "center" }}
                   >
-                    <Icon name="chevron-right" size={15} />
+                    <Icon name="chevron-right" size={17} />
                   </button>
 
-                  <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+                  <div style={{ width: 1, height: 16, background: "var(--border)", flexShrink: 0 }} />
 
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, color: "var(--primary)", minWidth: 32 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, color: "var(--primary)", minWidth: 36 }}>
                     {currentSlide + 1} / {slides.length}
                   </span>
                 </>
@@ -1028,25 +1040,25 @@ export default function EditorPage() {
             boxShadow: "0 12px 48px color-mix(in oklch, var(--foreground) 12%, transparent), 0 4px 16px color-mix(in oklch, var(--foreground) 8%, transparent)",
             overflow: "hidden",
           }}>
-            <FabricCanvas ref={canvasRef} content={canvasContent} zoom={zoom} />
+            <FabricCanvas ref={canvasRef} content={canvasContent} zoom={zoom} onReady={handleCanvasReady} />
           </div>
 
           {/* Zoom controls + info strip */}
           <div style={{
             display: "flex", alignItems: "center", gap: 14,
-            padding: "7px 14px",
+            padding: "9px 20px",
             background: "var(--card)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius-xl)",
-            fontSize: 11, color: "var(--muted-foreground)",
+            fontSize: 13, color: "var(--muted-foreground)",
           }}>
             {/* Resolution info */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-              <Icon name="info" size={11} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <Icon name="info" size={13} />
               <span>Export 800 × 1000 px</span>
             </div>
 
-            <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+            <div style={{ width: 1, height: 16, background: "var(--border)", flexShrink: 0 }} />
 
             {/* Zoom slider */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1055,7 +1067,7 @@ export default function EditorPage() {
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "flex", alignItems: "center", padding: 2, borderRadius: "var(--radius-sm)" }}
                 title="Zoom out"
               >
-                <Icon name="zoom-out" size={13} />
+                <Icon name="zoom-out" size={15} />
               </button>
 
               <input
@@ -1063,7 +1075,7 @@ export default function EditorPage() {
                 min={25} max={85} step={5}
                 value={Math.round(zoom * 100)}
                 onChange={(e) => setZoom(Number(e.target.value) / 100)}
-                style={{ width: 80, accentColor: "var(--primary)", cursor: "pointer" }}
+                style={{ width: 90, accentColor: "var(--primary)", cursor: "pointer" }}
               />
 
               <button
@@ -1071,21 +1083,21 @@ export default function EditorPage() {
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", display: "flex", alignItems: "center", padding: 2, borderRadius: "var(--radius-sm)" }}
                 title="Zoom in"
               >
-                <Icon name="zoom-in" size={13} />
+                <Icon name="zoom-in" size={15} />
               </button>
 
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, color: "var(--primary)", minWidth: 30, textAlign: "right" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600, color: "var(--primary)", minWidth: 34, textAlign: "right" }}>
                 {Math.round(zoom * 100)}%
               </span>
             </div>
 
-            <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+            <div style={{ width: 1, height: 16, background: "var(--border)", flexShrink: 0 }} />
 
             {/* Reset zoom */}
             <button
-              onClick={() => setZoom(0.45)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 10, fontWeight: 500, padding: "2px 4px" }}
-              title="Reset ke 45%"
+              onClick={() => setZoom(0.55)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 12, fontWeight: 500, padding: "2px 4px" }}
+              title="Reset ke 55%"
             >
               Reset
             </button>

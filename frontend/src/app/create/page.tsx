@@ -12,6 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { PosterThumb } from "@/components/poster-thumb";
 import { generateApi } from "@/api/generateApi";
+import type { CarouselSettings } from "@/api/generateApi";
 import { templatesApi } from "@/api/templatesApi";
 import type { Template } from "@/types/template";
 import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from "@/types/generate-session";
@@ -51,6 +52,28 @@ const IMAGE_SOURCES: { id: ImageSourceEnum; label: string; icon: string; desc: s
   { id: "none",      label: "Tanpa Gambar",      icon: "ban",      desc: "Hanya copy dan typography, tanpa elemen visual tambahan" },
 ];
 
+const STORY_FLOWS: { id: string; label: string; icon: string; desc: string }[] = [
+  { id: "problem_solution",  label: "Problem → Solusi",   icon: "lightbulb",    desc: "Kenalkan masalah, tawarkan solusi, jelaskan manfaat"       },
+  { id: "feature_highlight", label: "Feature Highlight",  icon: "star",         desc: "Tampilkan fitur-fitur unggulan produk satu per satu"       },
+  { id: "step_by_step",      label: "Step by Step",       icon: "list-ordered", desc: "Panduan langkah demi langkah yang mudah diikuti"           },
+  { id: "social_proof",      label: "Social Proof",       icon: "users",        desc: "Hook kuat, tampilkan testimoni dan bukti nyata"            },
+  { id: "custom",            label: "Kustom",             icon: "edit-3",       desc: "Tentukan sendiri alur narasi untuk setiap slide"           },
+];
+
+function getSlideLabels(flow: string, count: number): string[] {
+  const configs: Record<string, { first: string; mid: string[]; last: string }> = {
+    problem_solution:  { first: "Cover", mid: ["Problem", "Solusi", "Manfaat", "Detail", "Info"],         last: "CTA" },
+    feature_highlight: { first: "Cover", mid: ["Fitur 1", "Fitur 2", "Fitur 3", "Fitur 4", "Fitur 5"],    last: "CTA" },
+    step_by_step:      { first: "Intro", mid: ["Langkah 1", "Langkah 2", "Langkah 3", "Langkah 4", "Langkah 5"], last: "CTA" },
+    social_proof:      { first: "Hook",  mid: ["Masalah", "Testimoni", "Solusi", "Bukti", "Detail"],       last: "CTA" },
+  };
+  const c = configs[flow];
+  if (!c || count <= 0) return Array.from({ length: count }, (_, i) => `Slide ${i + 1}`);
+  if (count === 1) return ["CTA"];
+  if (count === 2) return [c.first, c.last];
+  return [c.first, ...c.mid.slice(0, count - 2), c.last];
+}
+
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,6 +97,16 @@ export default function CreatePage() {
   const [selectedPrompt, setSelectedPrompt]     = useState<string | null>(null);
   const [uploadedFile, setUploadedFile]         = useState<File | null>(null);
   const [generating, setGenerating]             = useState(false);
+
+  // Carousel-specific state
+  const [slideCount, setSlideCount]             = useState(5);
+  const [storyFlow, setStoryFlow]               = useState<string | null>(null);
+  const [customFlow, setCustomFlow]             = useState("");
+  const [slideDirections, setSlideDirections]   = useState<(string | null)[]>(Array(5).fill(null));
+
+  useEffect(() => {
+    setSlideDirections(prev => Array.from({ length: slideCount }, (_, i) => prev[i] ?? null));
+  }, [slideCount]);
 
   useEffect(() => {
     if (templateId) {
@@ -200,19 +233,31 @@ export default function CreatePage() {
   }
 
   // ── Step 3: templateId provided → Form Brief ──
+  const isCarousel = template?.content_type === "Carousel";
+
   const canGenerate = (
     goal !== null &&
     platform !== null &&
     gaya !== null &&
     productOrService.trim().length > 0 &&
     keyMessage.trim().length > 0 &&
-    (imageSrc !== "generated" || thematicTheme.trim().length > 0)
+    (imageSrc !== "generated" || thematicTheme.trim().length > 0) &&
+    (!isCarousel || storyFlow !== null)
   );
 
   async function handleGenerate() {
     if (!canGenerate || !templateId || !goal || !platform || !gaya) return;
     setGenerating(true);
     try {
+      const carouselData: CarouselSettings | null = (isCarousel && storyFlow)
+        ? {
+            slide_count: slideCount,
+            story_flow: storyFlow,
+            custom_flow: storyFlow === "custom" ? customFlow.trim() || null : null,
+            slide_directions: slideDirections.some(d => d) ? slideDirections : undefined,
+          }
+        : null;
+
       const session = await generateApi.createSession({
         template_id: templateId,
         goal,
@@ -225,6 +270,7 @@ export default function CreatePage() {
         image_source: imageSrc,
         thematic_image_theme: imageSrc === "generated" ? thematicTheme.trim() || null : null,
         selected_image_prompt: imageSrc === "generated" ? selectedPrompt || null : null,
+        campaign_data: carouselData,
       });
       router.push(`/generate?sessionId=${session.id}`);
     } catch (err) {
@@ -303,6 +349,7 @@ export default function CreatePage() {
               <div className="aigt-h6">{template?.name ?? "Memuat…"}</div>
               <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
                 {template?.content_type && <Badge variant="secondary">{template.content_type}</Badge>}
+                {isCarousel && <Badge variant="info" icon="layers">{slideCount} Slide</Badge>}
                 {template?.industry    && <Badge variant="secondary">{template.industry}</Badge>}
                 {template?.theme       && <Badge variant="info">{template.theme}</Badge>}
               </div>
@@ -434,6 +481,161 @@ export default function CreatePage() {
             </div>
           </Card>
 
+          {/* Section D: Pengaturan Carousel — hanya muncul jika template carousel */}
+          {isCarousel && template && (
+            <Card variant="elevated" padding={20}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <span style={{ width: 38, height: 38, borderRadius: "var(--radius-lg)", flexShrink: 0, background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="layers" size={18} />
+                </span>
+                <div>
+                  <div className="aigt-h5">Pengaturan Carousel</div>
+                  <div className="aigt-caption" style={{ marginTop: 3 }}>Tentukan jumlah slide dan alur narasi konten.</div>
+                </div>
+                <Badge variant={storyFlow ? "success" : "warning"} style={{ marginLeft: "auto", flexShrink: 0 }}>
+                  {storyFlow ? "Dikonfigurasi" : "Wajib"}
+                </Badge>
+              </div>
+
+              {/* Jumlah Slide */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  Jumlah Slide
+                  <Badge variant="secondary" style={{ padding: "1px 6px", fontSize: 10 }}>3–8</Badge>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <button
+                    onClick={() => setSlideCount(c => Math.max(3, c - 1))}
+                    disabled={slideCount <= 3}
+                    style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--card)", cursor: slideCount <= 3 ? "not-allowed" : "pointer", opacity: slideCount <= 3 ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", flexShrink: 0, transition: "all .15s ease" }}
+                  >
+                    <Icon name="minus" size={15} />
+                  </button>
+                  <div style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)", border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>{slideCount}</div>
+                    <div className="aigt-caption" style={{ marginTop: 4 }}>
+                      Cover + {slideCount - 2} Konten + Closing
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSlideCount(c => Math.min(8, c + 1))}
+                    disabled={slideCount >= 8}
+                    style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--card)", cursor: slideCount >= 8 ? "not-allowed" : "pointer", opacity: slideCount >= 8 ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", flexShrink: 0, transition: "all .15s ease" }}
+                  >
+                    <Icon name="plus" size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Alur Cerita */}
+              <div>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  Alur Cerita <Badge variant="warning" style={{ padding: "1px 6px", fontSize: 10 }}>Wajib</Badge>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {STORY_FLOWS.map((sf) => {
+                    const isSelected = storyFlow === sf.id;
+                    const previewLabels = sf.id !== "custom" ? getSlideLabels(sf.id, 5) : [];
+                    return (
+                      <button key={sf.id} onClick={() => setStoryFlow(sf.id)} style={{
+                        padding: "12px 14px", borderRadius: "var(--radius-lg)",
+                        border: `1px solid ${isSelected ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
+                        background: isSelected ? "var(--tint-primary)" : "var(--card)",
+                        cursor: "pointer", fontFamily: "var(--font-sans)", textAlign: "left",
+                        display: "flex", alignItems: "flex-start", gap: 12, transition: "all .15s ease",
+                      }}>
+                        <span style={{ width: 34, height: 34, borderRadius: "var(--radius-md)", flexShrink: 0, marginTop: 1, background: isSelected ? "color-mix(in oklch, var(--primary) 15%, transparent)" : "var(--surface-sunken)", border: `1px solid ${isSelected ? "color-mix(in oklch, var(--primary) 25%, transparent)" : "var(--border)"}`, color: isSelected ? "var(--primary)" : "var(--muted-foreground)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                          <Icon name={sf.icon as "star"} size={15} />
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: "var(--text-sm)", fontWeight: isSelected ? 600 : 500, color: isSelected ? "var(--primary)" : "var(--foreground)" }}>{sf.label}</div>
+                          <div className="aigt-caption" style={{ marginTop: 2 }}>{sf.desc}</div>
+                          {previewLabels.length > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 6, flexWrap: "wrap" }}>
+                              {previewLabels.map((l, i, arr) => (
+                                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                  <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: (i === 0 || i === arr.length - 1) ? "color-mix(in oklch, var(--primary) 12%, transparent)" : "var(--surface-sunken)", color: (i === 0 || i === arr.length - 1) ? "var(--primary)" : "var(--muted-foreground)", border: `1px solid ${(i === 0 || i === arr.length - 1) ? "color-mix(in oklch, var(--primary) 22%, transparent)" : "var(--border)"}` }}>
+                                    {l}
+                                  </span>
+                                  {i < arr.length - 1 && <Icon name="chevron-right" size={9} style={{ color: "var(--muted-foreground)", opacity: 0.5 }} />}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {isSelected && <Icon name="check-circle-2" size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Alur kustom — input manual */}
+              {storyFlow === "custom" && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: "var(--radius-lg)", border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)", background: "color-mix(in oklch, var(--primary) 4%, var(--card))" }}>
+                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 6, display: "block", color: "var(--primary)" }}>
+                    Alur Kustom
+                  </label>
+                  <input
+                    type="text"
+                    value={customFlow}
+                    onChange={(e) => setCustomFlow(e.target.value)}
+                    placeholder="Contoh: Intro → Masalah → Fitur → Testimoni → CTA"
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-sm)", fontFamily: "var(--font-sans)", outline: "none" }}
+                  />
+                  <div className="aigt-caption" style={{ marginTop: 5 }}>Pisahkan tiap slide dengan " → ". AI akan mengikuti urutan ini.</div>
+                </div>
+              )}
+
+              {/* Catatan per Slide */}
+              {storyFlow && (
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    Catatan per Slide <Badge variant="secondary" style={{ padding: "1px 6px", fontSize: 10 }}>Opsional</Badge>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {getSlideLabels(storyFlow, slideCount).map((label, i) => {
+                      const isFirst = i === 0;
+                      const isLast = i === slideCount - 1;
+                      const placeholder = isFirst
+                        ? "Contoh: Buat hook yang menarik, perkenalkan produk atau masalah"
+                        : isLast
+                        ? "Contoh: CTA yang clear, sertakan urgency atau benefit utama"
+                        : "Contoh: Detail informasi yang perlu disampaikan di slide ini";
+                      return (
+                        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          <div style={{ flexShrink: 0, paddingTop: 7 }}>
+                            <span style={{ width: 22, height: 22, borderRadius: 999, background: (isFirst || isLast) ? "var(--tint-primary)" : "var(--surface-sunken)", border: `1px solid ${(isFirst || isLast) ? "color-mix(in oklch, var(--primary) 30%, transparent)" : "var(--border)"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", color: (isFirst || isLast) ? "var(--primary)" : "var(--muted-foreground)" }}>
+                              {i + 1}
+                            </span>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--muted-foreground)", display: "block", marginBottom: 4 }}>
+                              {label}
+                            </label>
+                            <input
+                              type="text"
+                              value={slideDirections[i] ?? ""}
+                              onChange={(e) => {
+                                setSlideDirections(prev => {
+                                  const next = [...prev];
+                                  next[i] = e.target.value || null;
+                                  return next;
+                                });
+                              }}
+                              placeholder={placeholder}
+                              style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-xs)", fontFamily: "var(--font-sans)", outline: "none" }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
           {/* Section C: Sumber Gambar */}
           <Card variant="elevated" padding={20}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
@@ -536,11 +738,14 @@ export default function CreatePage() {
                     <span style={{ color: "var(--primary)", fontWeight: 500 }}>{selectedGaya?.label}</span>
                     {" · "}{selectedImgSrc?.label}
                     {" · "}{goalLabel} · {platformLabel}
+                    {isCarousel && storyFlow && (
+                      <> · <span style={{ color: "var(--primary)", fontWeight: 500 }}>{slideCount} slide</span> · {STORY_FLOWS.find(sf => sf.id === storyFlow)?.label}</>
+                    )}
                   </div>
                 </>
               ) : (
                 <div style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
-                  {!productOrService.trim() ? "Isi Produk / Layanan" : !keyMessage.trim() ? "Isi Pesan Utama" : !gaya ? "Pilih gaya bahasa" : imageSrc === "generated" && !thematicTheme.trim() ? "Isi Tema Gambar" : "Lengkapi form"}
+                  {!productOrService.trim() ? "Isi Produk / Layanan" : !keyMessage.trim() ? "Isi Pesan Utama" : !gaya ? "Pilih gaya bahasa" : imageSrc === "generated" && !thematicTheme.trim() ? "Isi Tema Gambar" : isCarousel && !storyFlow ? "Pilih alur cerita carousel" : "Lengkapi form"}
                 </div>
               )}
             </div>
