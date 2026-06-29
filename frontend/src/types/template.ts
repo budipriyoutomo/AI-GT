@@ -1,53 +1,81 @@
-export interface PreviewZone {
+export interface ColorScheme {
+  accent: string;
+  primary: string;
+  secondary: string;
+  [role: string]: string;
+}
+
+export interface GradientStop {
+  color: string;
+  alpha: number;
+  position: number;
+}
+
+export interface TemplateBackground {
+  type: "color" | "gradient" | "image";
+  value?: string;                 // color
+  direction?: string;             // gradient linear
+  shape?: "linear" | "radial";    // gradient (default linear)
+  position?: string;              // gradient radial, mis. "50% 30%"
+  stops?: string[];               // gradient (hex)
+  source?: "thumbnail";           // image → templates.thumbnail_url
+  fallback?: string;              // image → warna saat thumbnail kosong
+}
+
+export interface ElementStyle {
+  fontSize?: number;              // ruang 1080px
+  weight?: string;
+  color?: string;                 // hex atau role
+  lineHeight?: number;
+  letterSpacing?: number;         // ruang 1080px
+  align?: string;
+  accentWords?: string;           // substring yang ditonjolkan
+  accentColor?: string;           // hex atau role
+  accentWeight?: string;
+  backgroundColor?: string;       // footer
+  opacity?: number;               // footer
+  stroke?: { color: string; width: number };   // outline teks (width ruang 1080px)
+  shadow?: string;                // CSS text-shadow
+  fillGradient?: string[];        // glossy: gradient fill vertikal (hex top→bottom)
+}
+
+export interface TemplateElement {
+  type: "logo" | "text" | "footer" | "scrim" | "image" | "group";
   x: number;
   y: number;
   width: number;
-  height: number;
-  visible: boolean;
-  value: string;
-  style: {
-    fontSize: number | null;
-    fontWeight: string | null;
-    color: string | null;
-    accentWords?: string | null;
-    accentColor?: string | null;
-  };
+  height?: number;
+  align?: string;
+  // group: anak-anak mengalir vertikal dengan jarak tetap (proporsional walau teks pendek/panjang)
+  anchor?: "top" | "bottom";
+  gap?: number;                   // ruang 1080px
+  children?: TemplateElement[];
+  // text
+  role?: string;
+  bind?: string;
+  value?: string;
+  style?: ElementStyle;
+  // logo / image
+  source?: "brand" | "thumbnail" | "thematic";
+  fit?: string;
+  radius?: number;                // image: border-radius (ruang 1080px)
+  // footer
+  slots?: string[];
+  // scrim
+  gradient?: { direction: string; stops: GradientStop[] };
 }
 
-export interface PreviewFooterZone {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  slots: string[];
-  style: {
-    color: string;
-    backgroundColor: string;
-    opacity: number;
-    fontSize: number;
-  };
-}
-
-export interface PreviewConfig {
-  color_scheme: {
-    accent: string;
-    primary: string;
-    secondary: string;
-    brand_color_role: string;
-  };
-  font_family: string;
-  zones: {
-    logo: { x: number; y: number; width: number; height: number };
-    headline: PreviewZone | null;
-    body: PreviewZone | null;
-    cta: PreviewZone | null;
-    footer: PreviewFooterZone;
-  };
+export interface TemplateConfig {
+  canvas?: { aspect?: string; dimensions?: { width: number; height: number } };
+  background?: TemplateBackground;
+  color_scheme: ColorScheme;
+  font?: { family?: string };
+  brand_theme?: Record<string, unknown>;
+  elements: TemplateElement[];
 }
 
 /**
- * Lightweight shape returned saat browse template list.
- * preview_config adalah subset dari template_config untuk render thumbnail overlay.
+ * Item list template — sudah membawa template_config penuh agar galeri bisa live-render.
  */
 export interface TemplateListItem {
   id: string;
@@ -56,16 +84,14 @@ export interface TemplateListItem {
   theme: string;
   content_type: string;
   layout_type: string;
-  thumbnail_url: string | null;
+  thumbnail_url: string;
   is_premium: boolean;
-  preview_config: PreviewConfig;
+  template_config: TemplateConfig;
 }
 
 /**
- * Full template, termasuk `template_config`.
- * Hanya di-fetch saat user pilih satu template (single row).
+ * Full template (single view) — sama dengan list item + created_at.
  */
 export interface Template extends TemplateListItem {
-  template_config: Record<string, unknown>;
   created_at: string;
 }

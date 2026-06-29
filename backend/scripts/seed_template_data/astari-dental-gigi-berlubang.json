@@ -1,0 +1,114 @@
+{
+  "_meta": {
+    "source_ref": "Astari Dental Care - Tau Gak Sih? GIGI BERLUBANG",
+    "catatan": "Foto gigi tengah = image slot foreground dari templates.thumbnail_url (diisi user di editor; URL di JSON ini sample untuk galeri). Badge '170K' & sparkle TIDAK dimasukkan (ditempel terpisah).",
+    "catatan_layer": "Foto gigi = GAMBAR di layer paling depan (foreground), BUKAN bagian template. Ditempel terpisah di editor di area tengah, di atas background.",
+    "area_tengah": "area tengah (y ~0.34-0.70) dibiarkan kosong di template; diisi foto (foreground) + teks 'Penyebab' yang DITAMBAHKAN USER di editor",
+    "catatan_penyebab": "Teks 'Penyebab' + list TIDAK masuk template (dikecualikan). Ditambahkan & diedit user sendiri di editor, di atas foto.",
+    "catatan_footer": "Slot 'location' & 'booking' disiapkan sebagai field company_profile (sumber ke depan). Fallback kosong bila profil belum mengisi.",
+    "posisi_status": "perkiraan (0-1), belum di-tune presisi",
+    "ai_slots": {
+      "penjelasan": "Elemen teks dengan field 'bind' value-nya diisi AI saat generate. Tanpa 'bind' = teks statis bawaan template.",
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> GIGI BERLUBANG", "body -> kalimat intro", "cta -> Yuk selamatkan gigi berlubang..."]
+    },
+    "brand_theme_doc": {
+      "penjelasan": "Komposisi personalisasi brand saat GENERATE (render-time). template_config di DB tidak dimutasi.",
+      "color": "mode 'derive': SELURUH palet diturunkan otomatis dari brand_colors[0]. accent=base, background=tint (di-lighten), secondary=readable (di-darken biar kebaca), primary=on-image (putih/auto-kontras utk teks di atas foto). color_scheme di JSON = default/fallback saat preview / brand kosong. Guardrail kontras wajib di renderer.",
+      "font": "font_brand_roles: teks pendukung boleh brand_font. headline & eyebrow tetap font template."
+    }
+  },
+
+  "name": "Kesehatan Edukasi Gigi - IG Post",
+  "industry": "kesehatan",
+  "theme": "edukasi",
+  "content_type": "instagram_post",
+  "thumbnail_url": "https://www.yesdok.com/visual/slideshow/a9037fb7-897e-4029-8029-70e0013998de-article-1665200202.jpeg?w=1200",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "3:4",
+      "dimensions": { "width": 1080, "height": 1440 }
+    },
+    "background": {
+      "type": "gradient",
+      "direction": "to bottom",
+      "stops": ["#FDE7F0", "#FBD3E4"]
+    },
+    "color_scheme": {
+      "accent": "#E5197E",
+      "primary": "#FFFFFF",
+      "secondary": "#EE5FA7"
+    },
+    "font": { "family": "Poppins" },
+
+    "brand_theme": {
+      "mode": "derive",
+      "source": 0,
+      "derive": {
+        "accent": "base",
+        "background": "tint",
+        "secondary": "readable",
+        "primary": "on-image"
+      },
+      "font_brand_roles": ["body", "closing"]
+    },
+
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.36, "y": 0.025, "width": 0.28, "height": 0.05
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "x": 0.06, "y": 0.40, "width": 0.88, "height": 0.30, "radius": 32,
+        "fit": "cover"
+      },
+      {
+        "type": "text",
+        "role": "eyebrow",
+        "x": 0.10, "y": 0.13, "width": 0.80,
+        "align": "center",
+        "value": "Tau Gak Sih?",
+        "style": { "fontSize": 72, "weight": "700", "color": "accent", "shadow": "0 2px 5px rgba(150, 20, 90, 0.2)" }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "x": 0.04, "y": 0.19, "width": 0.92,
+        "align": "center",
+        "value": "GIGI BERLUBANG",
+        "style": { "fontSize": 118, "weight": "800", "color": "accent", "shadow": "0 2px 5px rgba(150, 20, 90, 0.22)" }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.10, "y": 0.30, "width": 0.80,
+        "align": "center",
+        "value": "merupakan penyakit tidak menular yang paling banyak dialami manusia.",
+        "style": { "fontSize": 36, "weight": "600", "color": "secondary", "lineHeight": 1.3, "shadow": "0 1px 4px rgba(150, 20, 90, 0.18)" }
+      },
+      {
+        "type": "text",
+        "role": "closing",
+        "bind": "cta",
+        "x": 0.06, "y": 0.74, "width": 0.62,
+        "align": "left",
+        "value": "Yuk selamatkan gigi berlubang,\nKami siap bikin senyum mu makin sempurna",
+        "style": { "fontSize": 33, "weight": "600", "color": "secondary", "lineHeight": 1.35, "shadow": "0 1px 4px rgba(150, 20, 90, 0.18)" }
+      },
+      {
+        "type": "footer",
+        "x": 0.04, "y": 0.92, "width": 0.92, "height": 0.055,
+        "slots": ["instagram", "tiktok", "location", "booking"],
+        "style": { "color": "accent", "backgroundColor": "#FFFFFF", "opacity": 1, "fontSize": 22 }
+      }
+    ]
+  }
+}

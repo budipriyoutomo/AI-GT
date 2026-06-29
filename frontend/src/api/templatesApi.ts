@@ -2,7 +2,7 @@ import { api } from "@/lib/apiClient";
 import type { Template, TemplateListItem } from "@/types/template";
 
 export const templatesApi = {
-  // List hanya mengembalikan kolom ringan (tanpa template_config) — lihat render-template-logic.md
+  // List membawa template_config penuh agar galeri bisa live-render element-based.
   list: (params?: { industry?: string; theme?: string }): Promise<TemplateListItem[]> => {
     const q = new URLSearchParams();
     if (params?.industry) q.set("industry", params.industry);

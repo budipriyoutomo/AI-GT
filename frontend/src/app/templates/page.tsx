@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, CSSProperties } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
@@ -13,8 +13,8 @@ import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { templatesApi } from "@/api/templatesApi";
-import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
-import type { TemplateListItem, PreviewConfig } from "@/types/template";
+import { TemplateRenderer } from "@/components/template/TemplateRenderer";
+import type { TemplateListItem } from "@/types/template";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
 const INDUSTRIES = [
@@ -25,176 +25,6 @@ const INDUSTRIES = [
   "Kesehatan & Kecantikan",
   "Edukasi",
 ];
-
-// Posisi zone (0–1) → CSS absolute dalam persen
-const toPos = (x: number, y: number, w: number, h: number): CSSProperties => ({
-  position: "absolute",
-  left: `${x * 100}%`,
-  top: `${y * 100}%`,
-  width: `${w * 100}%`,
-  height: `${h * 100}%`,
-  overflow: "hidden",
-});
-
-// Font size dari ruang 1080px → cqw agar skala otomatis dengan lebar container
-const cqw = (px: number | null): string | undefined =>
-  px != null ? `${((px / 1080) * 100).toFixed(3)}cqw` : undefined;
-
-// Hex (#RGB / #RRGGBB) → rgba(). Penting: fade gradien HARUS ke warna-sama-alpha-0,
-// bukan keyword `transparent` (= rgba(0,0,0,0)) yang bikin gradien lewat hitam.
-function hexToRgba(hex: string, alpha: number): string {
-  let h = hex.replace("#", "");
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function TemplatePreview({ cfg, thumbnailUrl }: { cfg: PreviewConfig; thumbnailUrl: string | null }) {
-  const { color_scheme, font_family, zones } = cfg;
-  const profile = DEFAULT_COMPANY_PROFILE;
-
-  const resolveColor = (role: string | null): string =>
-    role ? (color_scheme as Record<string, string>)[role] ?? role : "inherit";
-
-  const cs = color_scheme as Record<string, string>;
-  const primary = cs.primary ?? "#111111";
-  const accent = cs.accent ?? primary;
-
-  // Warna headline selalu accent
-  const headlineColor = resolveColor(zones.headline?.style.accentColor ?? "accent");
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        aspectRatio: "4 / 5",
-        backgroundColor: "#111111",
-        borderRadius: "var(--radius-md)",
-        overflow: "hidden",
-        fontFamily: font_family || "Inter",
-        containerType: "inline-size" as CSSProperties["containerType"],
-      }}
-    >
-      {/* Background image */}
-      {thumbnailUrl && (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={thumbnailUrl}
-          alt=""
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      )}
-
-      {/* Gradien: primary (bawah) → accent (tengah) → transparent (atas) */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `linear-gradient(to bottom, ${hexToRgba(primary, 0.92)} 0%, ${hexToRgba(accent, 0)} 70%)`,
-        }}
-      />
-
-      {/* Logo */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={profile.logo_url}
-        alt=""
-        style={{
-          ...toPos(zones.logo.x, zones.logo.y, zones.logo.width, zones.logo.height),
-          objectFit: "contain",
-        }}
-      />
-
-      {/* Text zones — flex column agar jarak headline↔body natural, tidak terikat zone height */}
-      {zones.headline && (
-      <div
-        style={{
-          position: "absolute",
-          left: `${zones.headline.x * 100}%`,
-          top: `${zones.headline.y * 100}%`,
-          width: `${zones.headline.width * 100}%`,
-          display: "flex",
-          flexDirection: "column",
-          gap: cqw(16),
-        }}
-      >
-        {zones.headline?.visible && (
-          <div
-            style={{
-              color: headlineColor,
-              fontSize: cqw(zones.headline.style.fontSize),
-              fontWeight: zones.headline.style.fontWeight ?? "bold",
-              lineHeight: 1.1,
-            }}
-          >
-            {zones.headline.value || profile.business_name}
-          </div>
-        )}
-
-        {zones.body?.visible && (
-          <div
-            style={{
-              color: resolveColor(zones.body.style.color),
-              fontSize: cqw(zones.body.style.fontSize),
-              fontWeight: zones.body.style.fontWeight ?? "normal",
-              lineHeight: 1.4,
-            }}
-          >
-            {zones.body.value || profile.tagline || "Deskripsi produk atau layananmu"}
-          </div>
-        )}
-
-        {zones.cta?.visible && (
-          <div
-            style={{
-              color: resolveColor(zones.cta.style.color),
-              fontSize: cqw(zones.cta.style.fontSize),
-              fontWeight: zones.cta.style.fontWeight ?? "bold",
-            }}
-          >
-            {zones.cta.value || "Hubungi Kami"}
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Footer */}
-      <div
-        style={{
-          ...toPos(zones.footer.x, zones.footer.y, zones.footer.width, zones.footer.height),
-          backgroundColor: zones.footer.style.backgroundColor,
-          opacity: zones.footer.style.opacity,
-          display: "flex",
-          alignItems: "center",
-          gap: "2%",
-          padding: "0 3%",
-        }}
-      >
-        {zones.footer.slots.map((slot) => {
-          const handle = profile.contact[slot as keyof typeof profile.contact];
-          return (
-            <span
-              key={slot}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.4%",
-                color: resolveColor(zones.footer.style.color),
-                fontSize: cqw(zones.footer.style.fontSize),
-              }}
-            >
-              <Icon name={slot} size={8} />
-              {handle && <span>{handle}</span>}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function TemplateCard({
   t,
@@ -224,7 +54,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ position: "relative" }}>
-          <TemplatePreview cfg={t.preview_config} thumbnailUrl={t.thumbnail_url} />
+          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} />
 
           {t.is_premium && (
             <div style={{

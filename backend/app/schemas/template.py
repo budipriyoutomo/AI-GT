@@ -5,7 +5,8 @@ from pydantic import BaseModel
 
 
 class TemplateListData(BaseModel):
-    """Kolom ringan untuk list template — preview_config adalah subset dari template_config."""
+    """Kolom untuk list template. template_config disertakan agar galeri bisa live-render
+    element-based langsung (lihat scripts/seed_template_data/README.md)."""
 
     id: uuid.UUID
     name: str
@@ -15,13 +16,10 @@ class TemplateListData(BaseModel):
     layout_type: str
     thumbnail_url: str
     is_premium: bool
-    preview_config: dict
+    template_config: dict
 
     model_config = {"from_attributes": True}
 
 
 class TemplateData(TemplateListData):
-    template_config: dict
     created_at: datetime
-    # preview_config tidak relevan di single view — sudah ada template_config
-    preview_config: dict = {}

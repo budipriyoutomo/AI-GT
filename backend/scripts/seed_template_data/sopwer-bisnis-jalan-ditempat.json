@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "source_ref": "SOPWER - Bisnis Kamu Masih Jalan Ditempat?",
+    "catatan": "Hanya bagian TEMPLATE (skeleton). Teks headline/body, slot logo, footer = template.",
+    "keputusan_background": "Foto orang stres = BACKGROUND IMAGE template yang di-upload admin via templates.thumbnail_url (BUKAN thematic AI, BUKAN gambar yang dikecualikan). Untuk sekarang DIKOSONGKAN (thumbnail_url = null) -> fallback ke warna gelap. Sama mekanisme dengan template pertama, hanya beda: ini image, Sushi gradient.",
+    "naming_note": "templates.thumbnail_url perannya sebenarnya BACKGROUND IMAGE template, bukan thumbnail. Naming kurang pas — kandidat rename ke depan (perubahan kolom DB, tidak dilakukan sekarang).",
+    "scrim": "Overlay gradient gelap di BAWAH (transparan di atas -> gelap di bawah) agar teks kebaca tapi foto bagian atas tetap kelihatan.",
+    "catatan_footer": "Slot 'whatsapp' & 'facebook' belum ada di company_profile.contact (baru ada website/phone/instagram/tiktok/youtube/hashtag/location/booking). PERLU DIPUTUSKAN: tambah field, atau whatsapp=phone.",
+    "posisi_status": "perkiraan (0-1), belum di-tune presisi",
+    "ai_slots": {
+      "penjelasan": "Elemen teks dengan field 'bind' value-nya diisi AI saat generate. Tanpa 'bind' = teks statis.",
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> Bisnis Kamu Masih Jalan Ditempat?...", "body -> 90% pebisnis UMKM...", "cta -> (tidak ada di layout ini)"]
+    },
+    "brand_theme_doc": {
+      "penjelasan": "Template background-image-driven: vibe ditentukan background upload, bukan palet brand. Mode 'tint' dengan color brand minimal (teks fungsional putih). Brand hadir lewat logo + opsional font body.",
+      "font": "font_brand_roles: body boleh brand_font. headline tetap font template (display)."
+    }
+  },
+
+  "name": "Teknologi Awareness Pain Point - IG Post",
+  "industry": "teknologi",
+  "theme": "awareness",
+  "content_type": "instagram_post",
+  "thumbnail_url": "https://shop.rnib.org.uk/cdn/shop/files/rsz_105ed706927849bb8a47fb373f80f003.jpg?v=1729251936&width=1000",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
+    },
+    "background": {
+      "type": "image",
+      "source": "thumbnail",
+      "fallback": "#0B1420"
+    },
+    "color_scheme": {
+      "accent": "#2BB3D9",
+      "primary": "#FFFFFF",
+      "secondary": "#CAD3DD"
+    },
+    "font": { "family": "Poppins" },
+
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": {},
+      "font_brand_roles": ["body"]
+    },
+
+    "elements": [
+      {
+        "type": "scrim",
+        "x": 0, "y": 0, "width": 1, "height": 1,
+        "gradient": {
+          "direction": "to bottom",
+          "stops": [
+            { "color": "#0B1420", "alpha": 0,    "position": 25 },
+            { "color": "#0B1420", "alpha": 0.55, "position": 58 },
+            { "color": "#0B1420", "alpha": 0.92, "position": 100 }
+          ]
+        }
+      },
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.36, "y": 0.025, "width": 0.28, "height": 0.05
+      },
+      {
+        "type": "group",
+        "x": 0.06, "y": 0.90, "width": 0.86,
+        "anchor": "bottom",
+        "gap": 22,
+        "children": [
+          {
+            "type": "text",
+            "role": "headline",
+            "bind": "headline",
+            "align": "left",
+            "value": "Headline yang Bisa Kamu Tambahkan Di Sini",
+            "style": { "fontSize": 90, "weight": "800", "color": "primary", "lineHeight": 1.05 }
+          },
+          {
+            "type": "text",
+            "role": "body",
+            "bind": "body",
+            "align": "left",
+            "value": "90% pebisnis UMKM Indonesia ngeluh soal hal yang sama, tapi jarang yang tau solusinya ada di satu sistem.",
+            "style": {
+              "fontSize": 34, "weight": "500", "color": "secondary", "lineHeight": 1.3,
+              "accentWords": "90% pebisnis UMKM Indonesia", "accentColor": "primary", "accentWeight": "700"
+            }
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "x": 0.04, "y": 0.93, "width": 0.92, "height": 0.05,
+        "slots": ["website", "whatsapp", "instagram", "facebook", "hashtag"],
+        "style": { "color": "primary", "backgroundColor": "transparent", "opacity": 1, "fontSize": 20 }
+      }
+    ]
+  }
+}
