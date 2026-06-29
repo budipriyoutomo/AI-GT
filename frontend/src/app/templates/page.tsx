@@ -14,7 +14,9 @@ import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { templatesApi } from "@/api/templatesApi";
+import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
+import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
 import type { TemplateListItem } from "@/types/template";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
@@ -31,12 +33,12 @@ function TemplateCard({
   t,
   fav,
   onFav,
-  href,
+  onPreview,
 }: {
   t: TemplateListItem;
   fav: boolean;
   onFav: () => void;
-  href: string;
+  onPreview: () => void;
 }) {
   return (
     <div style={{ position: "relative" }} className="group">
@@ -57,7 +59,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ position: "relative" }}>
-          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} />
+          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} aspect="4:5" />
 
           {t.is_premium && (
             <div style={{
@@ -76,13 +78,28 @@ function TemplateCard({
             </div>
           )}
 
+          {/* Hover overlay: gelap menutupi seluruh thumbnail + tombol Preview di tengah */}
           <div
-            className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
-            style={{ position: "absolute", inset: "12px 12px auto 12px", zIndex: 1 }}
+            onClick={onPreview}
+            className="opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
+            style={{
+              position: "absolute", inset: 0, zIndex: 1, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(0,0,0,0.52)",
+              borderRadius: "var(--radius-md)",
+              transition: "opacity 0.18s ease",
+            }}
           >
-            <Link href={href} style={{ display: "block" }}>
-              <Button icon="sparkles" style={{ width: "100%" }}>Pakai Template</Button>
-            </Link>
+            <span
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7,
+                padding: "8px 18px", borderRadius: "var(--radius-md)",
+                border: "1.5px solid #fff", background: "transparent", color: "#fff",
+                fontSize: "var(--text-sm)", fontWeight: 500,
+              }}
+            >
+              <Icon name="eye" size={15} /> Preview
+            </span>
           </div>
         </div>
 
@@ -123,12 +140,18 @@ export default function TemplatesPage() {
   const [industry, setIndustry] = useState("Semua industri");
   const [q, setQ] = useState("");
   const [favs, setFavs] = useState<Record<string, boolean>>({});
+  const [preview, setPreview] = useState<TemplateListItem | null>(null);
+  const [brandColors, setBrandColors] = useState<string[] | null>(null);
 
   useEffect(() => {
     templatesApi.list()
       .then(setTemplates)
       .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
       .finally(() => setLoading(false));
+    // Brand color untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
+    companyProfileApi.get()
+      .then((p) => setBrandColors(p.brand_colors ?? null))
+      .catch(() => setBrandColors(null));
   }, []);
 
   const list = useMemo(() => {
@@ -204,7 +227,7 @@ export default function TemplatesPage() {
 
       {/* Grid */}
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : list.length === 0 ? (
@@ -225,18 +248,25 @@ export default function TemplatesPage() {
           )}
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
           {list.map((t) => (
             <TemplateCard
               key={t.id}
               t={t}
               fav={!!favs[t.id]}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
-              href={templateLink(t.id)}
+              onPreview={() => setPreview(t)}
             />
           ))}
         </div>
       )}
+
+      <TemplatePreviewModal
+        template={preview}
+        brandColors={brandColors}
+        useHref={preview ? templateLink(preview.id) : "/create"}
+        onClose={() => setPreview(null)}
+      />
     </Shell>
   );
 }

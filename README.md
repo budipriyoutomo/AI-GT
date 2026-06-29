@@ -68,6 +68,8 @@ Semua dijalankan dari root repo.
 | `make dev` | Jalankan **frontend + backend sekaligus** (paralel) |
 | `make frontend` | Frontend saja (Next.js) → http://localhost:3000 |
 | `make backend` | Backend saja (FastAPI/uvicorn, `--reload`) → http://localhost:8000 |
+| `make migrate` | `alembic upgrade head` — terapkan semua migrasi (DB baru / yang sudah selaras) |
+| `make reconcile` | **Sekali jalan**: selaraskan schema DB *existing* yang drift akibat revisi Alembic lama yang sempat duplikat. DB baru tidak perlu ini |
 | `make seed` | Seed templates ke DB — **RESET tabel `templates`** lalu insert ulang dari JSON di `backend/scripts/seed_template_data/` |
 | `make install` | Install dependency frontend (`npm install`) + backend (`pip install -r requirements.txt`) |
 | `make help` | Tampilkan ringkasan perintah |
@@ -105,6 +107,30 @@ aigt/bin/alembic current                             # cek versi migrasi sekaran
 ```
 
 Migrasi ada di `backend/alembic/versions/`. Konfigurasi koneksi diambil dari `DATABASE_URL` di `backend/.env`.
+
+### Reconcile schema (sekali jalan — untuk DB yang sudah terlanjur ada)
+
+Riwayat migrasi sempat memakai **revisi duplikat** (dua `0002`, dua `0003`), sehingga sebagian
+migrasi tidak ter-apply dan schema DB lama bisa drift dari model (mis. kolom `templates.platform`
+& `generate_sessions.{goal,platform,content_data}` hilang → error *"column does not exist"*).
+Revisi sudah dilinearkan menjadi `0001 → 0006` (satu head).
+
+**Siapa yang perlu apa:**
+
+| Kondisi DB | Yang dijalankan |
+| :---- | :---- |
+| **DB baru** / dibuat ulang dari nol | `make migrate` saja (rantai `0001→0006` jalan bersih). **Tidak** perlu reconcile. |
+| **DB existing** yang dibuat sebelum perbaikan ini (mungkin drift) | `make reconcile` **sekali**, lalu lanjut seperti biasa. |
+
+```bash
+make reconcile      # idempoten & aman diulang; stamp alembic_version ke 0006
+make migrate        # verifikasi: harusnya no-op
+make seed
+```
+
+> Buat partner kerja saat merge ke `dev`: kalau DB dev-nya disposable, **paling gampang recreate fresh**
+> lalu `make migrate` — nol SQL manual. Reconcile hanya untuk DB existing yang ingin dipertahankan datanya.
+> Detail SQL ada di [`backend/scripts/reconcile_schema.sql`](backend/scripts/reconcile_schema.sql).
 
 ---
 

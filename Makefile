@@ -4,7 +4,7 @@
 # Path virtualenv backend
 VENV := backend/aigt/bin
 
-.PHONY: dev frontend backend install seed help
+.PHONY: dev frontend backend install seed migrate reconcile help
 
 # Default: jalanin frontend + backend bareng
 dev:
@@ -24,6 +24,17 @@ frontend:
 	@echo "🎨 Frontend → http://localhost:3000"
 	cd frontend && npm run dev
 
+# Migrasi database ke versi terbaru (DB baru maupun existing yang sudah selaras)
+migrate:
+	@echo "🧬 Alembic upgrade head..."
+	cd backend && $(abspath $(VENV))/alembic upgrade head
+
+# Reconcile schema DB existing yang drift (akibat revisi Alembic lama duplikat) → head.
+# SEKALI JALAN, idempoten. DB baru TIDAK perlu ini — cukup `make migrate`.
+reconcile:
+	@echo "🩹 Reconcile schema DB existing ke head (0006)..."
+	cd backend && $(abspath $(VENV))/python scripts/reconcile_schema.py
+
 # Seed templates ke database (RESET tabel templates lalu insert ulang dari JSON)
 seed:
 	@echo "🌱 Seeding templates..."
@@ -38,5 +49,7 @@ help:
 	@echo "make dev       → jalankan frontend + backend sekaligus"
 	@echo "make frontend  → jalankan frontend saja"
 	@echo "make backend   → jalankan backend saja"
+	@echo "make migrate   → alembic upgrade head"
+	@echo "make reconcile → selaraskan schema DB existing yang drift ke head (sekali jalan)"
 	@echo "make seed      → seed templates ke database (reset + insert ulang)"
 	@echo "make install   → install dependencies keduanya"

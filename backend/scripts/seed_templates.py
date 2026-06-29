@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -27,6 +27,14 @@ from app.config import settings
 from app.models.template import Template
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_template_data")
+
+# Fallback schema-sync: kolom yang ditambahkan migrasi belakangan tapi mungkin BELUM ter-apply
+# di DB (mis. saat revisi Alembic sempat bentrok), padahal model `Template` sudah mendeklarasikannya.
+# Tanpa ini `select(Template)` gagal: "column templates.platform does not exist".
+# `ADD COLUMN IF NOT EXISTS` idempoten & non-destruktif — aman dijalankan berulang.
+SCHEMA_FALLBACKS: tuple[str, ...] = (
+    "ALTER TABLE templates ADD COLUMN IF NOT EXISTS platform VARCHAR(50)",
+)
 
 
 def load_templates() -> list[dict]:
@@ -53,6 +61,11 @@ async def seed():
     templates = load_templates()
 
     async with async_session() as session:
+        # Pastikan schema sinkron dengan model sebelum query (lihat SCHEMA_FALLBACKS).
+        for ddl in SCHEMA_FALLBACKS:
+            await session.execute(text(ddl))
+        await session.commit()
+
         result = await session.execute(select(Template))
         existing = {t.name: t for t in result.scalars().all()}
 

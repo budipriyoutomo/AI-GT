@@ -2,6 +2,7 @@
 
 import { CSSProperties, Fragment } from "react";
 import { SocialIcon } from "./SocialIcon";
+import { adaptScheme, adaptBackground, adaptScrimGradient } from "@/lib/brandAdapt";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type {
   TemplateConfig,
@@ -29,6 +30,14 @@ function resolveColor(scheme: ColorScheme, role?: string): string {
   if (role.startsWith("#")) return role;
   return scheme[role] ?? role;
 }
+
+// "4:5" → "4 / 5" (CSS aspect-ratio). `override` dipakai galeri agar semua box seragam;
+// tanpa override → aspect asli template (dipakai di preview modal).
+function aspectRatio(cfg: TemplateConfig, override?: string): string {
+  const a = override ?? cfg.canvas?.aspect;
+  return a ? a.replace(":", " / ") : "4 / 5";
+}
+
 
 // Hex → rgba(). Penting untuk fade scrim ke alpha-0 warna-sama (bukan keyword transparent).
 function hexToRgba(hex: string, alpha: number): string {
@@ -170,9 +179,10 @@ function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorSchem
   );
 }
 
-function ScrimElement({ el }: { el: TemplateElement }) {
-  if (!el.gradient) return null;
-  const css = `linear-gradient(${el.gradient.direction}, ${el.gradient.stops
+function ScrimElement({ el, brandColors }: { el: TemplateElement; brandColors?: string[] | null }) {
+  const gradient = adaptScrimGradient(el.gradient, brandColors);
+  if (!gradient) return null;
+  const css = `linear-gradient(${gradient.direction}, ${gradient.stops
     .map((st) => `${hexToRgba(st.color, st.alpha)} ${st.position}%`)
     .join(", ")})`;
   return (
@@ -231,21 +241,32 @@ function LogoElement({ el }: { el: TemplateElement }) {
   );
 }
 
-export function TemplateRenderer({ cfg, thumbnailUrl }: { cfg: TemplateConfig; thumbnailUrl: string }) {
-  const scheme = cfg.color_scheme ?? ({} as ColorScheme);
-  const isImageBg = cfg.background?.type === "image";
+export function TemplateRenderer({
+  cfg,
+  thumbnailUrl,
+  brandColors,
+  aspect,
+}: {
+  cfg: TemplateConfig;
+  thumbnailUrl: string;
+  brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
+  aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
+}) {
+  const background = adaptBackground(cfg.background, brandColors);
+  const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background);
+  const isImageBg = background?.type === "image";
 
   return (
     <div
       style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "4 / 5",
+        aspectRatio: aspectRatio(cfg, aspect),
         borderRadius: "var(--radius-md)",
         overflow: "hidden",
         fontFamily: fontStack(cfg.font?.family),
         containerType: "inline-size" as CSSProperties["containerType"],
-        ...backgroundStyle(cfg.background),
+        ...backgroundStyle(background),
       }}
     >
       {isImageBg && thumbnailUrl && (
@@ -266,7 +287,7 @@ export function TemplateRenderer({ cfg, thumbnailUrl }: { cfg: TemplateConfig; t
           case "footer":
             return <FooterElement key={i} el={el} scheme={scheme} />;
           case "scrim":
-            return <ScrimElement key={i} el={el} />;
+            return <ScrimElement key={i} el={el} brandColors={brandColors} />;
           case "image":
             return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} />;
           case "group":
