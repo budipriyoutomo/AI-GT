@@ -131,18 +131,74 @@ async def company_profile(db: AsyncSession, verified_user: User) -> CompanyProfi
     return profile
 
 
+SAMPLE_TEMPLATE_CONFIG = {
+    "font": {"family": "Inter", "locked": False},
+    "zones": {
+        "logo": {
+            "type": "image",
+            "anchors": [
+                {
+                    "id": "top_center",
+                    "logo": {"x": 0.35, "y": 0.03, "width": 0.30, "height": 0.10},
+                    "affects": {"body": {"y": 0.45}, "headline": {"y": 0.16}},
+                }
+            ],
+            "positioning": "anchored",
+        },
+        "headline": {
+            "x": 0.06, "y": 0.0, "type": "text",
+            "style": {
+                "align": "left", "color": "primary", "fontSize": 72, "fontWeight": "bold",
+                "accentColor": "accent", "accentWords": "auto",
+            },
+            "value": "Headline Contoh Template",
+            "width": 0.88, "height": 0.28, "visible": True,
+        },
+        "body": {
+            "x": 0.06, "y": 0.0, "type": "text",
+            "style": {"align": "left", "color": "primary", "fontSize": 32, "fontWeight": "semibold"},
+            "value": "Body copy untuk template test",
+            "width": 0.88, "height": 0.10, "visible": True,
+        },
+        "cta": {
+            "x": 0.06, "y": 0.0, "type": "text",
+            "style": {"align": "left", "color": "accent", "fontSize": 28, "fontWeight": "bold"},
+            "value": "Pesan Sekarang",
+            "width": 0.88, "height": 0.07, "visible": False,
+        },
+        "footer": {
+            "x": 0.0, "y": 0.88, "type": "footer",
+            "slots": ["instagram", "youtube"],
+            "style": {"color": "primary", "opacity": 0.6, "fontSize": 22, "backgroundColor": "#000000"},
+            "width": 1.0, "height": 0.12,
+            "values": {"instagram": "", "youtube": ""},
+        },
+    },
+    "layout": "full_bleed",
+    "background": {
+        "type": "image", "value": "",
+        "overlay": {"color": "#000000", "opacity": 0.45},
+        "replaceable": True,
+    },
+    "dimensions": {"width": 1080, "height": 1080},
+    "color_scheme": {
+        "accent": "#FFD700", "primary": "#FFFFFF", "secondary": "#CCCCCC", "brand_color_role": "accent",
+    },
+}
+
+
 @pytest_asyncio.fixture
 async def sample_template(db: AsyncSession) -> Template:
-    """Template aktif untuk digunakan di berbagai test."""
+    """Template aktif dengan template_config realistis (zones + color_scheme)."""
     template = Template(
         id=uuid.uuid4(),
         name="Template Lebaran FnB",
         industry="fnb",
         theme="seasonal_lebaran",
         content_type="single",
-        platform="instagram_feed",
+        layout_type="promo_simple",
         thumbnail_url="https://r2.example.com/templates/thumbnails/tmpl-1.png",
-        template_config={"layout": "grid", "background": "#FFFFFF"},
+        template_config=SAMPLE_TEMPLATE_CONFIG,
         is_premium=False,
         is_active=True,
     )

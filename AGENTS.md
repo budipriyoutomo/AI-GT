@@ -188,6 +188,12 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
 - ❌ Mengubah layout, background color, atau background image template
 - ❌ Menimpa color scheme template
 
+### Membuat/mengubah template JSON
+
+> 📐 **Sebelum menulis atau mengubah file `template_config` JSON** (di `backend/scripts/seed_template_data/`),
+> WAJIB baca dulu **`backend/scripts/seed_template_data/README.md`** — aturan pemisahan TEMPLATE vs GAMBAR,
+> struktur `elements`, dan kontrak slot AI (`role` vs `bind`).
+
 ---
 
 ## 7. Storage Flow

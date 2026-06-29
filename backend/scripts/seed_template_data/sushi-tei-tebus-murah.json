@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "source_ref": "Sushi Tei - Tebus Murah Salmon Fried Roll",
+    "catatan": "Foto menu = image slot foreground dari templates.thumbnail_url (URL di JSON ini sample untuk galeri). Maskot, badge 'Rp 1', logo grup, badge Halal TIDAK dimasukkan (ditempel terpisah).",
+    "area_tengah": "dibiarkan kosong sebagai ruang untuk gambar yang ditempel terpisah",
+    "posisi_status": "perkiraan (0-1), belum di-tune presisi",
+    "ai_slots": {
+      "penjelasan": "Elemen teks dengan field 'bind' value-nya diisi AI saat generate. Tanpa 'bind' = teks statis bawaan template.",
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> TEBUS MURAH", "body -> Salmon Fried Roll", "cta -> (tidak ada di layout ini)"]
+    },
+    "brand_theme_doc": {
+      "penjelasan": "Komposisi personalisasi brand saat GENERATE (render-time). Role warna / teks yang TIDAK disebut = LOCKED, tetap pakai nilai template. template_config di DB tidak dimutasi.",
+      "color": "color_slots memetakan role -> index company_profile.brand_colors. Hanya 'accent' yang brandable; background & primary LOCKED demi kontras/keterbacaan.",
+      "font": "font_brand_roles = daftar role teks yang boleh pakai company_profile.brand_font. headline & eyebrow tetap font template (display identity, rawan meluber). Fallback ke font template bila brand_font kosong."
+    }
+  },
+
+  "name": "FnB Promo Tebus Murah - IG Post",
+  "industry": "fnb",
+  "theme": "promo",
+  "content_type": "instagram_post",
+  "thumbnail_url": "https://static.vecteezy.com/system/resources/previews/009/887/174/non_2x/salmon-sashimi-japanese-food-free-png.png",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
+    },
+    "background": {
+      "type": "gradient",
+      "direction": "to bottom",
+      "stops": ["#4EA482", "#4EA482", "#E8DBB0"]
+    },
+    "color_scheme": {
+      "accent": "#F2C200",
+      "primary": "#FFFFFF",
+      "secondary": "#2E6B34"
+    },
+    "font": { "family": "Montserrat" },
+
+    "brand_theme": {
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["subtitle", "caption", "terms", "footnote"]
+    },
+
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.38, "y": 0.04, "width": 0.24, "height": 0.10
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "x": 0.11, "y": 0.51, "width": 0.78, "height": 0.30,
+        "fit": "contain"
+      },
+      {
+        "type": "text",
+        "role": "eyebrow",
+        "x": 0.10, "y": 0.18, "width": 0.80,
+        "align": "center",
+        "value": "• HARI SUSHI INTERNASIONAL •",
+        "style": { "fontSize": 32, "weight": "700", "color": "primary", "letterSpacing": 6 }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "x": 0.10, "y": 0.22, "width": 0.80,
+        "align": "center",
+        "value": "TEBUS\nMURAH",
+        "style": { "fontSize": 142, "weight": "800", "color": "accent", "lineHeight": 0.92, "fillGradient": ["#FFF3A8", "#FFCB1F"]}
+      },
+      {
+        "type": "text",
+        "role": "subtitle",
+        "bind": "body",
+        "x": 0.10, "y": 0.42, "width": 0.80,
+        "align": "center",
+        "value": "Salmon Fried Roll",
+        "style": { "fontSize": 58, "weight": "500", "color": "primary", "shadow": "0 2px 6px rgba(18, 52, 24, 0.35)" }
+      },
+      {
+        "type": "text",
+        "role": "caption",
+        "x": 0.10, "y": 0.48, "width": 0.80,
+        "align": "center",
+        "value": "18 Juni 2026",
+        "style": { "fontSize": 30, "weight": "600", "color": "primary", "letterSpacing": 2 }
+      },
+      {
+        "type": "text",
+        "role": "terms",
+        "x": 0.15, "y": 0.84, "width": 0.70,
+        "align": "center",
+        "value": "Berlaku di seluruh outlet",
+        "style": { "fontSize": 30, "weight": "700", "color": "#15331C" }
+      },
+      {
+        "type": "text",
+        "role": "footnote",
+        "x": 0.15, "y": 0.90, "width": 0.70,
+        "align": "center",
+        "value": "*Minimum transaksi Rp 350.000,- (sebelum pajak) | *S&K berlaku",
+        "style": { "fontSize": 18, "weight": "400", "color": "#22432B" }
+      }
+    ]
+  }
+}

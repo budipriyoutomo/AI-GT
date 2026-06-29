@@ -1,14 +1,20 @@
 """
-🔴 RED phase — test templates endpoint.
+Tests untuk templates endpoint.
+
+List endpoint mengembalikan template_config penuh (element-based) agar galeri bisa
+live-render. Tidak ada lagi transformasi preview_config.
 """
 import uuid
 
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Template
 
+
+# ---------------------------------------------------------------------------
+# Endpoint tests — GET /api/v1/templates
+# ---------------------------------------------------------------------------
 
 class TestListTemplates:
     async def test_list_templates_success(
@@ -20,6 +26,24 @@ class TestListTemplates:
         assert body["success"] is True
         assert len(body["data"]) == 1
         assert body["data"][0]["name"] == "Template Lebaran FnB"
+
+    async def test_list_includes_template_config(
+        self, client: AsyncClient, auth_headers: dict, sample_template: Template
+    ):
+        """Response list menyertakan template_config penuh, bukan preview_config lama."""
+        res = await client.get("/api/v1/templates", headers=auth_headers)
+        item = res.json()["data"][0]
+        assert "template_config" in item
+        assert "preview_config" not in item
+
+    async def test_list_template_config_passthrough(
+        self, client: AsyncClient, auth_headers: dict, sample_template: Template
+    ):
+        """template_config dikirim apa adanya (color_scheme & font ikut)."""
+        res = await client.get("/api/v1/templates", headers=auth_headers)
+        tc = res.json()["data"][0]["template_config"]
+        assert tc["color_scheme"]["accent"] == "#FFD700"
+        assert tc["font"]["family"] == "Inter"
 
     async def test_list_templates_filter_industry(
         self, client: AsyncClient, auth_headers: dict, db: AsyncSession, sample_template: Template
@@ -88,6 +112,10 @@ class TestListTemplates:
         res = await client.get("/api/v1/templates")
         assert res.status_code == 401
 
+
+# ---------------------------------------------------------------------------
+# Endpoint tests — GET /api/v1/templates/{id}
+# ---------------------------------------------------------------------------
 
 class TestGetTemplate:
     async def test_get_template_success(

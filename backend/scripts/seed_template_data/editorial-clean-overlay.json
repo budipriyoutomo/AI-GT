@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "source_ref": "Editorial - Clean Overlay (konversi dari config zones lama)",
+    "catatan": "Background = image dari templates.thumbnail_url (di-upload admin). thumbnail_url SENGAJA tidak diisi di JSON agar foto existing di DB tidak tertimpa saat re-seed.",
+    "perubahan_dari_asli": "Headline asli pakai color 'primary' (#1800ad biru tua) — di atas foto gelap nyaris tak terbaca. Diubah ke putih + scrim gelap di area teks. Revert ke 'primary' bila ingin kembali ke desain semula.",
+    "zona_dilewati": "cta & disclaimer di config lama visible=false → tidak disertakan.",
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> Headline...", "body -> Body...", "cta -> (tidak ada)"]
+    },
+    "brand_theme_doc": {
+      "color": "mode 'tint': accent <- brand_colors[0]. Teks putih/abu fungsional (di atas foto) LOCKED.",
+      "font": "font_brand_roles: body boleh brand_font. headline tetap font template."
+    }
+  },
+
+  "name": "Editorial - Clean Overlay",
+  "industry": "teknologi",
+  "theme": "editorial",
+  "content_type": "instagram_post",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "1:1",
+      "dimensions": { "width": 1080, "height": 1080 }
+    },
+    "background": {
+      "type": "image",
+      "source": "thumbnail",
+      "fallback": "#101018"
+    },
+    "color_scheme": {
+      "accent": "#FFD700",
+      "primary": "#1800AD",
+      "secondary": "#CCCCCC"
+    },
+    "font": { "family": "Inter" },
+
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["body"]
+    },
+
+    "elements": [
+      {
+        "type": "scrim",
+        "x": 0, "y": 0, "width": 1, "height": 1,
+        "gradient": {
+          "direction": "to bottom",
+          "stops": [
+            { "color": "#000000", "alpha": 0.80, "position": 0 },
+            { "color": "#000000", "alpha": 0.45, "position": 40 },
+            { "color": "#000000", "alpha": 0.10, "position": 72 },
+            { "color": "#000000", "alpha": 0.55, "position": 100 }
+          ]
+        }
+      },
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.35, "y": 0.03, "width": 0.30, "height": 0.10
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "x": 0.06, "y": 0.16, "width": 0.88,
+        "align": "left",
+        "value": "Headline yang Bisa Kamu Tambahkan di Sini",
+        "style": { "fontSize": 72, "weight": "800", "color": "#FFFFFF", "lineHeight": 1.1 }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.06, "y": 0.30, "width": 0.88,
+        "align": "left",
+        "value": "Body ini adalah section di mana kamu bisa menjelaskan dengan detail tentang deskripsi konten kamu",
+        "style": { "fontSize": 32, "weight": "600", "color": "secondary", "lineHeight": 1.35 }
+      },
+      {
+        "type": "footer",
+        "x": 0.0, "y": 0.88, "width": 1.0, "height": 0.10,
+        "slots": ["instagram", "youtube"],
+        "style": { "color": "#FFFFFF", "backgroundColor": "transparent", "opacity": 0.85, "fontSize": 22 }
+      }
+    ]
+  }
+}

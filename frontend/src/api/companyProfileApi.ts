@@ -1,10 +1,14 @@
 import { api } from "@/lib/apiClient";
-import type { CompanyProfile } from "@/types/company-profile";
+import type { CompanyContact, CompanyProfile } from "@/types/company-profile";
 
 export interface CompanyProfileCreate {
   business_name: string;
   industry: string;
+  logo_url?: string;
   brand_colors?: string[];
+  brand_font?: string;
+  tagline?: string;
+  contact?: CompanyContact;
   language_preference?: string;
 }
 
@@ -13,6 +17,9 @@ export interface CompanyProfileUpdate {
   industry?: string;
   logo_url?: string;
   brand_colors?: string[];
+  brand_font?: string;
+  tagline?: string;
+  contact?: CompanyContact;
   language_preference?: string;
 }
 

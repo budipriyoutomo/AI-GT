@@ -7,11 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.template import Template
 from app.models.user import User
-from app.schemas.template import TemplateData
+from app.schemas.template import TemplateData, TemplateListData
 from app.utils.auth import get_current_user
 from app.utils.exceptions import AppError, ErrorCode
 
 router = APIRouter(prefix="/api/v1/templates", tags=["templates"])
+
+_LIST_COLUMNS = (
+    Template.id,
+    Template.name,
+    Template.industry,
+    Template.theme,
+    Template.content_type,
+    Template.layout_type,
+    Template.thumbnail_url,
+    Template.is_premium,
+    Template.template_config,
+)
 
 
 @router.get("")
@@ -21,18 +33,16 @@ async def list_templates(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Template).where(Template.is_active == True)  # noqa: E712
+    query = select(*_LIST_COLUMNS).where(Template.is_active == True)  # noqa: E712
     if industry:
         query = query.where(Template.industry == industry)
     if theme:
         query = query.where(Template.theme == theme)
 
     result = await db.execute(query)
-    templates = result.scalars().all()
-    return {
-        "success": True,
-        "data": [TemplateData.model_validate(t).model_dump() for t in templates],
-    }
+    rows = result.mappings().all()
+    data = [TemplateListData.model_validate(dict(row)).model_dump() for row in rows]
+    return {"success": True, "data": data}
 
 
 @router.get("/{template_id}")

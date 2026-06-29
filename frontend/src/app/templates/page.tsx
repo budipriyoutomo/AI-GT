@@ -12,12 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
-import { PosterThumb } from "@/components/poster-thumb";
 import { toast } from "@/components/ui/toast";
 import { templatesApi } from "@/api/templatesApi";
-import type { Template } from "@/types/template";
+import { TemplateRenderer } from "@/components/template/TemplateRenderer";
+import type { TemplateListItem } from "@/types/template";
 
-const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-4", "--chart-5", "--chart-2"];
 const FORMATS = ["Semua", "Single", "Carousel"];
 const INDUSTRIES = [
   "Semua industri",
@@ -30,20 +29,15 @@ const INDUSTRIES = [
 
 function TemplateCard({
   t,
-  idx,
   fav,
   onFav,
   href,
 }: {
-  t: Template;
-  idx: number;
+  t: TemplateListItem;
   fav: boolean;
   onFav: () => void;
   href: string;
 }) {
-  const accent = ACCENT_POOL[idx % ACCENT_POOL.length];
-  const kicker = t.theme || t.industry;
-
   return (
     <div style={{ position: "relative" }} className="group">
       <button
@@ -63,16 +57,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ position: "relative" }}>
-          {t.thumbnail_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={t.thumbnail_url}
-              alt={t.name}
-              style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: "var(--radius-md)" }}
-            />
-          ) : (
-            <PosterThumb title={t.name} kicker={kicker} cta={null} accent={accent} ratio="4 / 5" />
-          )}
+          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} />
 
           {t.is_premium && (
             <div style={{
@@ -84,6 +69,7 @@ function TemplateCard({
               fontSize: 10, fontWeight: 600,
               color: "var(--foreground)",
               border: "1px solid var(--border)",
+              zIndex: 1,
             }}>
               <Icon name="crown" size={11} style={{ color: "var(--primary)" }} />
               Premium
@@ -92,7 +78,7 @@ function TemplateCard({
 
           <div
             className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto"
-            style={{ position: "absolute", inset: "12px 12px auto 12px" }}
+            style={{ position: "absolute", inset: "12px 12px auto 12px", zIndex: 1 }}
           >
             <Link href={href} style={{ display: "block" }}>
               <Button icon="sparkles" style={{ width: "100%" }}>Pakai Template</Button>
@@ -131,7 +117,7 @@ export default function TemplatesPage() {
   const goalParam    = searchParams.get("goal");
   const platformParam = searchParams.get("platform");
 
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fmt, setFmt] = useState("Semua");
   const [industry, setIndustry] = useState("Semua industri");
@@ -150,11 +136,9 @@ export default function TemplatesPage() {
       if (fmt !== "Semua" && t.content_type !== fmt) return false;
       if (industry !== "Semua industri" && t.industry !== industry) return false;
       if (q && !t.name.toLowerCase().includes(q.toLowerCase())) return false;
-      // Filter by platform from query param (templates with null platform are shown to all)
-      if (platformParam && t.platform && t.platform !== platformParam) return false;
       return true;
     });
-  }, [templates, fmt, industry, q, platformParam]);
+  }, [templates, fmt, industry, q]);
 
   // Build template link that preserves goal+platform context
   function templateLink(templateId: string) {
@@ -242,11 +226,10 @@ export default function TemplatesPage() {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {list.map((t, i) => (
+          {list.map((t) => (
             <TemplateCard
               key={t.id}
               t={t}
-              idx={i}
               fav={!!favs[t.id]}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
               href={templateLink(t.id)}
