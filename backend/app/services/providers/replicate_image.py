@@ -88,4 +88,4 @@ class ReplicateImageProvider:
         )
 
         urls = [str(url) for url in output] if output else []
-        return ImageResult(image_urls=urls[:3])
+        return ImageResult(image_urls=urls[:1])

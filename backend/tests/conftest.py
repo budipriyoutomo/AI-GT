@@ -140,6 +140,7 @@ async def sample_template(db: AsyncSession) -> Template:
         industry="fnb",
         theme="seasonal_lebaran",
         content_type="single",
+        platform="instagram_feed",
         thumbnail_url="https://r2.example.com/templates/thumbnails/tmpl-1.png",
         template_config={"layout": "grid", "background": "#FFFFFF"},
         is_premium=False,
@@ -158,12 +159,19 @@ async def completed_session(
     sample_template: Template,
     company_profile: CompanyProfile,
 ) -> tuple[GenerateSession, list[GenerateVariant]]:
-    """Session sudah completed dengan 3 variants — untuk test polling."""
+    """Session sudah completed dengan 1 variant — Quick Generate flow."""
     session = GenerateSession(
         id=uuid.uuid4(),
         user_id=verified_user.id,
         template_id=sample_template.id,
         language_style="casual",
+        goal="promo",
+        platform="instagram_feed",
+        content_data={
+            "product_or_service": "Nasi Goreng Spesial",
+            "key_message": "Makan enak harga terjangkau",
+            "image_source": "none",
+        },
         status="completed",
         expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
     )
@@ -171,17 +179,16 @@ async def completed_session(
     await db.flush()
 
     variants = []
-    for i in range(1, 4):
-        v = GenerateVariant(
-            id=uuid.uuid4(),
-            session_id=session.id,
-            variant_number=i,
-            copy_data={"headline": f"Judul {i}", "body": "Body copy.", "cta": "Pesan Sekarang"},
-            typography_data={"headline_font": "Montserrat", "body_font": "Lato", "headline_size": 36, "body_size": 16, "letter_spacing": 0.5},
-            thematic_image_url=f"https://r2.example.com/temp/img{i}.png",
-        )
-        db.add(v)
-        variants.append(v)
+    v = GenerateVariant(
+        id=uuid.uuid4(),
+        session_id=session.id,
+        variant_number=1,
+        copy_data={"headline": "Judul 1", "body": "Body copy.", "cta": "Pesan Sekarang"},
+        typography_data={"headline_font": "Montserrat", "body_font": "Lato", "headline_size": 36, "body_size": 16, "letter_spacing": 0.5},
+        thematic_image_url="https://r2.example.com/temp/img1.png",
+    )
+    db.add(v)
+    variants.append(v)
 
     await db.commit()
     await db.refresh(session)

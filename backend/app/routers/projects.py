@@ -55,6 +55,18 @@ async def delete_project(
     return {"success": True, "data": None, "message": "Project berhasil dihapus."}
 
 
+@router.post("/{project_id}/thumbnail")
+async def update_thumbnail(
+    project_id: uuid.UUID,
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    file_data = await file.read()
+    project = await project_service.update_thumbnail(db, project_id, current_user.id, file_data)
+    return {"success": True, "data": ProjectData.model_validate(project).model_dump()}
+
+
 @router.post("/{project_id}/export")
 async def export_project(
     project_id: uuid.UUID,

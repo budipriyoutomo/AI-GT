@@ -1,19 +1,28 @@
 import { api } from "@/lib/apiClient";
 import type { GenerateSession } from "@/types/generate-session";
+import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from "@/types/generate-session";
 import type { Project } from "@/types/project";
 
-export interface CampaignData {
-  content_brief?: string;
-  image_source?: "upload" | "suggestion" | "none";
-  image_prompt?: string;
-  target_audience?: string;
-  language_preference?: string;
+export interface CarouselSettings {
+  slide_count: number;
+  story_flow: string;
+  custom_flow?: string | null;
+  slide_directions?: (string | null)[];
 }
 
 export interface CreateSessionRequest {
   template_id: string;
-  language_style: string;
-  campaign_data?: CampaignData;
+  goal: GoalEnum;
+  platform: PlatformEnum;
+  language_style: LanguageStyleEnum;
+  image_source?: ImageSourceEnum;
+  thematic_image_theme?: string | null;
+  selected_image_prompt?: string | null;
+  product_or_service: string;
+  key_message: string;
+  promo_detail?: string | null;
+  additional_notes?: string | null;
+  campaign_data?: CarouselSettings | null;
 }
 
 export const generateApi = {

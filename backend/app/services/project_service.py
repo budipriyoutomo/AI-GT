@@ -48,12 +48,24 @@ async def delete_project(db: AsyncSession, project_id: uuid.UUID, user_id: uuid.
     await db.commit()
 
 
+async def update_thumbnail(
+    db: AsyncSession, project_id: uuid.UUID, user_id: uuid.UUID, file_data: bytes
+) -> Project:
+    project = await _get_owned(db, project_id, user_id)
+    url = storage_service.upload_thumbnail(file_data, str(user_id), str(project_id))
+    project.thumbnail_url = url
+    await db.commit()
+    await db.refresh(project)
+    return project
+
+
 async def export_project(
     db: AsyncSession, project_id: uuid.UUID, user_id: uuid.UUID, file_data: bytes
 ) -> Project:
     project = await _get_owned(db, project_id, user_id)
     url = storage_service.upload_exported(file_data, str(user_id), str(project_id))
     project.exported_image_url = url
+    project.thumbnail_url = url  # export juga update thumbnail agar dashboard sinkron
     project.is_exported = True
     await db.commit()
     await db.refresh(project)

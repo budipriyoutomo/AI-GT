@@ -267,7 +267,7 @@ export function Sidebar({ active }: SidebarProps) {
       {/* CTA */}
       <div style={{ padding: collapsed ? "10px 8px 4px" : "12px 12px 4px" }}>
         {collapsed ? (
-          <Link href="/templates" title="Buat Konten" style={{
+          <Link href="/create" title="Buat Konten" style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 40, height: 36, margin: "0 auto",
             background: "var(--primary)", borderRadius: "var(--radius-md)", color: "#fff",
@@ -276,7 +276,7 @@ export function Sidebar({ active }: SidebarProps) {
           </Link>
         ) : (
           <Button icon="sparkles" style={{ width: "100%" }}>
-            <Link href="/templates" style={{ all: "inherit" }}>Buat Konten</Link>
+            <Link href="/create" style={{ all: "inherit" }}>Buat Konten</Link>
           </Button>
         )}
       </div>

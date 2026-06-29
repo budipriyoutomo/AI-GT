@@ -8,10 +8,16 @@ class CopyInput:
     language_style: str
     language_preference: str
     template_theme: str
+    goal: str | None = None
+    platform: str | None = None
+    product_or_service: str | None = None
+    key_message: str | None = None
+    promo_detail: str | None = None
+    additional_notes: str | None = None
     brand_colors: list[str] | None = None
-    content_brief: str | None = None
-    target_audience: str | None = None
     campaign_data: dict | None = None
+    content_type: str = "Single"   # "Single" | "Carousel"
+    slide_count: int = 1
 
 
 @dataclass
@@ -29,7 +35,7 @@ class CopyResult:
 @dataclass
 class ImageInput:
     theme: str
-    num_outputs: int = 3
+    num_outputs: int = 1
     width: int = 1024
     height: int = 1024
     num_inference_steps: int = 25
@@ -38,7 +44,7 @@ class ImageInput:
 
 @dataclass
 class ImageResult:
-    image_urls: list[str | None] = field(default_factory=lambda: [None, None, None])
+    image_urls: list[str | None] = field(default_factory=lambda: [None])
 
 
 class CopyError(Exception):

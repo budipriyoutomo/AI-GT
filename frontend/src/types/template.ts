@@ -4,6 +4,7 @@ export interface Template {
   industry: string;
   theme: string;
   content_type: string;
+  platform: string | null;
   thumbnail_url: string | null;
   template_config: Record<string, unknown>;
   is_premium: boolean;

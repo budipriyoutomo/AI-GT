@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,7 +19,12 @@ class GenerateSession(Base):
         UUID(as_uuid=True), ForeignKey("templates.id"), nullable=False
     )
     language_style: Mapped[str] = mapped_column(String(20), nullable=False)
+    goal: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    platform: Mapped[str | None] = mapped_column(String(50), nullable=True)
     thematic_image_theme: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # content_data: stores Quick Generate fields (product_or_service, key_message, image_source, etc.)
+    # campaign_data = NULL means Quick Generate; non-NULL means Campaign (premium)
+    content_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     campaign_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="processing")
     created_at: Mapped[datetime] = mapped_column(
@@ -33,3 +38,10 @@ class GenerateSession(Base):
         back_populates="session", cascade="all, delete-orphan"
     )
     project: Mapped["Project"] = relationship(back_populates="session", uselist=False)  # noqa: F821
+
+    @property
+    def project_id(self) -> uuid.UUID | None:
+        try:
+            return self.project.id if self.project else None
+        except Exception:
+            return None
