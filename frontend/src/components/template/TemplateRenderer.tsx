@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, Fragment } from "react";
+import { CSSProperties, Fragment, ReactNode } from "react";
 import { SocialIcon } from "./SocialIcon";
 import { adaptScheme, adaptBackground, adaptScrimGradient } from "@/lib/brandAdapt";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
@@ -9,6 +9,8 @@ import type {
   TemplateElement,
   ColorScheme,
   TemplateBackground,
+  ElementStyle,
+  BrandTheme,
 } from "@/types/template";
 
 const pct = (n: number) => `${n * 100}%`;
@@ -18,6 +20,8 @@ const FONT_STACK: Record<string, string> = {
   Poppins: "var(--font-poppins)",
   Montserrat: "var(--font-montserrat)",
   Inter: "var(--font-inter)",
+  Anton: "var(--font-anton)",
+  "Archivo Black": "var(--font-archivo-black)",
 };
 const fontStack = (family?: string) =>
   `${(family && FONT_STACK[family]) || `"${family ?? "Inter"}"`}, var(--font-inter), sans-serif`;
@@ -83,15 +87,35 @@ function buildTextStyle(el: TemplateElement, scheme: ColorScheme): CSSProperties
     decor.WebkitTextFillColor = "transparent";
     decor.color = "transparent";
   }
+  // rotasi blok + skew geometri (CTA paralelogram) — komposisi di sekitar pusat blok
+  const transforms: string[] = [];
+  if (s.rotate != null) transforms.push(`rotate(${s.rotate}deg)`);
+  if (s.skew != null) transforms.push(`skewX(${s.skew}deg)`);
   return {
     textAlign: (el.align as CSSProperties["textAlign"]) ?? "left",
     color: resolveColor(scheme, s.color),
+    fontFamily: s.fontFamily ? fontStack(s.fontFamily) : undefined,
     fontSize: cqw(s.fontSize),
     fontWeight: s.weight ?? "400",
+    fontStyle: s.italic ? "italic" : undefined,
     lineHeight: s.lineHeight ?? 1.1,
     letterSpacing: s.letterSpacing != null ? cqw(s.letterSpacing) : undefined,
     whiteSpace: "pre-line",
+    transform: transforms.length ? transforms.join(" ") : undefined,
+    transformOrigin: transforms.length ? "center" : undefined,
     ...decor,
+  };
+}
+
+// Box treatment (CTA button / pill): teks dibungkus span inline-block berlatar yang hug-content,
+// jadi lebar box ikut teks & posisi box tunduk pada textAlign div luar. Aktif bila style.background diisi.
+function buildBoxStyle(s: ElementStyle, scheme: ColorScheme): CSSProperties | undefined {
+  if (!s.background) return undefined;
+  return {
+    display: "inline-block",
+    backgroundColor: resolveColor(scheme, s.background),
+    borderRadius: s.radius != null ? cqw(s.radius) : undefined,
+    padding: s.padding,             // em → ikut fontSize teks
   };
 }
 
@@ -99,19 +123,21 @@ function buildTextStyle(el: TemplateElement, scheme: ColorScheme): CSSProperties
 function TextBody({ el, scheme, style }: { el: TemplateElement; scheme: ColorScheme; style: CSSProperties }) {
   const s = el.style ?? {};
   const value = el.value ?? "";
+  let content: ReactNode = value;
   if (s.accentWords && value.includes(s.accentWords)) {
     const [before, after] = value.split(s.accentWords);
-    return (
-      <div style={style}>
+    content = (
+      <>
         {before}
         <span style={{ color: resolveColor(scheme, s.accentColor), fontWeight: s.accentWeight ?? "700" }}>
           {s.accentWords}
         </span>
         {after}
-      </div>
+      </>
     );
   }
-  return <div style={style}>{value}</div>;
+  const box = buildBoxStyle(s, scheme);
+  return <div style={style}>{box ? <span style={box}>{content}</span> : content}</div>;
 }
 
 function TextElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
@@ -179,8 +205,8 @@ function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorSchem
   );
 }
 
-function ScrimElement({ el, brandColors }: { el: TemplateElement; brandColors?: string[] | null }) {
-  const gradient = adaptScrimGradient(el.gradient, brandColors);
+function ScrimElement({ el, brandColors, brandTheme }: { el: TemplateElement; brandColors?: string[] | null; brandTheme?: BrandTheme }) {
+  const gradient = adaptScrimGradient(el.gradient, brandColors, brandTheme);
   if (!gradient) return null;
   const css = `linear-gradient(${gradient.direction}, ${gradient.stops
     .map((st) => `${hexToRgba(st.color, st.alpha)} ${st.position}%`)
@@ -223,6 +249,26 @@ function ImageElement({ el, thumbnailUrl }: { el: TemplateElement; thumbnailUrl:
   );
 }
 
+// Garis dekoratif (mis. rule di atas/bawah subtitle) — bisa ikut rotasi agar paralel teks miring.
+function RuleElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
+  const s = el.style ?? {};
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: pct(el.x),
+        top: pct(el.y),
+        width: pct(el.width),
+        height: cqw(s.thickness ?? 4),
+        backgroundColor: resolveColor(scheme, s.color ?? "accent"),
+        borderRadius: cqw(2),
+        transform: s.rotate != null ? `rotate(${s.rotate}deg)` : undefined,
+        transformOrigin: "center",
+      }}
+    />
+  );
+}
+
 function LogoElement({ el }: { el: TemplateElement }) {
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
@@ -252,8 +298,9 @@ export function TemplateRenderer({
   brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
   aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
 }) {
-  const background = adaptBackground(cfg.background, brandColors);
-  const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background);
+  const brandTheme = cfg.brand_theme;
+  const background = adaptBackground(cfg.background, brandColors, brandTheme);
+  const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background, brandTheme);
   const isImageBg = background?.type === "image";
 
   return (
@@ -287,11 +334,13 @@ export function TemplateRenderer({
           case "footer":
             return <FooterElement key={i} el={el} scheme={scheme} />;
           case "scrim":
-            return <ScrimElement key={i} el={el} brandColors={brandColors} />;
+            return <ScrimElement key={i} el={el} brandColors={brandColors} brandTheme={brandTheme} />;
           case "image":
             return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} />;
           case "group":
             return <GroupElement key={i} el={el} scheme={scheme} />;
+          case "rule":
+            return <RuleElement key={i} el={el} scheme={scheme} />;
           default:
             return <Fragment key={i} />;
         }

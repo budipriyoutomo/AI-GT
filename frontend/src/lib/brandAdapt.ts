@@ -1,4 +1,4 @@
-import type { ColorScheme, TemplateBackground, GradientStop } from "@/types/template";
+import type { ColorScheme, TemplateBackground, GradientStop, BrandTheme } from "@/types/template";
 
 /**
  * Brand color adaptation untuk PREVIEW (read-only — tidak menyentuh template_config asli).
@@ -175,13 +175,41 @@ function ensureContrast(hex: string, bgLum: number, minRatio: number): string {
 const MIN_CONTRAST = 3.0; // teks display besar (headline/CTA) — ambang WCAG large text.
 const ROLE_PRIORITY = ["accent", "primary", "secondary"];
 
+// Mode "tint" (README §5): HANYA role di color_slots yang di-brand; sisanya (termasuk
+// background & scrim) LOCKED. Memetakan role → brand_colors[index]; slot hilang → fallback brand[0].
+function adaptSchemeTint(
+  scheme: ColorScheme,
+  brand: string[],
+  background: TemplateBackground | undefined,
+  brandTheme: BrandTheme,
+): ColorScheme {
+  const slots = brandTheme.color_slots ?? {};
+  const bgLum = backgroundLuminance(background);
+  const result: ColorScheme = { ...scheme };
+
+  for (const [role, idx] of Object.entries(slots)) {
+    if (!(role in scheme)) continue;
+    const picked = brand[idx] ?? brand[0];
+    if (!picked) continue;
+    // Jaga kontras tapi jangan turun di bawah yang dirancang designer (plafon MIN_CONTRAST).
+    const origHex = sanitizeHex(scheme[role]);
+    const origContrast = origHex ? contrast(luminance(origHex), bgLum) : MIN_CONTRAST;
+    result[role] = ensureContrast(picked, bgLum, Math.min(MIN_CONTRAST, origContrast));
+  }
+  return result;
+}
+
 export function adaptScheme(
   scheme: ColorScheme,
   brandColors?: string[] | null,
   background?: TemplateBackground,
+  brandTheme?: BrandTheme,
 ): ColorScheme {
   const brand = (brandColors ?? []).map(sanitizeHex).filter(Boolean) as string[];
   if (brand.length === 0) return scheme;
+
+  // tint = kontrak per-template yang presisi. derive / tanpa brand_theme → heuristik global (legacy).
+  if (brandTheme?.mode === "tint") return adaptSchemeTint(scheme, brand, background, brandTheme);
 
   const bgLum = backgroundLuminance(background);
   const result: ColorScheme = { ...scheme };
@@ -222,7 +250,10 @@ export function adaptScheme(
 export function adaptBackground(
   background: TemplateBackground | undefined,
   brandColors?: string[] | null,
+  brandTheme?: BrandTheme,
 ): TemplateBackground | undefined {
+  // tint: background LOCKED — jaga identitas template (mis. cream retro tidak digeser ke hue brand).
+  if (brandTheme?.mode === "tint") return background;
   const b0 = firstBrand(brandColors);
   if (!background || !b0) return background;
   const bh = brandHue(b0);
@@ -252,7 +283,10 @@ export function adaptBackground(
 export function adaptScrimGradient<T extends { stops: GradientStop[] }>(
   gradient: T | undefined,
   brandColors?: string[] | null,
+  brandTheme?: BrandTheme,
 ): T | undefined {
+  // tint: scrim LOCKED secara default; template foto+scrim bisa opt-in (brand_theme.scrim) untuk veil brand.
+  if (brandTheme?.mode === "tint" && !brandTheme.scrim) return gradient;
   const b0 = firstBrand(brandColors);
   if (!gradient || !b0) return gradient;
   const hsl = rgbToHsl(hexToRgb(b0));

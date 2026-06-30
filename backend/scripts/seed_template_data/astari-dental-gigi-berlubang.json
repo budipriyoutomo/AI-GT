@@ -29,8 +29,8 @@
 
   "template_config": {
     "canvas": {
-      "aspect": "3:4",
-      "dimensions": { "width": 1080, "height": 1440 }
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
     },
     "background": {
       "type": "gradient",
@@ -106,7 +106,7 @@
       {
         "type": "footer",
         "x": 0.04, "y": 0.92, "width": 0.92, "height": 0.055,
-        "slots": ["instagram", "tiktok", "location", "booking"],
+        "slots": ["instagram", "tiktok", "location"],
         "style": { "color": "accent", "backgroundColor": "#FFFFFF", "opacity": 1, "fontSize": 22 }
       }
     ]

@@ -41,7 +41,7 @@ function TemplateCard({
   onPreview: () => void;
 }) {
   return (
-    <div style={{ position: "relative" }} className="group">
+    <div style={{ position: "relative", height: "100%" }} className="group">
       <button
         onClick={onFav}
         aria-label="Simpan"
@@ -57,7 +57,7 @@ function TemplateCard({
         <Icon name="heart" size={15} style={fav ? { fill: "var(--destructive)", color: "var(--destructive)" } : {}} />
       </button>
 
-      <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
+      <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
           <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} aspect="4:5" />
 

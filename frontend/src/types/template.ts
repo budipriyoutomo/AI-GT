@@ -24,6 +24,7 @@ export interface TemplateBackground {
 
 export interface ElementStyle {
   fontSize?: number;              // ruang 1080px
+  fontFamily?: string;            // override font per-elemen (mis. subtitle thin) → fallback ke font template
   weight?: string;
   color?: string;                 // hex atau role
   lineHeight?: number;
@@ -37,10 +38,18 @@ export interface ElementStyle {
   stroke?: { color: string; width: number };   // outline teks (width ruang 1080px)
   shadow?: string;                // CSS text-shadow
   fillGradient?: string[];        // glossy: gradient fill vertikal (hex top→bottom)
+  // box treatment (mis. CTA button): teks jadi pill berlatar yang hug-content sesuai align
+  background?: string;            // hex atau role → latar box. Aktifkan box bila diisi
+  radius?: number;                // border-radius box (ruang 1080px)
+  padding?: string;               // CSS padding box, mis. "0.4em 1.2em" (em ikut fontSize)
+  rotate?: number;                // derajat miring blok teks; negatif = naik ke kanan (CCW)
+  italic?: boolean;               // oblique letterform (faux-italic utk font tanpa face italic mis. Anton)
+  skew?: number;                  // skewX derajat — miringkan GEOMETRI box (CTA jadi paralelogram italic)
+  thickness?: number;             // rule: tebal garis (ruang 1080px)
 }
 
 export interface TemplateElement {
-  type: "logo" | "text" | "footer" | "scrim" | "image" | "group";
+  type: "logo" | "text" | "footer" | "scrim" | "image" | "group" | "rule";
   x: number;
   y: number;
   width: number;
@@ -65,12 +74,29 @@ export interface TemplateElement {
   gradient?: { direction: string; stops: GradientStop[] };
 }
 
+// Resep turunan warna untuk mode "derive" (lihat README §5).
+export type DeriveRecipe = "base" | "tint" | "readable" | "on-image";
+
+/**
+ * Kontrak personalisasi brand per-template (render-time, read-only terhadap template_config).
+ * - mode "tint": hanya role di `color_slots` yang di-brand; background & scrim LOCKED.
+ * - mode "derive": seluruh palet diturunkan dari `brand_colors[source]` via `derive` recipes.
+ */
+export interface BrandTheme {
+  mode?: "tint" | "derive";               // default "tint"
+  color_slots?: Record<string, number>;   // tint: role → index brand_colors
+  source?: number;                        // derive: index brand_colors baseline
+  derive?: Record<string, DeriveRecipe>;  // derive: role (incl. "background") → recipe
+  scrim?: boolean;                        // tint: opt-in brand veil pada scrim (template foto+scrim). Default lock.
+  font_brand_roles?: string[];            // role teks yang boleh pakai brand_font
+}
+
 export interface TemplateConfig {
   canvas?: { aspect?: string; dimensions?: { width: number; height: number } };
   background?: TemplateBackground;
   color_scheme: ColorScheme;
   font?: { family?: string };
-  brand_theme?: Record<string, unknown>;
+  brand_theme?: BrandTheme;
   elements: TemplateElement[];
 }
 

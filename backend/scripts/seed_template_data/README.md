@@ -38,7 +38,7 @@ komponen yang dibutuhkan **AI generate**.
 - `background.type`: `"gradient"` (pakai `stops`), `"color"` (pakai `value`), atau `"image"` (pakai `source: "thumbnail"` → ambil dari `templates.thumbnail_url`, dengan `fallback` warna saat kosong).
 - Gradient: `shape: "linear"` (default, pakai `direction` mis. `"to bottom"`) atau `shape: "radial"` (pakai `position` mis. `"50% 33%"` — pusat glow). Stops dibagi rata; ulang warna yang sama untuk "menahan" warna lebih lama.
 - Warna boleh **hex** (`"#FFFFFF"`) atau **role** (`"accent"`/`"primary"`/`"secondary"` → di-resolve ke `color_scheme`).
-- `font.family` **wajib sudah di-load** di `frontend/src/app/layout.tsx` (next/font). Saat ini tersedia: **Inter, Poppins, Montserrat**. Pakai font lain → tambahkan dulu di layout, kalau tidak akan fallback.
+- `font.family` **wajib sudah di-load** di `frontend/src/app/layout.tsx` (next/font). Saat ini tersedia: **Inter, Poppins, Montserrat, Anton, Archivo Black** (dua terakhir = display headline, single-weight 400). Pakai font lain → tambahkan dulu di layout, kalau tidak akan fallback.
 
 ---
 
@@ -50,6 +50,14 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
 - **`logo`** — `{ "type":"logo", "source":"brand", "x","y","width","height" }`. `source:"brand"` = logo user.
 - **`text`** — lihat bagian 4. Style: `fontSize`, `weight`, `color`, `lineHeight`, `letterSpacing`, `align`,
   `shadow`, `stroke` (outline), `fillGradient` (glossy), `accentWords`/`accentColor`/`accentWeight`.
+  **Box/pill** (mis. CTA button): isi `background` (hex/role) → teks jadi kotak berlatar yang **hug-content**
+  & ikut `align`; opsional `radius` (ruang 1080px) + `padding` (mis. `"0.4em 1.2em"`, em ikut fontSize).
+  **`rotate`** (derajat): miringkan blok teks/box di sekitar pusatnya — negatif = naik ke kanan (poster retro).
+  **`italic`** (bool): oblique letterform (faux-italic untuk font tanpa face italic mis. Anton).
+  **`skew`** (derajat): skewX geometri — miringkan **box** jadi paralelogram (CTA italic, edge ikut miring).
+  **`fontFamily`**: override font per-elemen (mis. subtitle pakai Montserrat thin) → fallback ke `font.family` template.
+- **`rule`** — garis dekoratif. `{ "type":"rule", "x","y","width", "style":{ "color","thickness","rotate" } }`.
+  Bisa ikut `rotate` agar paralel dengan teks miring (mis. garis atas/bawah subtitle poster).
 - **`image`** — foto foreground dari `templates.thumbnail_url`. `{ "source":"thumbnail", "fit":"cover|contain", "radius":n }`.
   `contain` (produk transparan) otomatis dapat drop-shadow. (Untuk background full-bleed pakai `background.type:"image"`, bukan element ini.)
 - **`scrim`** — overlay gradient untuk keterbacaan teks di atas foto.
@@ -129,6 +137,7 @@ Aturan & alasan:
 Tentukan lewat field `mode` (default `tint`):
 
 - **`tint`** — aman/konservatif. Hanya role di `color_slots` yang di-brand; sisanya locked. Cocok untuk template berpalet kuat (mis. Sushi Tei hijau).
+  Background & scrim **LOCKED** secara default. Template foto+scrim (mis. Editorial, SOPWER) bisa `"scrim": true` agar overlay jadi **veil brand** — di situlah brand muncul saat background = foto.
 - **`derive`** — seluruh palet **diturunkan otomatis** dari satu brand color. Cocok untuk template yang sengaja dibuat *adaptif ke brand apa pun* (mis. Astari).
 
 ```jsonc

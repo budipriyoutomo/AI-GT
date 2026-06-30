@@ -46,6 +46,7 @@
     "brand_theme": {
       "mode": "tint",
       "color_slots": {},
+      "scrim": true,
       "font_brand_roles": ["body"]
     },
 
@@ -97,7 +98,7 @@
       {
         "type": "footer",
         "x": 0.04, "y": 0.93, "width": 0.92, "height": 0.05,
-        "slots": ["website", "whatsapp", "instagram", "facebook", "hashtag"],
+        "slots": ["website", "whatsapp", "instagram", "facebook"],
         "style": { "color": "primary", "backgroundColor": "transparent", "opacity": 1, "fontSize": 20 }
       }
     ]

@@ -23,8 +23,8 @@
 
   "template_config": {
     "canvas": {
-      "aspect": "1:1",
-      "dimensions": { "width": 1080, "height": 1080 }
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
     },
     "background": {
       "type": "image",
@@ -41,6 +41,7 @@
     "brand_theme": {
       "mode": "tint",
       "color_slots": { "accent": 0 },
+      "scrim": true,
       "font_brand_roles": ["body"]
     },
 
@@ -51,10 +52,9 @@
         "gradient": {
           "direction": "to bottom",
           "stops": [
-            { "color": "#000000", "alpha": 0.80, "position": 0 },
-            { "color": "#000000", "alpha": 0.45, "position": 40 },
-            { "color": "#000000", "alpha": 0.10, "position": 72 },
-            { "color": "#000000", "alpha": 0.55, "position": 100 }
+            { "color": "#000000", "alpha": 0.92, "position": 0 },
+            { "color": "#000000", "alpha": 0.55, "position": 42 },
+            { "color": "#000000", "alpha": 0,    "position": 75 }
           ]
         }
       },
@@ -83,7 +83,7 @@
       },
       {
         "type": "footer",
-        "x": 0.0, "y": 0.88, "width": 1.0, "height": 0.10,
+        "x": 0.04, "y": 0.93, "width": 0.92, "height": 0.05,
         "slots": ["instagram", "youtube"],
         "style": { "color": "#FFFFFF", "backgroundColor": "transparent", "opacity": 0.85, "fontSize": 22 }
       }

@@ -1,0 +1,115 @@
+{
+  "_meta": {
+    "source_ref": "Referensi visual: poster retro 'FLASH SALE' (cream paper, lightning bolt, slab distressed, CTA merah).",
+    "keputusan_desain": {
+      "footer": "TIDAK ada footer sosial — creative promo fokus ke satu aksi (CTA). footer/cta opsional (README §4).",
+      "logo": "Slot logo brand di tengah-atas (permintaan user). Lightning bolt referensi TIDAK di-bake ke template (GAMBAR, README §1) — user tempel sendiri di editor bila mau.",
+      "cta_cluster": "Urgency line + tombol = satu unit fungsional. Dibedakan via TREATMENT, bukan pemisahan: urgency = teks terbuka (kata deadline di-accent merah), tombol = box terisi merah. Keduanya dalam satu group anchor bottom.",
+      "disederhanakan": "Garis pemisah merah di sekitar subtitle & tekstur kertas distressed = dekorasi opsional (GAMBAR), tidak ada element-nya — ditempel di editor / sebagai background image admin."
+    },
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> FLASH SALE", "body -> UP TO 50% OFF ...", "cta -> SHOP NOW"],
+      "statis": ["HURRY, ENDS 10AM FRIDAY! (deadline = data user, bukan output AI)"]
+    },
+    "brand_theme_doc": {
+      "color": "mode 'tint': accent (bolt/garis/tombol) <- brand_colors[0]. Cream background & teks gelap LOCKED demi identitas retro + kontras.",
+      "font": "font_brand_roles: hanya 'caption' (urgency) yang boleh brand_font. headline/body tetap Anton (identitas display poster)."
+    }
+  },
+
+  "name": "Flash Sale Retro Poster - IG Post",
+  "industry": "retail",
+  "theme": "retro",
+  "content_type": "instagram_post",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
+    },
+    "background": {
+      "type": "color",
+      "value": "#F2EBDA"
+    },
+    "color_scheme": {
+      "accent": "#E8543C",
+      "primary": "#2C2B27",
+      "secondary": "#4A4843"
+    },
+    "font": { "family": "Anton" },
+
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["caption"]
+    },
+
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.40, "y": 0.045, "width": 0.20, "height": 0.07
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "x": 0, "y": 0.17, "width": 1,
+        "align": "center",
+        "value": "FLASH\nSALE",
+        "style": { "fontSize": 220, "weight": "400", "color": "primary", "lineHeight": 0.92, "letterSpacing": 6, "rotate": -6, "skew": -12 }
+      },
+      {
+        "type": "rule",
+        "x": 0.16, "y": 0.535, "width": 0.68,
+        "style": { "color": "accent", "thickness": 4, "rotate": -5 }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.10, "y": 0.555, "width": 0.80,
+        "align": "center",
+        "value": "UP TO 50% OFF\nADULT SKIWEAR",
+        "style": { "fontSize": 52, "weight": "400", "fontFamily": "Montserrat", "color": "primary", "lineHeight": 1.2, "letterSpacing": 22, "rotate": -5, "skew": -12 }
+      },
+      {
+        "type": "rule",
+        "x": 0.16, "y": 0.675, "width": 0.68,
+        "style": { "color": "accent", "thickness": 4, "rotate": -5 }
+      },
+      {
+        "type": "group",
+        "x": 0.10, "y": 0.90, "width": 0.80,
+        "anchor": "bottom",
+        "gap": 26,
+        "children": [
+          {
+            "type": "text",
+            "role": "caption",
+            "align": "center",
+            "value": "HURRY, ENDS 10AM FRIDAY!",
+            "style": {
+              "fontSize": 40, "weight": "400", "color": "primary", "letterSpacing": 8, "rotate": -5, "skew": -12,
+              "accentWords": "10AM FRIDAY", "accentColor": "accent", "accentWeight": "400"
+            }
+          },
+          {
+            "type": "text",
+            "role": "cta",
+            "bind": "cta",
+            "align": "center",
+            "value": "SHOP NOW",
+            "style": {
+              "fontSize": 42, "weight": "400", "color": "#F2EBDA", "letterSpacing": 6, "rotate": -5, "skew": -12,
+              "background": "accent", "radius": 6, "padding": "0.32em 1.1em"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

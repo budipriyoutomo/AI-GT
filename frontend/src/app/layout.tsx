@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, Poppins, Montserrat } from "next/font/google";
+import { Inter, Geist_Mono, Poppins, Montserrat, Anton, Archivo_Black } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
@@ -27,9 +27,24 @@ const poppins = Poppins({
 
 const montserrat = Montserrat({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
   variable: "--font-montserrat",
+});
+
+// Display font headline (single weight) — dipakai template bertekstur poster/retro
+const anton = Anton({
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+  variable: "--font-anton",
+});
+
+const archivoBlack = Archivo_Black({
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+  variable: "--font-archivo-black",
 });
 
 export const metadata: Metadata = {
@@ -55,7 +70,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={`${inter.variable} ${geistMono.variable} ${poppins.variable} ${montserrat.variable}`} suppressHydrationWarning>
+    <html lang="id" className={`${inter.variable} ${geistMono.variable} ${poppins.variable} ${montserrat.variable} ${anton.variable} ${archivoBlack.variable}`} suppressHydrationWarning>
       <body>
         <ThemeProvider>
           <AuthProvider>
