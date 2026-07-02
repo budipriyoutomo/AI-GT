@@ -71,8 +71,11 @@ function backgroundStyle(bg: TemplateBackground | undefined): CSSProperties {
 }
 
 // Style teks (tanpa posisi) — dipakai standalone maupun di dalam group.
-function buildTextStyle(el: TemplateElement, scheme: ColorScheme): CSSProperties {
+// brandFont: override font dari company profile, hanya diteruskan caller bila role elemen
+// ada di font_brand_roles. Menang atas style.fontFamily template (kontrak README §5).
+function buildTextStyle(el: TemplateElement, scheme: ColorScheme, brandFont?: string): CSSProperties {
   const s = el.style ?? {};
+  const fontFamily = brandFont ?? s.fontFamily;
   // Dekorasi: outline (stroke), drop shadow, glossy (gradient fill via background-clip).
   const decor: CSSProperties = {};
   if (s.shadow) decor.textShadow = s.shadow;
@@ -94,7 +97,7 @@ function buildTextStyle(el: TemplateElement, scheme: ColorScheme): CSSProperties
   return {
     textAlign: (el.align as CSSProperties["textAlign"]) ?? "left",
     color: resolveColor(scheme, s.color),
-    fontFamily: s.fontFamily ? fontStack(s.fontFamily) : undefined,
+    fontFamily: fontFamily ? fontStack(fontFamily) : undefined,
     fontSize: cqw(s.fontSize),
     fontWeight: s.weight ?? "400",
     fontStyle: s.italic ? "italic" : undefined,
@@ -140,20 +143,25 @@ function TextBody({ el, scheme, style }: { el: TemplateElement; scheme: ColorSch
   return <div style={style}>{box ? <span style={box}>{content}</span> : content}</div>;
 }
 
-function TextElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
+// brand font berlaku untuk elemen hanya bila role-nya terdaftar di font_brand_roles.
+type BrandFontCtx = { brandFont?: string; fontBrandRoles: Set<string> };
+const roleBrandFont = (el: TemplateElement, ctx: BrandFontCtx): string | undefined =>
+  el.role && ctx.brandFont && ctx.fontBrandRoles.has(el.role) ? ctx.brandFont : undefined;
+
+function TextElement({ el, scheme, brand }: { el: TemplateElement; scheme: ColorScheme; brand: BrandFontCtx }) {
   const style: CSSProperties = {
     position: "absolute",
     left: pct(el.x),
     top: pct(el.y),
     width: pct(el.width),
-    ...buildTextStyle(el, scheme),
+    ...buildTextStyle(el, scheme, roleBrandFont(el, brand)),
   };
   return <TextBody el={el} scheme={scheme} style={style} />;
 }
 
 // Group: anak teks mengalir vertikal dengan gap TETAP → jarak headline↔body proporsional
 // berapa pun panjang teksnya. anchor "bottom" = cluster tumbuh ke atas dari garis y.
-function GroupElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
+function GroupElement({ el, scheme, brand }: { el: TemplateElement; scheme: ColorScheme; brand: BrandFontCtx }) {
   const style: CSSProperties = {
     position: "absolute",
     left: pct(el.x),
@@ -167,7 +175,7 @@ function GroupElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme
   return (
     <div style={style}>
       {(el.children ?? []).map((child, i) => (
-        <TextBody key={i} el={child} scheme={scheme} style={{ width: "100%", ...buildTextStyle(child, scheme) }} />
+        <TextBody key={i} el={child} scheme={scheme} style={{ width: "100%", ...buildTextStyle(child, scheme, roleBrandFont(child, brand)) }} />
       ))}
     </div>
   );
@@ -291,17 +299,26 @@ export function TemplateRenderer({
   cfg,
   thumbnailUrl,
   brandColors,
+  brandFont,
   aspect,
 }: {
   cfg: TemplateConfig;
   thumbnailUrl: string;
   brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
+  brandFont?: string | null;     // diset → role di font_brand_roles pakai font ini
   aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
 }) {
   const brandTheme = cfg.brand_theme;
   const background = adaptBackground(cfg.background, brandColors, brandTheme);
   const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background, brandTheme);
   const isImageBg = background?.type === "image";
+
+  // Font brand hanya aktif saat preview branded (brandColors terisi) & brand_font ada.
+  const isBranded = !!brandColors && brandColors.length > 0;
+  const brand: BrandFontCtx = {
+    brandFont: isBranded && brandFont ? brandFont : undefined,
+    fontBrandRoles: new Set(brandTheme?.font_brand_roles ?? []),
+  };
 
   return (
     <div
@@ -330,7 +347,7 @@ export function TemplateRenderer({
           case "logo":
             return <LogoElement key={i} el={el} />;
           case "text":
-            return <TextElement key={i} el={el} scheme={scheme} />;
+            return <TextElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "footer":
             return <FooterElement key={i} el={el} scheme={scheme} />;
           case "scrim":
@@ -338,7 +355,7 @@ export function TemplateRenderer({
           case "image":
             return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} />;
           case "group":
-            return <GroupElement key={i} el={el} scheme={scheme} />;
+            return <GroupElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "rule":
             return <RuleElement key={i} el={el} scheme={scheme} />;
           default:

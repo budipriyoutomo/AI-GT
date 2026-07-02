@@ -142,16 +142,17 @@ export default function TemplatesPage() {
   const [favs, setFavs] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<TemplateListItem | null>(null);
   const [brandColors, setBrandColors] = useState<string[] | null>(null);
+  const [brandFont, setBrandFont] = useState<string | null>(null);
 
   useEffect(() => {
     templatesApi.list()
       .then(setTemplates)
       .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
       .finally(() => setLoading(false));
-    // Brand color untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
+    // Brand color & font untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => setBrandColors(p.brand_colors ?? null))
-      .catch(() => setBrandColors(null));
+      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); })
+      .catch(() => { setBrandColors(null); setBrandFont(null); });
   }, []);
 
   const list = useMemo(() => {
@@ -264,6 +265,7 @@ export default function TemplatesPage() {
       <TemplatePreviewModal
         template={preview}
         brandColors={brandColors}
+        brandFont={brandFont}
         useHref={preview ? templateLink(preview.id) : "/create"}
         onClose={() => setPreview(null)}
       />

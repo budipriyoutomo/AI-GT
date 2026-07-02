@@ -28,11 +28,13 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 export function TemplatePreviewModal({
   template,
   brandColors,
+  brandFont,
   useHref,
   onClose,
 }: {
   template: TemplateListItem | null;
   brandColors: string[] | null; // dari company profile; null/empty → belum diisi
+  brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
   useHref: string;
   onClose: () => void;
 }) {
@@ -124,6 +126,7 @@ export function TemplatePreviewModal({
                 cfg={template.template_config}
                 thumbnailUrl={template.thumbnail_url}
                 brandColors={branded ? brandColors : null}
+                brandFont={branded ? brandFont : null}
               />
             </div>
           </div>

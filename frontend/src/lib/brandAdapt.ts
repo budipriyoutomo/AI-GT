@@ -1,4 +1,4 @@
-import type { ColorScheme, TemplateBackground, GradientStop, BrandTheme } from "@/types/template";
+import type { ColorScheme, TemplateBackground, GradientStop, BrandTheme, DeriveRecipe } from "@/types/template";
 
 /**
  * Brand color adaptation untuk PREVIEW (read-only — tidak menyentuh template_config asli).
@@ -199,6 +199,47 @@ function adaptSchemeTint(
   return result;
 }
 
+// Resep turunan warna (README §5) dari satu brand color `source`.
+//  base     → brand apa adanya (pop accent)
+//  tint     → di-lighten jadi pale (latar)
+//  readable → di-darken/saturate biar kebaca di bg terang (+ contrast-guard wajib)
+//  on-image → putih (teks di atas foto; foto tak diketahui → default aman + shadow di elemen)
+function deriveColor(recipe: DeriveRecipe, source: string, bgLum: number): string {
+  const hsl = rgbToHsl(hexToRgb(source));
+  switch (recipe) {
+    case "base":
+      return source;
+    case "tint":
+      return rgbToHex(hslToRgb({ h: hsl.h, s: Math.min(hsl.s, 0.4), l: 0.93 }));
+    case "readable": {
+      const darkened = rgbToHex(hslToRgb({ h: hsl.h, s: Math.max(hsl.s, 0.55), l: Math.min(hsl.l, 0.4) }));
+      return ensureContrast(darkened, bgLum, MIN_CONTRAST); // guardrail wajib
+    }
+    case "on-image":
+      return "#FFFFFF";
+  }
+}
+
+// Mode "derive" (README §5): SELURUH palet (role yang disebut di `derive`) diturunkan dari
+// brand_colors[source]. Role tak disebut = locked. bgLum dari background yang SUDAH diturunkan.
+function adaptSchemeDerive(
+  scheme: ColorScheme,
+  brand: string[],
+  background: TemplateBackground | undefined,
+  brandTheme: BrandTheme,
+): ColorScheme {
+  const source = brand[brandTheme.source ?? 0] ?? brand[0];
+  if (!source) return scheme;
+  const bgLum = backgroundLuminance(background);
+  const result: ColorScheme = { ...scheme };
+  for (const [role, recipe] of Object.entries(brandTheme.derive ?? {})) {
+    if (role === "background") continue; // background ditangani adaptBackground
+    if (!(role in scheme)) continue;
+    result[role] = deriveColor(recipe, source, bgLum);
+  }
+  return result;
+}
+
 export function adaptScheme(
   scheme: ColorScheme,
   brandColors?: string[] | null,
@@ -208,8 +249,9 @@ export function adaptScheme(
   const brand = (brandColors ?? []).map(sanitizeHex).filter(Boolean) as string[];
   if (brand.length === 0) return scheme;
 
-  // tint = kontrak per-template yang presisi. derive / tanpa brand_theme → heuristik global (legacy).
+  // tint & derive = kontrak per-template yang presisi. Tanpa brand_theme → heuristik global (legacy).
   if (brandTheme?.mode === "tint") return adaptSchemeTint(scheme, brand, background, brandTheme);
+  if (brandTheme?.mode === "derive") return adaptSchemeDerive(scheme, brand, background, brandTheme);
 
   const bgLum = backgroundLuminance(background);
   const result: ColorScheme = { ...scheme };
@@ -247,6 +289,29 @@ export function adaptScheme(
  * jadi struktur terang/gelap untuk kontras teks tetap utuh). Background `image` =
  * foto user → TIDAK disentuh. Brand netral (tak ada hue) → kembalikan apa adanya.
  */
+// derive: turunkan background dari brand `source`. Gradient + recipe "tint" → wash pale berbrand
+// dengan variasi lightness ringan supaya gradien tetap terasa. Image = foto user → dibiarkan.
+function adaptBackgroundDerive(
+  background: TemplateBackground,
+  source: string,
+  recipe: DeriveRecipe,
+): TemplateBackground {
+  const hsl = rgbToHsl(hexToRgb(source));
+  if (background.type === "gradient" && background.stops?.length) {
+    const n = background.stops.length;
+    const stops = background.stops.map((_, i) => {
+      if (recipe !== "tint") return deriveColor(recipe, source, 0);
+      const t = n > 1 ? i / (n - 1) : 0;            // 0.95 (atas) → 0.87 (bawah)
+      return rgbToHex(hslToRgb({ h: hsl.h, s: Math.min(hsl.s, 0.4), l: 0.95 - 0.08 * t }));
+    });
+    return { ...background, stops };
+  }
+  if (background.type === "color" && background.value) {
+    return { ...background, value: deriveColor(recipe, source, 0) };
+  }
+  return background; // image → foto user dibiarkan
+}
+
 export function adaptBackground(
   background: TemplateBackground | undefined,
   brandColors?: string[] | null,
@@ -256,6 +321,15 @@ export function adaptBackground(
   if (brandTheme?.mode === "tint") return background;
   const b0 = firstBrand(brandColors);
   if (!background || !b0) return background;
+
+  // derive: background ikut diturunkan bila disebut di `derive` (mis. "background":"tint"); selain itu locked.
+  if (brandTheme?.mode === "derive") {
+    const recipe = brandTheme.derive?.background;
+    if (!recipe) return background;
+    const brand = (brandColors ?? []).map(sanitizeHex).filter(Boolean) as string[];
+    const source = brand[brandTheme.source ?? 0] ?? b0;
+    return adaptBackgroundDerive(background, source, recipe);
+  }
   const bh = brandHue(b0);
   if (bh === null) return background;
 
