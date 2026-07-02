@@ -15,6 +15,7 @@ class TemplateListData(BaseModel):
     content_type: str
     layout_type: str
     thumbnail_url: str
+    background_url: str | None = None
     is_premium: bool
     template_config: dict
 

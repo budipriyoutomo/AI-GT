@@ -18,8 +18,8 @@ export interface TemplateBackground {
   shape?: "linear" | "radial";    // gradient (default linear)
   position?: string;              // gradient radial, mis. "50% 30%"
   stops?: string[];               // gradient (hex)
-  source?: "thumbnail";           // image → templates.thumbnail_url
-  fallback?: string;              // image → warna saat thumbnail kosong
+  source?: "thumbnail" | "background"; // image → "thumbnail"=templates.thumbnail_url, "background"=templates.background_url (foto latar terpisah). Kosong = "thumbnail" (legacy).
+  fallback?: string;              // image → warna saat thumbnail/background kosong
 }
 
 export interface ElementStyle {
@@ -65,7 +65,7 @@ export interface TemplateElement {
   value?: string;
   style?: ElementStyle;
   // logo / image
-  source?: "brand" | "thumbnail" | "thematic";
+  source?: "brand" | "thumbnail" | "thematic" | "background";
   fit?: string;
   radius?: number;                // image: border-radius (ruang 1080px)
   // footer
@@ -111,6 +111,7 @@ export interface TemplateListItem {
   content_type: string;
   layout_type: string;
   thumbnail_url: string;
+  background_url?: string | null;   // foto latar full-bleed (source:"background"); terpisah dari thumbnail_url (foreground/thumbnail)
   is_premium: boolean;
   template_config: TemplateConfig;
 }

@@ -2,8 +2,8 @@
   "_meta": {
     "source_ref": "SOPWER - Bisnis Kamu Masih Jalan Ditempat?",
     "catatan": "Hanya bagian TEMPLATE (skeleton). Teks headline/body, slot logo, footer = template.",
-    "keputusan_background": "Foto orang stres = BACKGROUND IMAGE template yang di-upload admin via templates.thumbnail_url (BUKAN thematic AI, BUKAN gambar yang dikecualikan). Untuk sekarang DIKOSONGKAN (thumbnail_url = null) -> fallback ke warna gelap. Sama mekanisme dengan template pertama, hanya beda: ini image, Sushi gradient.",
-    "naming_note": "templates.thumbnail_url perannya sebenarnya BACKGROUND IMAGE template, bukan thumbnail. Naming kurang pas — kandidat rename ke depan (perubahan kolom DB, tidak dilakukan sekarang).",
+    "keputusan_background": "Foto orang stres = BACKGROUND IMAGE full-bleed → kolom templates.background_url (source 'background'), di-upload admin. Contoh URL diisi di field row background_url; boleh dikosongkan → fallback warna gelap.",
+    "naming_note": "Sejak background_url ada, foto latar tak lagi menumpang thumbnail_url. thumbnail_url kini murni foreground/gallery thumbnail.",
     "scrim": "Overlay gradient gelap di BAWAH (transparan di atas -> gelap di bawah) agar teks kebaca tapi foto bagian atas tetap kelihatan.",
     "catatan_footer": "Slot 'whatsapp' & 'facebook' belum ada di company_profile.contact (baru ada website/phone/instagram/tiktok/youtube/hashtag/location/booking). PERLU DIPUTUSKAN: tambah field, atau whatsapp=phone.",
     "posisi_status": "perkiraan (0-1), belum di-tune presisi",
@@ -23,7 +23,7 @@
   "industry": "teknologi",
   "theme": "awareness",
   "content_type": "instagram_post",
-  "thumbnail_url": "https://shop.rnib.org.uk/cdn/shop/files/rsz_105ed706927849bb8a47fb373f80f003.jpg?v=1729251936&width=1000",
+  "background_url": "https://shop.rnib.org.uk/cdn/shop/files/rsz_105ed706927849bb8a47fb373f80f003.jpg?v=1729251936&width=1000",
   "is_premium": false,
 
   "template_config": {
@@ -33,7 +33,7 @@
     },
     "background": {
       "type": "image",
-      "source": "thumbnail",
+      "source": "background",
       "fallback": "#0B1420"
     },
     "color_scheme": {

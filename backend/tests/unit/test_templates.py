@@ -45,6 +45,14 @@ class TestListTemplates:
         assert tc["color_scheme"]["accent"] == "#FFD700"
         assert tc["font"]["family"] == "Inter"
 
+    async def test_list_includes_background_url(
+        self, client: AsyncClient, auth_headers: dict, sample_template: Template
+    ):
+        """Response list menyertakan background_url (image latar terpisah dari foreground)."""
+        res = await client.get("/api/v1/templates", headers=auth_headers)
+        item = res.json()["data"][0]
+        assert item["background_url"] == sample_template.background_url
+
     async def test_list_templates_filter_industry(
         self, client: AsyncClient, auth_headers: dict, db: AsyncSession, sample_template: Template
     ):
@@ -128,6 +136,7 @@ class TestGetTemplate:
         assert body["data"]["id"] == str(sample_template.id)
         assert body["data"]["name"] == "Template Lebaran FnB"
         assert "template_config" in body["data"]
+        assert body["data"]["background_url"] == sample_template.background_url
 
     async def test_get_template_not_found(self, client: AsyncClient, auth_headers: dict):
         fake_id = uuid.uuid4()

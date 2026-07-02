@@ -59,7 +59,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
-          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} aspect="4:5" />
+          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} backgroundUrl={t.background_url ?? ""} aspect="4:5" />
 
           {t.is_premium && (
             <div style={{

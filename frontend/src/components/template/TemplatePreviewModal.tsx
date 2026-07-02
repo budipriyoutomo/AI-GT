@@ -125,6 +125,7 @@ export function TemplatePreviewModal({
               <TemplateRenderer
                 cfg={template.template_config}
                 thumbnailUrl={template.thumbnail_url}
+                backgroundUrl={template.background_url ?? ""}
                 brandColors={branded ? brandColors : null}
                 brandFont={branded ? brandFont : null}
               />

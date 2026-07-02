@@ -18,6 +18,9 @@ class Template(Base):
     content_type: Mapped[str] = mapped_column(String(20), nullable=False)
     layout_type: Mapped[str] = mapped_column(String, nullable=False, default="promo_simple")
     thumbnail_url: Mapped[str] = mapped_column(Text, nullable=False)
+    # Image latar full-bleed (mis. foto toko blur), terpisah dari thumbnail_url yang
+    # dipakai sebagai foreground/gallery thumbnail. Di-upload admin per-baris; nullable.
+    background_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     template_config: Mapped[dict] = mapped_column(JSON, nullable=False)
     platform: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)

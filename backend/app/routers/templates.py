@@ -21,6 +21,7 @@ _LIST_COLUMNS = (
     Template.content_type,
     Template.layout_type,
     Template.thumbnail_url,
+    Template.background_url,
     Template.is_premium,
     Template.template_config,
 )

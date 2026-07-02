@@ -198,6 +198,7 @@ async def sample_template(db: AsyncSession) -> Template:
         content_type="single",
         layout_type="promo_simple",
         thumbnail_url="https://r2.example.com/templates/thumbnails/tmpl-1.png",
+        background_url="https://r2.example.com/templates/backgrounds/tmpl-1.png",
         template_config=SAMPLE_TEMPLATE_CONFIG,
         is_premium=False,
         is_active=True,

@@ -186,13 +186,35 @@ AI output (skema tetap): { headline, body, cta }
 ## 7. Field metadata di file JSON
 
 Setiap file boleh punya blok `_meta` (dokumentasi, bukan bagian config) + field row DB:
-`name`, `industry`, `theme`, `content_type`, `thumbnail_url`, `is_premium`, lalu `template_config`.
+`name`, `industry`, `theme`, `content_type`, `thumbnail_url`, `background_url`, `is_premium`, lalu `template_config`.
+
+- `thumbnail_url` = foreground / gallery thumbnail (element image `source:"thumbnail"`).
+- `background_url` = foto latar full-bleed (`background.type:"image"` + `source:"background"`). Dua-duanya di-upload admin per-baris → biasa dikosongkan di JSON. Template image-bg legacy (foto latar dulu di `thumbnail_url`) otomatis di-**backfill** ke `background_url` saat seed (`needs_background_backfill`).
 
 ---
 
-## 8. Checklist sebelum menyimpan template JSON baru
+## 8. Preset design-system (Tier 1)
+
+Untuk mengurangi effort & menjaga konsistensi, treatment yang berulang tinggal di **`backend/scripts/design_system.json`** (benchmark visual). Template **merujuk** preset lewat nama; `scripts/design_system.py` meng-expand-nya jadi `template_config` penuh **saat seed** (renderer & Template Integrity tak berubah). Preset **OPT-IN** — template boleh tetap full-inline.
+
+Kategori preset & cara rujuk:
+
+| Kategori | Rujukan di template | Hasil |
+|---|---|---|
+| `palettes` | `"palette": "promo-red"` | isi `color_scheme` |
+| `backgrounds` | `"background": { "preset": "image-bg", ...inline }` | `background` |
+| `brand_themes` | `"brand_theme": { "preset": "tint-accent", ...inline }` | `brand_theme` |
+| `text_styles` | element `"stylePreset": "glossy-headline"` (+ `style` inline) | `style` element |
+
+Aturan: **preset = base, field/style INLINE MENANG** (shallow merge). Nama preset tak dikenal → error saat seed. `canvas` boleh dihilangkan → dipakai default design-system. Konten spesifik (`value`, `accentWords`, URL gambar) TETAP inline, jangan ditaruh di preset. Preset yang tersedia didefinisikan di `backend/scripts/design_system.json`.
+
+---
+
+## 9. Checklist sebelum menyimpan template JSON baru
 
 - [ ] Tidak ada gambar konten spesifik di `template_config` (lihat bagian 1)
+- [ ] Pertimbangkan preset design-system (§8) sebelum menulis `style`/`color_scheme` inline dari nol
+- [ ] Preset yang dirujuk (`palette`/`preset`/`stylePreset`) ADA di `design_system.json`
 - [ ] `brand_theme` (jika ada): background & warna teks TIDAK di-brand; `headline` tetap font template
 - [ ] Ada ≥1 elemen `bind: "headline"`
 - [ ] `bind` hanya memakai `headline` / `body` / `cta`

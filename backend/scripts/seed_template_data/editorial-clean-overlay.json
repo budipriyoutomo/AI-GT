@@ -28,7 +28,7 @@
     },
     "background": {
       "type": "image",
-      "source": "thumbnail",
+      "source": "background",
       "fallback": "#101018"
     },
     "color_scheme": {

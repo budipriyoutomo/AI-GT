@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "purpose": "Design benchmark (Tier 1 preset library). Kumpulan preset bernama yang dirujuk template lewat: `palette`, `background.preset`, `brand_theme.preset`, element `stylePreset`. Di-resolve saat seed (scripts/design_system.py) → template_config lengkap. Aturan: preset = base, field/style INLINE template MENANG. Preset OPT-IN; template lama boleh tetap full-inline.",
+    "cara_nambah": "Tambah entri di kategori yang sesuai. Warna boleh role ('accent'/'primary'/'secondary') agar portabel lintas palette. Jangan taruh konten spesifik (value teks, accentWords, URL gambar) di preset — itu tetap inline di element."
+  },
+
+  "canvas": { "aspect": "4:5", "dimensions": { "width": 1080, "height": 1350 } },
+
+  "palettes": {
+    "promo-red":     { "accent": "#D42027", "primary": "#2C2B27", "secondary": "#F4C430" },
+    "retro-cream":   { "accent": "#E8543C", "primary": "#2C2B27", "secondary": "#4A4843" },
+    "editorial-dark":{ "accent": "#FFD700", "primary": "#1800AD", "secondary": "#CCCCCC" }
+  },
+
+  "backgrounds": {
+    "image-bg":   { "type": "image", "source": "background" },
+    "cream-flat": { "type": "color", "value": "#F2EBDA" }
+  },
+
+  "brand_themes": {
+    "tint-accent": { "mode": "tint", "color_slots": { "accent": 0 } }
+  },
+
+  "text_styles": {
+    "glossy-headline": {
+      "fontSize": 150, "weight": "400", "color": "#FFFFFF", "lineHeight": 0.95, "letterSpacing": 2,
+      "stroke": { "color": "accent", "width": 7 }, "shadow": "0 6px 10px rgba(0,0,0,0.35)"
+    },
+    "retro-slab": {
+      "fontSize": 220, "weight": "400", "color": "primary", "lineHeight": 0.92, "letterSpacing": 6,
+      "rotate": -6, "skew": -12
+    },
+    "editorial-headline": {
+      "fontSize": 72, "weight": "800", "color": "#FFFFFF", "lineHeight": 1.1
+    },
+    "cta-pill": {
+      "weight": "400", "background": "accent", "radius": 6, "padding": "0.32em 1.1em"
+    },
+    "terms-fine": {
+      "fontSize": 24, "weight": "600", "fontFamily": "Montserrat", "color": "primary", "letterSpacing": 1
+    }
+  }
+}

@@ -234,13 +234,23 @@ function ScrimElement({ el, brandColors, brandTheme }: { el: TemplateElement; br
   );
 }
 
-function ImageElement({ el, thumbnailUrl }: { el: TemplateElement; thumbnailUrl: string }) {
-  // Foto foreground dari templates.thumbnail_url. Kosong → jangan render (hindari img rusak).
-  if (el.source !== "thumbnail" || !thumbnailUrl) return null;
+function ImageElement({
+  el,
+  thumbnailUrl,
+  backgroundUrl,
+}: {
+  el: TemplateElement;
+  thumbnailUrl: string;
+  backgroundUrl: string;
+}) {
+  // Foreground dari thumbnail_url ("thumbnail") atau foto latar dari background_url ("background").
+  // Sumber lain / URL kosong → jangan render (hindari img rusak).
+  const src = el.source === "background" ? backgroundUrl : el.source === "thumbnail" ? thumbnailUrl : "";
+  if (!src) return null;
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
-      src={thumbnailUrl}
+      src={src}
       alt=""
       style={{
         position: "absolute",
@@ -298,12 +308,14 @@ function LogoElement({ el }: { el: TemplateElement }) {
 export function TemplateRenderer({
   cfg,
   thumbnailUrl,
+  backgroundUrl = "",
   brandColors,
   brandFont,
   aspect,
 }: {
   cfg: TemplateConfig;
   thumbnailUrl: string;
+  backgroundUrl?: string;        // foto latar full-bleed (source:"background"); kosong → pakai fallback warna
   brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
   brandFont?: string | null;     // diset → role di font_brand_roles pakai font ini
   aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
@@ -312,6 +324,8 @@ export function TemplateRenderer({
   const background = adaptBackground(cfg.background, brandColors, brandTheme);
   const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background, brandTheme);
   const isImageBg = background?.type === "image";
+  // "background" → background_url; selain itu (termasuk legacy tanpa source) → thumbnail_url.
+  const bgImageSrc = background?.source === "background" ? backgroundUrl : thumbnailUrl;
 
   // Font brand hanya aktif saat preview branded (brandColors terisi) & brand_font ada.
   const isBranded = !!brandColors && brandColors.length > 0;
@@ -333,10 +347,10 @@ export function TemplateRenderer({
         ...backgroundStyle(background),
       }}
     >
-      {isImageBg && thumbnailUrl && (
+      {isImageBg && bgImageSrc && (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          src={thumbnailUrl}
+          src={bgImageSrc}
           alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -353,7 +367,7 @@ export function TemplateRenderer({
           case "scrim":
             return <ScrimElement key={i} el={el} brandColors={brandColors} brandTheme={brandTheme} />;
           case "image":
-            return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} />;
+            return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} backgroundUrl={backgroundUrl} />;
           case "group":
             return <GroupElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "rule":
