@@ -6,6 +6,29 @@ komponen yang dibutuhkan **AI generate**.
 
 ---
 
+## 0. Aturan WAJIB tiap template baru (standar, tidak bisa dilewati)
+
+Empat hal ini **wajib** ada / dilakukan pada SETIAP template baru. Bukan opsional.
+
+1. **Brand adaptation wajib & efektif.** Setiap template WAJIB punya blok `brand_theme` yang
+   **benar-benar mengubah tampilan** saat user mengaktifkan "Preview dengan brand color".
+   Minimal **1 role kromatik** (biasanya `accent`) di-brand DAN dipakai oleh ≥1 elemen visible
+   (rule/CTA/footer/fillGradient). Template yang brand-preview-nya "tidak berubah apa-apa" = **gagal standar**.
+   Detail & disiplin locked-vs-brandable: **§5**.
+2. **Slot gambar wajib & configurable.** Setiap template WAJIB menyediakan slot gambar yang diisi
+   admin lewat kolom DB — `thumbnail_url` (foreground, element `image` `source:"thumbnail"`) **atau**
+   `background_url` (latar full-bleed, `background.type:"image"` `source:"background"`). Konten spesifik
+   TETAP tidak di-bake ke `template_config` (§1); yang di-JSON hanya **slot**-nya. Detail: **§3 & §7**.
+3. **Aspect ratio harus dikonfirmasi ke user dulu.** JANGAN pernah mengasumsikan/menetapkan
+   `canvas.aspect` sendiri. **Tanya user** rasio yang diinginkan (mis. `1:1`, `4:5`, `9:16`)
+   **sebelum** menulis/eksekusi template. Baru lanjut setelah dijawab.
+4. **Solid vs gradient harus jelas.** Untuk tiap fill signifikan (footer, headline, background, pill/CTA):
+   kalau user menyebut solid/gradient → ikuti. Kalau **tidak disebut** → **TANYA dulu** (solid atau gradient,
+   dan arahnya bila gradient) sebelum menetapkan. Warna dari foto referensi sering ambigu (lighting/kompresi
+   bikin solid tampak gradient). Bila terpaksa jalan tanpa jawaban: **default SOLID** (lebih aman, gampang di-upgrade).
+
+---
+
 ## 1. Prinsip inti: TEMPLATE vs GAMBAR
 
 `template_config` **hanya** menyimpan kerangka yang reusable. **Gambar spesifik konten TIDAK masuk.**
@@ -48,8 +71,14 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
 
 ### Tipe yang sudah ada
 - **`logo`** — `{ "type":"logo", "source":"brand", "x","y","width","height" }`. `source:"brand"` = logo user.
+- **`tagline`** — teks tagline dari **company profile** (`company_profile.tagline`), analog `logo` tapi teks.
+  `{ "type":"tagline", "x","y","width", "value":"<placeholder>", "style":{...} }`. Isi diambil dari data
+  user saat render; `value` = placeholder yang tampil saat tagline kosong (mis. preview). Styling sama
+  seperti `text` (`fontSize`/`weight`/`color`/`align`/box, dst). BUKAN slot AI (tak pakai `bind`).
 - **`text`** — lihat bagian 4. Style: `fontSize`, `weight`, `color`, `lineHeight`, `letterSpacing`, `align`,
-  `shadow`, `stroke` (outline), `fillGradient` (glossy), `accentWords`/`accentColor`/`accentWeight`.
+  `shadow`, `stroke` (outline), `accentWords`/`accentColor`/`accentWeight`.
+  **`fillGradient`** (glossy): array stop **hex ATAU role** (role → resolve `color_scheme`, jadi ikut brand adapt);
+  arah via `fillGradientDirection` (default `"180deg"` vertikal; `"to right"` = horizontal).
   **Box/pill** (mis. CTA button): isi `background` (hex/role) → teks jadi kotak berlatar yang **hug-content**
   & ikut `align`; opsional `radius` (ruang 1080px) + `padding` (mis. `"0.4em 1.2em"`, em ikut fontSize).
   **`rotate`** (derajat): miringkan blok teks/box di sekitar pusatnya — negatif = naik ke kanan (poster retro).
@@ -62,8 +91,11 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
   `contain` (produk transparan) otomatis dapat drop-shadow. (Untuk background full-bleed pakai `background.type:"image"`, bukan element ini.)
 - **`scrim`** — overlay gradient untuk keterbacaan teks di atas foto.
   `{ "gradient": { "direction", "stops":[{ "color", "alpha", "position" }] } }`.
-- **`footer`** — bar kontak. `{ "slots":[...], "style":{...} }`. Slot brand (instagram/tiktok/whatsapp/facebook/youtube)
+- **`footer`** — bar kontak. `{ "slots":[...], "align":"center", "style":{...} }`. Slot brand (instagram/tiktok/whatsapp/facebook/youtube)
   dan generic (website/location/booking/hashtag/phone) → icon via komponen `SocialIcon` (asset frontend).
+  Default = **pill** (sudut bulat 999px), konten rata kiri. **Full-bleed nempel dasar:** set `x:0, width:1`,
+  `y` sampai `y+height=1`, `style.radius:0` (sudut siku edge-to-edge) + `align:"center"` (konten di-tengah).
+  `style.backgroundGradient` (hex/role, `backgroundGradientDirection` default `to right`) atau `backgroundColor`.
 - **`group`** — kontainer **flow vertikal**: anak (`children`) mengalir dengan **gap TETAP**, jadi jarak
   headline↔body proporsional berapa pun panjang teks (pendek tak menganga, panjang tak tabrakan).
   `{ "anchor":"top|bottom", "gap":n, "children":[ ...text ] }`. `anchor:"bottom"` = cluster nempel garis `y`
@@ -106,9 +138,15 @@ Aturan:
 
 ## 5. Personalisasi brand (`brand_theme`)
 
-Blok **opsional** yang mendeklarasikan **bagian mana yang ikut data company profile** saat generate
+Blok **WAJIB** (lihat §0) yang mendeklarasikan **bagian mana yang ikut data company profile** saat generate
 (render-time). Yang tidak disebut = **LOCKED** (tetap pakai nilai template). `template_config` di DB
 **tidak pernah dimutasi** — merge hanya terjadi saat render, jadi tetap patuh Template Integrity (§6 AGENTS.md).
+
+> ✅ **Uji standar:** aktifkan brand preview dengan warna uji yang JAUH dari palet template (mis. brand
+> merah pada template biru). Kalau **tidak ada** elemen yang berubah, `brand_theme` belum efektif —
+> pastikan role yang di-brand (`color_slots`/`derive`) benar-benar dirujuk elemen visible
+> (rule `color`, CTA `background`, footer `backgroundGradient`, teks `fillGradient`/`color`).
+> Anchor vibe dengan role **LOCKED** (background + `primary`) supaya brand nge-thread tanpa merusak identitas.
 
 ```jsonc
 "brand_theme": {
@@ -212,10 +250,13 @@ Aturan: **preset = base, field/style INLINE MENANG** (shallow merge). Nama prese
 
 ## 9. Checklist sebelum menyimpan template JSON baru
 
+- [ ] **(§0) Aspect ratio sudah DIKONFIRMASI ke user** sebelum menulis — bukan asumsi
+- [ ] **(§0) `brand_theme` ADA dan EFEKTIF** — brand preview dgn warna kontras benar-benar mengubah ≥1 elemen visible
+- [ ] **(§0) Ada slot gambar** (`thumbnail_url`/`background_url`) yang bisa diisi admin
 - [ ] Tidak ada gambar konten spesifik di `template_config` (lihat bagian 1)
 - [ ] Pertimbangkan preset design-system (§8) sebelum menulis `style`/`color_scheme` inline dari nol
 - [ ] Preset yang dirujuk (`palette`/`preset`/`stylePreset`) ADA di `design_system.json`
-- [ ] `brand_theme` (jika ada): background & warna teks TIDAK di-brand; `headline` tetap font template
+- [ ] `brand_theme`: background & warna teks TIDAK di-brand; `headline` tetap font template
 - [ ] Ada ≥1 elemen `bind: "headline"`
 - [ ] `bind` hanya memakai `headline` / `body` / `cta`
 - [ ] Warna pakai role bila memungkinkan, konsisten dengan `color_scheme`

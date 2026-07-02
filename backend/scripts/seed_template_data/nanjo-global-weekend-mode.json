@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "source_ref": "Referensi visual: flyer NANJO GLOBAL LOGISTICS — 'Cleared. Weekend Mode.' (bg biru muda, forklift + palet kardus, footer kontak biru gelap).",
+    "keputusan_desain": {
+      "canvas": "1:1 (1080x1080) — sumber aslinya persegi, bukan 4:5.",
+      "forklift": "Area kanan = SLOT GENERIK foreground (README §1: 'kecuali memang slot generik'). Element image source:'thumbnail' fit:'contain' → foto transparan (forklift/produk/dll) yang di-upload admin ke templates.thumbnail_url, bukan di-bake ke template_config.",
+      "font": "Headline geometric sans -> Poppins (paling mendekati, sudah di-load di layout.tsx). Logo asli 'NANJO GLOBAL' pakai font sendiri = slot logo brand (bukan bagian font template).",
+      "background": "Swoosh biru di sudut = dekorasi generic. Straight rule tak bisa meniru kurva, jadi diringkas ke gradient biru muda + 2 rule aksen tipis sebagai echo. Background LOCKED (light) demi kontras teks navy.",
+      "cta": "Posisi CTA tidak ada di flyer asli (user tak yakin). Ditaruh sebagai pill aksen di bawah body, rata kiri — opsional, boleh dipindah/dihapus di editor (README §4). AI tetap mengisi bind:cta.",
+      "footer": "Bar kontak biru gelap di bawah: phone + location + sosial (tiktok/facebook/instagram). Slot 'x/twitter' di flyer dilewati (belum ada di SocialIcon)."
+    },
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> Cleared. Weekend Mode.", "body -> Weekend mode. Ready for lift.", "cta -> Get a Quote (placeholder)"]
+    },
+    "brand_theme_doc": {
+      "color": "mode 'tint': HANYA accent <- brand_colors[0] yang berubah. Vibe di-anchor oleh yang LOCKED: background biru muda + primary (navy). Brand meng-thread lewat accent secara kohesif: headline fillGradient primary->accent (navy nempel brand di ujung), footer backgroundGradient accent->primary (brand luruh ke navy), rule & CTA = accent penuh. Body (secondary) tetap navy. Jadi brand apa pun tetap punya backbone navy+light-bg => tidak merusak vibe.",
+      "font": "font_brand_roles: body boleh brand_font. headline tetap Poppins (identitas display template)."
+    }
+  },
+
+  "name": "Logistik Weekend Mode - IG Post",
+  "industry": "logistik",
+  "theme": "corporate",
+  "content_type": "instagram_post",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "1:1",
+      "dimensions": { "width": 1080, "height": 1080 }
+    },
+    "background": {
+      "type": "gradient",
+      "direction": "to bottom",
+      "stops": ["#FFFFFF", "#EAF3FC", "#DCEBFA"]
+    },
+    "color_scheme": {
+      "accent": "#1877D2",
+      "primary": "#0E2455",
+      "secondary": "#4A5E86"
+    },
+    "font": { "family": "Poppins" },
+
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["body"]
+    },
+
+    "elements": [
+      {
+        "type": "rule",
+        "x": 0.60, "y": 0.10, "width": 0.34,
+        "style": { "color": "accent", "thickness": 3, "rotate": 32 }
+      },
+      {
+        "type": "rule",
+        "x": 0.04, "y": 0.80, "width": 0.30,
+        "style": { "color": "accent", "thickness": 3, "rotate": 28 }
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "fit": "contain",
+        "x": 0.44, "y": 0.22, "width": 0.54, "height": 0.60
+      },
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.06, "y": 0.05, "width": 0.40, "height": 0.11
+      },
+      {
+        "type": "group",
+        "x": 0.06, "y": 0.27, "width": 0.56,
+        "anchor": "top",
+        "gap": 26,
+        "children": [
+          {
+            "type": "text",
+            "role": "headline",
+            "bind": "headline",
+            "align": "left",
+            "value": "Text.\nUntuk\nHeadline.",
+            "style": { "fontSize": 104, "weight": "700", "color": "primary", "lineHeight": 0.98, "letterSpacing": -1, "fillGradient": ["primary", "accent"], "fillGradientDirection": "to right" }
+          },
+          {
+            "type": "text",
+            "role": "body",
+            "bind": "body",
+            "align": "left",
+            "value": "Deskripsi dari campign kamu.",
+            "style": { "fontSize": 28, "weight": "600", "color": "secondary", "lineHeight": 1.35 }
+          },
+          {
+            "type": "text",
+            "role": "cta",
+            "bind": "cta",
+            "align": "left",
+            "value": "Ayo beli",
+            "style": {
+              "fontSize": 28, "weight": "600", "color": "#FFFFFF",
+              "background": "accent", "radius": 10, "padding": "0.5em 1.4em"
+            }
+          }
+        ]
+      },
+      {
+        "type": "footer",
+        "x": 0.06, "y": 0.90, "width": 0.88, "height": 0.06,
+        "slots": ["phone", "location", "facebook"],
+        "style": { "color": "#FFFFFF", "backgroundGradient": ["accent", "primary"], "backgroundGradientDirection": "to right", "opacity": 1, "fontSize": 20 }
+      }
+    ]
+  }
+}

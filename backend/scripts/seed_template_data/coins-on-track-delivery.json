@@ -1,0 +1,120 @@
+{
+  "_meta": {
+    "source_ref": "Referensi visual: flyer C.O.IN.S / Coinslimited — 'On Track. On Time. Every Time' (foto pekerja logistik, area teks putih di atas, footer kontak biru).",
+    "keputusan_desain": {
+      "aspect": "4:5 (1080x1350) — DIKONFIRMASI user (§0). Layout di-refit vertikal: area teks putih di atas ~42%, foto muncul di bawah.",
+      "background": "Foto interaksi manusia = BACKGROUND full-bleed (templates.background_url, source 'background') — DIKONFIRMASI user. background_url SENGAJA dikosongkan di JSON agar upload admin tak tertimpa saat re-seed; sementara kosong → fallback warna.",
+      "scrim_putih": "Overlay PUTIH dari atas (solid) memudar ke transparan ~62% → menciptakan area teks putih di atas sekaligus membiarkan foto tampak di bawah. Scrim LOCKED (tidak ikut brand) demi area teks tetap putih.",
+      "logo_tagline": "Logo (icon) top-left = slot brand. Di sampingnya elemen 'tagline' (tipe BARU) yang menarik company_profile.tagline; value = placeholder 'Confirmed Option Integrated Services'.",
+      "pill": "'Fast. Reliable. Secured' = text STATIS ber-box (pill) accent, value configurable di JSON — DIKONFIRMASI user. Ikut brand (background accent).",
+      "no_cta": "Tanpa CTA — DIKONFIRMASI user. cta opsional (README §4).",
+      "footer": "Bar kontak biru: phone + sosial. 'Coinslimited' = handle brand (dari contact), bukan di-hardcode."
+    },
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": ["headline -> On Track. On Time. Every Time", "body -> From pickup to shopfront...", "cta -> (tidak dipakai)"],
+      "statis_non_ai": ["tagline (dari company profile)", "pill 'Fast. Reliable. Secured' (value template, configurable)"]
+    },
+    "brand_theme_doc": {
+      "color": "mode 'tint': accent <- brand_colors[0], dipakai elemen visible: headline accentWords ('On Track. On Time.'), pill background, footer gradient. Vibe di-anchor LOCKED: foto background + scrim putih + primary (near-black 'Every Time') + secondary (gray body). Brand apa pun tetap punya backbone putih/hitam => tidak merusak vibe.",
+      "font": "font_brand_roles: body boleh brand_font. headline & tagline tetap font template."
+    }
+  },
+
+  "name": "Logistik On Track - IG Post",
+  "industry": "logistik",
+  "theme": "corporate",
+  "content_type": "instagram_post",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
+    },
+    "background": {
+      "type": "image",
+      "source": "background",
+      "fallback": "#C9D6E3"
+    },
+    "color_scheme": {
+      "accent": "#1560D6",
+      "primary": "#14181D",
+      "secondary": "#5B6472"
+    },
+    "font": { "family": "Poppins" },
+
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["body"]
+    },
+
+    "elements": [
+      {
+        "type": "scrim",
+        "x": 0, "y": 0, "width": 1, "height": 1,
+        "gradient": {
+          "direction": "to bottom",
+          "stops": [
+            { "color": "#FFFFFF", "alpha": 1, "position": 0 },
+            { "color": "#FFFFFF", "alpha": 1, "position": 42 },
+            { "color": "#FFFFFF", "alpha": 0, "position": 62 }
+          ]
+        }
+      },
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.06, "y": 0.038, "width": 0.11, "height": 0.05
+      },
+      {
+        "type": "tagline",
+        "x": 0.185, "y": 0.04, "width": 0.42,
+        "align": "left",
+        "value": "COMPANY TAGLINE\nTEMPATNYA DI SINI",
+        "style": { "fontSize": 24, "weight": "700", "color": "primary", "lineHeight": 1.12, "letterSpacing": 0.5 }
+      },
+      {
+        "type": "text",
+        "role": "eyebrow",
+        "x": 0.55, "y": 0.045, "width": 0.39,
+        "align": "right",
+        "value": "Fast. Reliable. Secured",
+        "style": {
+          "fontSize": 23, "weight": "600", "color": "#FFFFFF", "italic": true,
+          "background": "accent", "radius": 40, "padding": "0.55em 1.3em"
+        }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "x": 0.06, "y": 0.155, "width": 0.9,
+        "align": "left",
+        "value": "On Track. On Time.\nEvery Time",
+        "style": {
+          "fontSize": 90, "weight": "800", "color": "primary", "lineHeight": 1.02, "letterSpacing": -1,
+          "accentWords": "On Track. On Time.", "accentColor": "accent", "accentWeight": "800"
+        }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.06, "y": 0.30, "width": 0.66,
+        "align": "left",
+        "value": "From pickup to shopfront, we keep every delivery right on track.",
+        "style": { "fontSize": 27, "weight": "500", "color": "secondary", "lineHeight": 1.35, "italic": true }
+      },
+      {
+        "type": "footer",
+        "x": 0, "y": 0.93, "width": 1, "height": 0.07,
+        "align": "center",
+        "slots": ["phone", "facebook", "instagram", "tiktok"],
+        "style": { "color": "#FFFFFF", "backgroundColor": "accent", "opacity": 1, "fontSize": 20, "radius": 0 }
+      }
+    ]
+  }
+}

@@ -34,10 +34,13 @@ export interface ElementStyle {
   accentColor?: string;           // hex atau role
   accentWeight?: string;
   backgroundColor?: string;       // footer
+  backgroundGradient?: string[];  // footer/box: gradient latar (hex/role). Menang atas backgroundColor
+  backgroundGradientDirection?: string; // arah gradient latar; default "to right" (horizontal)
   opacity?: number;               // footer
   stroke?: { color: string; width: number };   // outline teks (width ruang 1080px)
   shadow?: string;                // CSS text-shadow
-  fillGradient?: string[];        // glossy: gradient fill vertikal (hex top→bottom)
+  fillGradient?: string[];        // glossy: gradient fill teks (hex, urut sesuai arah)
+  fillGradientDirection?: string; // arah fillGradient teks; default "180deg" (vertikal), "to right" = horizontal
   // box treatment (mis. CTA button): teks jadi pill berlatar yang hug-content sesuai align
   background?: string;            // hex atau role → latar box. Aktifkan box bila diisi
   radius?: number;                // border-radius box (ruang 1080px)
@@ -49,7 +52,7 @@ export interface ElementStyle {
 }
 
 export interface TemplateElement {
-  type: "logo" | "text" | "footer" | "scrim" | "image" | "group" | "rule";
+  type: "logo" | "text" | "footer" | "scrim" | "image" | "group" | "rule" | "tagline";
   x: number;
   y: number;
   width: number;

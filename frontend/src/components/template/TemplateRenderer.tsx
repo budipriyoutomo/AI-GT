@@ -84,7 +84,10 @@ function buildTextStyle(el: TemplateElement, scheme: ColorScheme, brandFont?: st
     decor.paintOrder = "stroke";
   }
   if (s.fillGradient) {
-    decor.background = `linear-gradient(180deg, ${s.fillGradient.join(", ")})`;
+    // Stop bisa hex atau role → resolve lewat scheme (dipakai agar gradient teks ikut brand adapt).
+    const stops = s.fillGradient.map((c) => resolveColor(scheme, c)).join(", ");
+    // backgroundImage (bukan shorthand `background`) agar tak bentrok dgn backgroundClip (React warning).
+    decor.backgroundImage = `linear-gradient(${s.fillGradientDirection ?? "180deg"}, ${stops})`;
     decor.WebkitBackgroundClip = "text";
     decor.backgroundClip = "text";
     decor.WebkitTextFillColor = "transparent";
@@ -159,6 +162,22 @@ function TextElement({ el, scheme, brand }: { el: TemplateElement; scheme: Color
   return <TextBody el={el} scheme={scheme} style={style} />;
 }
 
+// Tagline perusahaan (data company profile, mirip slot `logo`). Beda dari `text` biasa:
+// isinya BUKAN dari template/AI tapi dari company_profile.tagline. Kosong (mis. preview default) →
+// pakai placeholder `value` template supaya layout tetap kelihatan. Styling penuh via buildTextStyle.
+function TaglineElement({ el, scheme, brand }: { el: TemplateElement; scheme: ColorScheme; brand: BrandFontCtx }) {
+  const companyTagline = DEFAULT_COMPANY_PROFILE.tagline;
+  const withValue: TemplateElement = { ...el, value: companyTagline || el.value || "Tagline Perusahaan" };
+  const style: CSSProperties = {
+    position: "absolute",
+    left: pct(el.x),
+    top: pct(el.y),
+    width: pct(el.width),
+    ...buildTextStyle(el, scheme, roleBrandFont(el, brand)),
+  };
+  return <TextBody el={withValue} scheme={scheme} style={style} />;
+}
+
 // Group: anak teks mengalir vertikal dengan gap TETAP → jarak headline↔body proporsional
 // berapa pun panjang teksnya. anchor "bottom" = cluster tumbuh ke atas dari garis y.
 function GroupElement({ el, scheme, brand }: { el: TemplateElement; scheme: ColorScheme; brand: BrandFontCtx }) {
@@ -184,6 +203,10 @@ function GroupElement({ el, scheme, brand }: { el: TemplateElement; scheme: Colo
 function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
   const s = el.style ?? {};
   const contact = DEFAULT_COMPANY_PROFILE.contact as Record<string, string>;
+  // Latar: gradient (menang) atau warna solid. Gradient default horizontal ("to right").
+  const bgFill: CSSProperties = s.backgroundGradient
+    ? { backgroundImage: `linear-gradient(${s.backgroundGradientDirection ?? "to right"}, ${s.backgroundGradient.map((c) => resolveColor(scheme, c)).join(", ")})` }
+    : { backgroundColor: s.backgroundColor ? resolveColor(scheme, s.backgroundColor) : "transparent" };
   return (
     <div
       style={{
@@ -192,11 +215,14 @@ function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorSchem
         top: pct(el.y),
         width: pct(el.width),
         height: pct(el.height ?? 0.06),
-        backgroundColor: s.backgroundColor ?? "transparent",
+        ...bgFill,
         opacity: s.opacity ?? 1,
-        borderRadius: "999px",
+        // Default pill (999px). radius:0 → bar full-bleed sudut siku (mis. footer nempel dasar edge-to-edge).
+        borderRadius: s.radius != null ? cqw(s.radius) : "999px",
         display: "flex",
         alignItems: "center",
+        // Default kiri (flex-start) demi kompat template lama; align "center"/"right" → konten di-tengah/kanan.
+        justifyContent: el.align === "center" ? "center" : el.align === "right" ? "flex-end" : "flex-start",
         gap: "2.5%",
         padding: "0 3%",
         color: resolveColor(scheme, s.color),
@@ -362,6 +388,8 @@ export function TemplateRenderer({
             return <LogoElement key={i} el={el} />;
           case "text":
             return <TextElement key={i} el={el} scheme={scheme} brand={brand} />;
+          case "tagline":
+            return <TaglineElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "footer":
             return <FooterElement key={i} el={el} scheme={scheme} />;
           case "scrim":
