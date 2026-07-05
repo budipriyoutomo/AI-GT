@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
@@ -11,6 +11,31 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useGenerateSession } from "@/hooks/useGenerateSession";
 
+// ── Generate step definitions ──────────────────────────────────────────────
+const STEPS = [
+  { label: "Membaca brief konten",      threshold: 8  },
+  { label: "Menganalisis template",     threshold: 30 },
+  { label: "Menulis headline & copy",   threshold: 68 },
+  { label: "Finalisasi konten",         threshold: 94 },
+];
+
+const PHASE_LABELS = [
+  { min: 0,   max: 8,   label: "Membaca brief dan template…"          },
+  { min: 8,   max: 30,  label: "Menganalisis elemen & color scheme…"  },
+  { min: 30,  max: 68,  label: "AI menulis headline, body, dan CTA…"  },
+  { min: 68,  max: 94,  label: "Finalisasi dan validasi output…"       },
+  { min: 94,  max: 101, label: "Hampir selesai, membuka editor…"       },
+];
+
+const TIPS = [
+  "Brief yang detail menghasilkan copy yang lebih tepat sasaran.",
+  "AI menganalisis template untuk mencocokkan tone yang sesuai brand.",
+  "Kamu bisa edit setiap bagian konten setelah generate selesai.",
+  "Pilih gaya bahasa yang paling cocok dengan audiens targetmu.",
+];
+
+const ESTIMATED_SECONDS = 20;
+
 export default function GeneratePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,13 +43,61 @@ export default function GeneratePage() {
 
   const { session, loading } = useGenerateSession(sessionId);
 
-  // Auto-navigate to editor when project_id is available (Quick Generate auto-select)
+  // ── Progress simulation state ──────────────────────────────────────────
+  const [progress, setProgress]   = useState(0);
+  const [elapsed, setElapsed]     = useState(0);
+  const [tipIndex, setTipIndex]   = useState(0);
+  const startTimeRef              = useRef<number | null>(null);
+
+  const isProcessing = session?.status === "processing" || (loading && !session);
+
+  // Stamp start time once processing is known
+  useEffect(() => {
+    if (isProcessing && !startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+  }, [isProcessing]);
+
+  // Animate progress bar while processing
+  useEffect(() => {
+    if (session?.status === "completed") {
+      setProgress(100);
+      return;
+    }
+    if (!isProcessing) return;
+
+    const tick = setInterval(() => {
+      const start = startTimeRef.current ?? Date.now();
+      const t     = (Date.now() - start) / 1000;
+      setElapsed(Math.floor(t));
+      // Exponential approach — asymptote at 93%, slows naturally near ceiling
+      const sim = 93 * (1 - Math.exp(-t / 14));
+      setProgress(Math.min(sim, 93));
+    }, 150);
+
+    return () => clearInterval(tick);
+  }, [isProcessing, session?.status]);
+
+  // Rotate tips every 4 s
+  useEffect(() => {
+    if (!isProcessing) return;
+    const tid = setInterval(() => setTipIndex((i) => (i + 1) % TIPS.length), 4000);
+    return () => clearInterval(tid);
+  }, [isProcessing]);
+
+  // Auto-navigate when completed
   useEffect(() => {
     if (session?.status === "completed" && session.project_id) {
       router.replace(`/editor?projectId=${session.project_id}`);
     }
   }, [session?.status, session?.project_id, router]);
 
+  // ── Derived display values ─────────────────────────────────────────────
+  const progressPct  = Math.round(progress);
+  const currentPhase = PHASE_LABELS.find((p) => progress >= p.min && progress < p.max) ?? PHASE_LABELS[PHASE_LABELS.length - 1];
+  const remaining    = Math.max(0, ESTIMATED_SECONDS - elapsed);
+
+  // ── No session ID ──────────────────────────────────────────────────────
   if (!sessionId) {
     return (
       <Shell active="templates" title="Hasil Generate">
@@ -37,6 +110,7 @@ export default function GeneratePage() {
     );
   }
 
+  // ── Initial load spinner (before first poll returns) ──────────────────
   if (loading && !session) {
     return (
       <Shell active="templates" title="Hasil Generate">
@@ -50,24 +124,7 @@ export default function GeneratePage() {
     );
   }
 
-  if (session?.status === "processing" || (session?.status === "completed" && !session.project_id)) {
-    return (
-      <Shell active="templates" title="Hasil Generate">
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "80px 0" }}>
-          <div className="aigt-mark" style={{ width: 56, height: 56, animation: "spin 1.4s linear infinite" }}>
-            <Icon name="sparkles" size={26} />
-          </div>
-          <div style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>
-            {session?.status === "completed" ? "Membuka editor…" : "AI sedang generate kontenmu…"}
-          </div>
-          <div style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
-            {session?.status === "completed" ? "Sebentar lagi…" : "Biasanya selesai dalam 10–20 detik"}
-          </div>
-        </div>
-      </Shell>
-    );
-  }
-
+  // ── Failed ─────────────────────────────────────────────────────────────
   if (session?.status === "failed") {
     return (
       <Shell active="templates" title="Hasil Generate">
@@ -80,7 +137,154 @@ export default function GeneratePage() {
     );
   }
 
-  // Fallback: completed but auto-nav hasn't fired yet, or variant not available
+  // ── Processing / completing ────────────────────────────────────────────
+  if (isProcessing || (session?.status === "completed" && !session.project_id)) {
+    const isCompleting = session?.status === "completed";
+
+    return (
+      <Shell active="templates" title="Hasil Generate">
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          minHeight: "calc(100vh - 200px)",
+        }}>
+          <div style={{ width: "100%", maxWidth: 520 }}>
+
+            {/* Icon + title */}
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <div style={{
+                width: 64, height: 64, margin: "0 auto 16px",
+                background: "var(--tint-primary)", borderRadius: "var(--radius-xl)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                animation: "pulse 2s ease-in-out infinite",
+              }}>
+                <Icon name="sparkles" size={28} style={{ color: "var(--primary)" }} />
+              </div>
+              <div className="aigt-h3">
+                {isCompleting ? "Membuka editor…" : "AI sedang bekerja"}
+              </div>
+              <div style={{ marginTop: 6, fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
+                {isCompleting ? "Sebentar lagi…" : "Biasanya selesai dalam 10–20 detik"}
+              </div>
+            </div>
+
+            {/* Progress card */}
+            <div style={{
+              background: "var(--card)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-xl)", padding: 24,
+              display: "flex", flexDirection: "column", gap: 20,
+            }}>
+
+              {/* Bar + percentage */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)", flex: 1, minWidth: 0, paddingRight: 12 }}>
+                    {currentPhase.label}
+                  </span>
+                  <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                    {progressPct}%
+                  </span>
+                </div>
+                {/* Track */}
+                <div style={{
+                  height: 10, borderRadius: 999, overflow: "hidden",
+                  background: "var(--surface-sunken)", position: "relative",
+                }}>
+                  {/* Fill */}
+                  <div style={{
+                    height: "100%",
+                    width: `${progressPct}%`,
+                    borderRadius: 999,
+                    background: "linear-gradient(90deg, var(--primary) 0%, color-mix(in oklch, var(--primary) 70%, #fff) 100%)",
+                    transition: "width 0.35s ease",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}>
+                    <div className="aigt-shimmer" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Step checklist */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {STEPS.map((step, i) => {
+                  const done   = progress >= step.threshold;
+                  const active = !done && progress >= (STEPS[i - 1]?.threshold ?? 0);
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {/* State indicator */}
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 999, flexShrink: 0,
+                        background: done ? "var(--success)" : active ? "var(--tint-primary)" : "var(--surface-sunken)",
+                        border: `1.5px solid ${done ? "var(--success)" : active ? "var(--primary)" : "var(--border)"}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.35s ease",
+                      }}>
+                        {done ? (
+                          <Icon name="check" size={11} style={{ color: "#fff" }} />
+                        ) : active ? (
+                          <div style={{ width: 6, height: 6, borderRadius: 999, background: "var(--primary)", animation: "pulse 1.4s ease-in-out infinite" }} />
+                        ) : null}
+                      </div>
+                      {/* Label */}
+                      <span style={{
+                        fontSize: "var(--text-xs)",
+                        fontWeight: done || active ? 500 : 400,
+                        color: done ? "var(--foreground)" : active ? "var(--primary)" : "var(--muted-foreground)",
+                        transition: "color 0.3s ease",
+                        flex: 1,
+                      }}>
+                        {step.label}
+                      </span>
+                      {done && (
+                        <Icon name="check-circle-2" size={13} style={{ color: "var(--success)", flexShrink: 0 }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Timer row */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                paddingTop: 16, borderTop: "1px solid var(--border)",
+              }}>
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Icon name="clock" size={12} />
+                  {elapsed} detik berlalu
+                </span>
+                {progress < 94 && (
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
+                    {remaining > 0 ? `~${remaining} detik lagi` : "hampir selesai…"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Tips — fade on change */}
+            <div style={{
+              marginTop: 14, padding: "12px 16px",
+              background: "color-mix(in oklch, var(--info) 6%, var(--card))",
+              border: "1px solid color-mix(in oklch, var(--info) 20%, transparent)",
+              borderRadius: "var(--radius-lg)",
+              display: "flex", alignItems: "flex-start", gap: 10,
+            }}>
+              <Icon name="lightbulb" size={14} style={{ color: "var(--info)", marginTop: 1, flexShrink: 0 }} />
+              <span
+                key={tipIndex}
+                style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)", lineHeight: 1.6, animation: "aigt-fade 0.5s ease" }}
+              >
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Tips: </span>
+                {TIPS[tipIndex]}
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ── Fallback: completed but auto-nav hasn't fired yet ─────────────────
   const variant = session?.variants?.[0];
 
   if (!variant) {
@@ -93,7 +297,6 @@ export default function GeneratePage() {
     );
   }
 
-  // Fallback display if auto-nav is slow
   return (
     <Shell active="templates" title="Hasil Generate">
       {/* Brief bar */}

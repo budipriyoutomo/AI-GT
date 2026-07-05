@@ -175,13 +175,14 @@ export default function TemplatesPage() {
     <Shell
       active="templates"
       title="Galeri Template"
+      stepperStep={(goalParam || platformParam) ? 2 : undefined}
       actions={
         <Link href="/create">
           <Button size="sm" icon="sparkles">Mulai dari kosong</Button>
         </Link>
       }
     >
-      <PageHead title="Galeri Template" subtitle="Pilih template, AI akan menyesuaikan copy dan typography dengan brand dan industrimu." />
+      <PageHead subtitle="Pilih template, AI akan menyesuaikan copy dan typography dengan brand dan industrimu." />
 
       {/* Context bar: shows goal+platform from Step 1 */}
       {(goalParam || platformParam) && (

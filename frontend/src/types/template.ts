@@ -24,6 +24,7 @@ export interface TemplateBackground {
 
 export interface ElementStyle {
   fontSize?: number;              // ruang 1080px
+  fontFamily?: string;            // per-element font override (set by merge layer)
   weight?: string;
   color?: string;                 // hex atau role
   lineHeight?: number;
