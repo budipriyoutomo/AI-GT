@@ -19,9 +19,10 @@ export interface CanvasContent {
   bodySize?: number;
   letterSpacing: number;
   accentColor: string;
-  backgroundType?: "color" | "gradient";
+  backgroundType?: "color" | "gradient" | "image";
   backgroundColor?: string;
   backgroundGradient?: string[];
+  backgroundImageUrl?: string | null;
   thematicImageUrl: string | null;
   thematicVisible: boolean;
 }
@@ -145,6 +146,21 @@ const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zo
           bg.set("fill", grad as any);
         } else {
           bg.set("fill", solidColor);
+        }
+
+        // Load template thumbnail as background image if applicable
+        if (content.backgroundType === "image" && content.backgroundImageUrl) {
+          FabricImage.fromURL(content.backgroundImageUrl, { crossOrigin: "anonymous" })
+            .then((img) => {
+              if (!alive) return;
+              const scale = Math.max(W / (img.width || 1), H / (img.height || 1));
+              img.set({ left: 0, top: 0, scaleX: scale, scaleY: scale, selectable: false, evented: false, originX: "left", originY: "top" });
+              canvas.remove(bg);
+              canvas.add(img);
+              canvas.sendObjectToBack(img);
+              canvas.renderAll();
+            })
+            .catch(() => { /* keep fallback solid color */ });
         }
 
         /* Top gradient overlay (subtle depth) */

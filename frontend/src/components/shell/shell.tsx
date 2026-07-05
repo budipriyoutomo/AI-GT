@@ -13,9 +13,10 @@ interface ShellProps {
   actions?: ReactNode;
   children: ReactNode;
   contentStyle?: CSSProperties;
+  stepperStep?: number;
 }
 
-export function Shell({ active, title, actions, children, contentStyle }: ShellProps) {
+export function Shell({ active, title, actions, children, contentStyle, stepperStep }: ShellProps) {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -31,7 +32,7 @@ export function Shell({ active, title, actions, children, contentStyle }: ShellP
     <div className="aigt-app">
       <Sidebar active={active} />
       <div className="aigt-main">
-        <TopNav title={title} actions={actions} />
+        <TopNav title={title} actions={actions} stepperStep={stepperStep} />
         <div className="aigt-content" style={contentStyle}>
           {children}
         </div>

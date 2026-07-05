@@ -1,21 +1,20 @@
-export interface TemplateBackground {
-  type: "color" | "gradient";
-  value: string | string[];
-}
+import type { TemplateConfig, TemplateElement } from "@/types/template";
 
-export interface TemplateColorScheme {
-  primary: string;
-  secondary: string;
-  accent: string;
-}
-
-export interface ProjectTemplateConfig {
+/**
+ * Template config stored in project.final_config.template_config.
+ * Contains the full template_config JSON from the template table, plus runtime-injected
+ * fields (name, content_type, thumbnail_url) added by generate_service.
+ */
+export interface ProjectTemplateConfig extends Omit<TemplateConfig, "elements" | "color_scheme"> {
+  // Override required fields to be optional (older project records may be missing them)
+  color_scheme?: TemplateConfig["color_scheme"];
+  elements?: TemplateElement[];
+  // Runtime-injected by generate_service._normalize_template_config
   name?: string;
-  content_type?: string;   // "Single" | "Carousel"
+  content_type?: string;    // template platform type, e.g. "instagram_post" | "Carousel"
   slide_count?: number;
-  background: TemplateBackground;
-  color_scheme: TemplateColorScheme;
   layout?: string;
+  thumbnail_url?: string | null;
 }
 
 /* ── Carousel ── */

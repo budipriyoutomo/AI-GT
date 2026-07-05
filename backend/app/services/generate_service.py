@@ -28,6 +28,21 @@ logger = logging.getLogger(__name__)
 _SESSION_TTL_HOURS = 1
 
 
+def _normalize_template_config(template, template_cfg: dict) -> dict:
+    """Store the full template_config JSON as-is, plus inject runtime fields at top level.
+
+    Runtime-injected fields (not in original template_config):
+      name           — template.name
+      content_type   — template.content_type (platform type, e.g. "instagram_post")
+      thumbnail_url  — template.thumbnail_url (needed by TemplateRenderer for image backgrounds)
+    """
+    result = dict(template_cfg)
+    result["name"] = template.name if template else ""
+    result["content_type"] = template.content_type if template else ""
+    result["thumbnail_url"] = template.thumbnail_url if template else None
+    return result
+
+
 async def create_session(
     db: AsyncSession, user_id: uuid.UUID, data: CreateSessionRequest
 ) -> GenerateSession:
@@ -145,14 +160,7 @@ async def select_variant(
         "thematic_image_url": thematic_url,
         "image_source": image_source,
         "image_prompt": image_prompt,
-        "template_config": {
-            "name": template.name if template else "",
-            "content_type": template.content_type if template else "Single",
-            "slide_count": int(template_cfg.get("slide_count", 1)),
-            "background": template_cfg.get("background", {"type": "color", "value": "#F9FAFB"}),
-            "color_scheme": template_cfg.get("color_scheme", {"primary": "#6366F1", "secondary": "#FFFFFF", "accent": "#6366F1"}),
-            "layout": template_cfg.get("layout", ""),
-        },
+        "template_config": _normalize_template_config(template, template_cfg),
     }
 
     project = Project(
@@ -375,14 +383,7 @@ async def _auto_select_first_variant(db: AsyncSession, session: GenerateSession)
         "thematic_image_url": thematic_url,
         "image_source": content.get("image_source", "none"),
         "image_prompt": content.get("selected_image_prompt", ""),
-        "template_config": {
-            "name": template.name if template else "",
-            "content_type": template.content_type if template else "Single",
-            "slide_count": int(template_cfg.get("slide_count", 1)),
-            "background": template_cfg.get("background", {"type": "color", "value": "#F9FAFB"}),
-            "color_scheme": template_cfg.get("color_scheme", {"primary": "#6366F1", "secondary": "#FFFFFF", "accent": "#6366F1"}),
-            "layout": template_cfg.get("layout", ""),
-        },
+        "template_config": _normalize_template_config(template, template_cfg),
     }
 
     project = Project(

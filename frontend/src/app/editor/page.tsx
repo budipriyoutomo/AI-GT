@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,16 @@ import { Icon } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import FabricCanvas, { type FabricCanvasHandle, type CanvasContent } from "@/components/editor/FabricCanvas";
+import TemplateFabricCanvas from "@/components/editor/TemplateFabricCanvas";
+import { TemplateRenderer } from "@/components/template/TemplateRenderer";
+import { buildEditorPreviewConfig } from "@/lib/editor/preview-config";
+import { buildCanvasSpec } from "@/lib/editor/canvas-spec";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
 import { generateApi } from "@/api/generateApi";
 import type { CarouselSlide, Project } from "@/types/project";
+import type { TemplateConfig } from "@/types/template";
 
 /* ── Constants ────────────────────────────────────────────── */
 
@@ -108,10 +114,11 @@ export default function EditorPage() {
   const [thematicVisible,  setThematicVisible]  = useState(true);
 
   // Template visual identity (locked — set from template_config on load)
-  const [accentColor, setAccentColor] = useState("#6366F1");
-  const [bgType,      setBgType]      = useState<"color" | "gradient">("color");
-  const [bgColor,     setBgColor]     = useState("#F9FAFB");
-  const [bgGradient,  setBgGradient]  = useState<string[] | undefined>(undefined);
+  const [accentColor,  setAccentColor]  = useState("#6366F1");
+  const [bgType,       setBgType]       = useState<"color" | "gradient" | "image">("color");
+  const [bgColor,      setBgColor]      = useState("#F9FAFB");
+  const [bgGradient,   setBgGradient]   = useState<string[] | undefined>(undefined);
+  const [bgImageUrl,   setBgImageUrl]   = useState<string | null>(null);
 
   const [imageSource,   setImageSource]   = useState<"upload" | "generated" | "none">("none");
   const [imagePrompt,   setImagePrompt]   = useState("");
@@ -121,10 +128,12 @@ export default function EditorPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput,     setTitleInput]     = useState("");
 
-  const [tab,       setTab]       = useState<TabId>("teks");
-  const [exporting, setExporting] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [zoom,      setZoom]      = useState(0.55);
+  const [tab,          setTab]          = useState<TabId>("teks");
+  const [exporting,    setExporting]    = useState(false);
+  const [lastSaved,    setLastSaved]    = useState<Date | null>(null);
+  const [zoom,         setZoom]         = useState(0.55);
+  const [showHtmlView, setShowHtmlView] = useState(false);
+  const [htmlJsonTab,  setHtmlJsonTab]  = useState<"preview" | "json">("preview");
 
   // Carousel state
   const [slides,       setSlides]       = useState<CarouselSlide[]>([]);
@@ -144,6 +153,40 @@ export default function EditorPage() {
       setSlides((prev) => prev.map((s, i) => i === currentSlide ? { ...s, [field]: value } : s));
     },
     [currentSlide],
+  );
+
+  // Copy efektif — carousel memakai slide aktif, single memakai state form
+  const effHeadline = isCarousel ? (activeSlide?.headline ?? "") : headline;
+  const effBody     = isCarousel ? (activeSlide?.body     ?? "") : body;
+  const effCta      = isCarousel ? (activeSlide?.cta      ?? null) : cta;
+
+  // Template config dengan copy hasil edit di-merge ke slot ber-bind.
+  // null → project lama tanpa template_config valid → fallback canvas generik.
+  const previewCfg = useMemo<TemplateConfig | null>(
+    () => buildEditorPreviewConfig(project?.final_config.template_config, {
+      headline: effHeadline,
+      body: effBody,
+      cta: effCta,
+      headlineFont,
+      bodyFont,
+      letterSpacing,
+    }),
+    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing],
+  );
+
+  const tplThumbnailUrl = project?.final_config.template_config?.thumbnail_url ?? "";
+
+  // Spec render pixel untuk canvas Fabric (posisi, warna, gradient sudah di-resolve)
+  const templateSpec = useMemo(
+    () => previewCfg
+      ? buildCanvasSpec({
+          cfg: previewCfg,
+          thumbnailUrl: tplThumbnailUrl || null,
+          logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
+          contact: DEFAULT_COMPANY_PROFILE.contact,
+        })
+      : null,
+    [previewCfg, tplThumbnailUrl],
   );
 
   /* ── Load project ── */
@@ -176,17 +219,29 @@ export default function EditorPage() {
         setImageSource(image_source ?? "none");
         setImagePrompt(p.final_config.image_prompt ?? "");
 
-        // Apply template visual identity
+        // Apply template visual identity from full template_config
         const tplCfg = p.final_config.template_config;
         if (tplCfg) {
-          setAccentColor(tplCfg.color_scheme.primary);
-          setBgType(tplCfg.background.type);
-          const val = tplCfg.background.value;
-          if (Array.isArray(val)) {
-            setBgGradient(val);
-            setBgColor(val[0] ?? "#F9FAFB");
+          const cs = tplCfg.color_scheme;
+          // accent = brand color; primary = text color on dark bg — use accent for canvas strip/CTA
+          setAccentColor(cs?.accent || cs?.primary || "#6366F1");
+
+          const bg = tplCfg.background;
+          if (bg?.type === "gradient") {
+            setBgType("gradient");
+            const stops = bg.stops ?? [];  // template.ts TemplateBackground uses stops[]
+            if (stops.length) {
+              setBgGradient(stops);
+              setBgColor(stops[0] ?? "#F9FAFB");
+            }
+          } else if (bg?.type === "image") {
+            setBgType("image");
+            setBgColor(bg.fallback ?? "#F9FAFB");
+            // thumbnail_url is injected at top-level by generate_service
+            setBgImageUrl(tplCfg.thumbnail_url ?? null);
           } else {
-            setBgColor(val);
+            setBgType("color");
+            setBgColor(bg?.value ?? "#F9FAFB");
           }
         }
 
@@ -334,9 +389,9 @@ export default function EditorPage() {
   }
 
   const canvasContent: CanvasContent = {
-    headline: isCarousel ? (activeSlide?.headline ?? "") : headline,
-    body:     isCarousel ? (activeSlide?.body     ?? "") : body,
-    cta:      isCarousel ? (activeSlide?.cta      ?? null) : cta,
+    headline: effHeadline,
+    body:     effBody,
+    cta:      effCta,
     headlineFont,
     bodyFont,
     headlineSize,
@@ -346,6 +401,7 @@ export default function EditorPage() {
     backgroundType: bgType,
     backgroundColor: bgColor,
     backgroundGradient: bgGradient,
+    backgroundImageUrl: bgImageUrl,
     thematicImageUrl,
     thematicVisible,
   };
@@ -732,31 +788,48 @@ export default function EditorPage() {
                   </div>
                 </div>
 
-                {/* Headline size */}
-                <div>
-                  <FieldLabel mono value={`${headlineSize}px`}>Ukuran Headline</FieldLabel>
-                  <input
-                    type="range" min={16} max={48} value={headlineSize}
-                    onChange={(e) => setHeadlineSize(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
-                    <span>16px</span><span>48px</span>
+                {templateSpec ? (
+                  /* Mode template: ukuran teks terkunci mengikuti layout template */
+                  <div style={{
+                    display: "flex", alignItems: "flex-start", gap: 8,
+                    padding: "9px 12px",
+                    background: "var(--surface-sunken)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
+                  }}>
+                    <Icon name="lock" size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                    Ukuran teks mengikuti template agar layout tetap presisi.
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Headline size */}
+                    <div>
+                      <FieldLabel mono value={`${headlineSize}px`}>Ukuran Headline</FieldLabel>
+                      <input
+                        type="range" min={16} max={48} value={headlineSize}
+                        onChange={(e) => setHeadlineSize(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
+                        <span>16px</span><span>48px</span>
+                      </div>
+                    </div>
 
-                {/* Body size */}
-                <div>
-                  <FieldLabel mono value={`${bodySize}px`}>Ukuran Body</FieldLabel>
-                  <input
-                    type="range" min={12} max={20} value={bodySize}
-                    onChange={(e) => setBodySize(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
-                    <span>12px</span><span>20px</span>
-                  </div>
-                </div>
+                    {/* Body size */}
+                    <div>
+                      <FieldLabel mono value={`${bodySize}px`}>Ukuran Body</FieldLabel>
+                      <input
+                        type="range" min={12} max={20} value={bodySize}
+                        onChange={(e) => setBodySize(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
+                        <span>12px</span><span>20px</span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Letter spacing */}
                 <div>
@@ -1040,7 +1113,11 @@ export default function EditorPage() {
             boxShadow: "0 12px 48px color-mix(in oklch, var(--foreground) 12%, transparent), 0 4px 16px color-mix(in oklch, var(--foreground) 8%, transparent)",
             overflow: "hidden",
           }}>
-            <FabricCanvas ref={canvasRef} content={canvasContent} zoom={zoom} onReady={handleCanvasReady} />
+            {templateSpec ? (
+              <TemplateFabricCanvas ref={canvasRef} spec={templateSpec} zoom={zoom} onReady={handleCanvasReady} />
+            ) : (
+              <FabricCanvas ref={canvasRef} content={canvasContent} zoom={zoom} onReady={handleCanvasReady} />
+            )}
           </div>
 
           {/* Zoom controls + info strip */}
@@ -1055,7 +1132,7 @@ export default function EditorPage() {
             {/* Resolution info */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
               <Icon name="info" size={13} />
-              <span>Export 800 × 1000 px</span>
+              <span>Export {templateSpec?.width ?? 800} × {templateSpec?.height ?? 1000} px</span>
             </div>
 
             <div style={{ width: 1, height: 16, background: "var(--border)", flexShrink: 0 }} />
@@ -1100,6 +1177,27 @@ export default function EditorPage() {
               title="Reset ke 55%"
             >
               Reset
+            </button>
+
+            <div style={{ flex: 1 }} />
+
+            {/* HTML preview button */}
+            <button
+              onClick={() => { setShowHtmlView(true); setHtmlJsonTab("preview"); }}
+              disabled={!previewCfg}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "4px 10px", borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+                background: "var(--surface-sunken)",
+                cursor: previewCfg ? "pointer" : "not-allowed",
+                color: "var(--muted-foreground)", fontSize: 12, fontWeight: 500,
+                opacity: previewCfg ? 1 : 0.4,
+              }}
+              title="Lihat hasil render HTML template dengan copy AI"
+            >
+              <Icon name="code-2" size={13} />
+              HTML
             </button>
           </div>
         </main>
@@ -1151,7 +1249,7 @@ export default function EditorPage() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {Object.entries(project.final_config.template_config.color_scheme).map(([key, color]) => (
+                {Object.entries(project.final_config.template_config.color_scheme ?? {}).map(([key, color]) => (
                   <div key={key} title={`${key}: ${color}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: "var(--radius-md)",
@@ -1258,6 +1356,102 @@ export default function EditorPage() {
         </aside>
 
       </div>
+
+      {/* ── HTML View Modal ────────────────────────────────────── */}
+      {showHtmlView && previewCfg && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 2000,
+            background: "rgba(0,0,0,0.88)",
+            display: "flex", flexDirection: "column",
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowHtmlView(false); }}
+        >
+          {/* Modal header */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "12px 20px",
+            background: "var(--card)",
+            borderBottom: "1px solid var(--border)",
+            flexShrink: 0,
+          }}>
+            <Icon name="code-2" size={16} style={{ color: "var(--primary)" }} />
+            <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", flex: 1 }}>
+              HTML Preview — {project?.final_config.template_config?.name || "Template"}
+            </span>
+
+            {/* Tab switch */}
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["preview", "json"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setHtmlJsonTab(t)}
+                  style={{
+                    padding: "5px 12px", borderRadius: "var(--radius-md)",
+                    border: "1.5px solid",
+                    borderColor: htmlJsonTab === t ? "var(--primary)" : "var(--border)",
+                    background: htmlJsonTab === t ? "var(--tint-primary)" : "var(--surface-sunken)",
+                    color: htmlJsonTab === t ? "var(--primary)" : "var(--muted-foreground)",
+                    fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  {t === "preview" ? "Preview HTML" : "JSON Config"}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowHtmlView(false)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--muted-foreground)", display: "flex", alignItems: "center",
+                padding: 4, borderRadius: "var(--radius-sm)",
+              }}
+            >
+              <Icon name="x" size={18} />
+            </button>
+          </div>
+
+          {/* Modal body */}
+          <div style={{ flex: 1, overflow: "auto", padding: 32, display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+            {htmlJsonTab === "preview" ? (
+              <div style={{ width: 420, flexShrink: 0 }}>
+                <TemplateRenderer
+                  cfg={previewCfg}
+                  thumbnailUrl={tplThumbnailUrl}
+                />
+                <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
+                  Render HTML dari template_config + copy AI yang sudah diedit
+                </p>
+              </div>
+            ) : (
+              <div style={{
+                width: "100%", maxWidth: 860,
+                background: "var(--card)",
+                borderRadius: "var(--radius-xl)",
+                border: "1px solid var(--border)",
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon name="braces" size={13} style={{ color: "var(--muted-foreground)" }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
+                    final_config.template_config
+                  </span>
+                </div>
+                <pre style={{
+                  margin: 0, padding: "16px",
+                  fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.65,
+                  color: "var(--foreground)",
+                  overflow: "auto", maxHeight: "70vh",
+                  whiteSpace: "pre-wrap", wordBreak: "break-all",
+                }}>
+                  {JSON.stringify(project?.final_config.template_config, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
