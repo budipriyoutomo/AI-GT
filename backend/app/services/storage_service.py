@@ -25,8 +25,17 @@ def _get_client():
     )
 
 
-def _public_url(key: str) -> str:
-    return f"https://{settings.cloudflare_r2_bucket_name}.{settings.cloudflare_r2_account_id}.r2.cloudflarestorage.com/{key}"
+def _asset_path(key: str) -> str:
+    """Return the ROOT-RELATIVE path for an object key (leading slash), e.g.
+    "permanent/thumbnails/u/p.png" -> "/permanent/thumbnails/u/p.png".
+
+    We deliberately store the relative path — NOT an absolute URL — in the DB so
+    the public host is never baked into persisted data. The frontend prepends the
+    public CDN base (NEXT_PUBLIC_CDN_URL, e.g. https://cdn.calira.my.id) at render
+    time. The leading slash is also required by cleanup_service (`"/temp/" in url`)
+    and by generate_service._resolve_thematic_image (urlparse().path parsing).
+    """
+    return f"/{key}"
 
 
 def upload_temp(file_data: bytes, session_id: str, content_type: str = "image/png") -> str:
@@ -41,7 +50,7 @@ def upload_temp(file_data: bytes, session_id: str, content_type: str = "image/pn
             Body=file_data,
             ContentType=content_type,
         )
-        return _public_url(key)
+        return _asset_path(key)
     except Exception as e:
         logger.error("upload_temp failed for session %s: %s", session_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload file ke storage.")
@@ -58,7 +67,7 @@ def move_to_permanent(temp_key: str, user_id: str, project_id: str) -> str:
             Key=permanent_key,
         )
         client.delete_object(Bucket=settings.cloudflare_r2_bucket_name, Key=temp_key)
-        return _public_url(permanent_key)
+        return _asset_path(permanent_key)
     except Exception as e:
         logger.error("move_to_permanent failed temp_key=%s: %s", temp_key, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal memindahkan file ke permanent storage.")
@@ -77,7 +86,7 @@ def upload_permanent_thematic(file_data: bytes, user_id: str, project_id: str, c
             Body=file_data,
             ContentType=content_type,
         )
-        return _public_url(key)
+        return _asset_path(key)
     except Exception as e:
         logger.error("upload_permanent_thematic failed project_id=%s: %s", project_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload gambar ke storage.")
@@ -96,7 +105,7 @@ def upload_thumbnail(file_data: bytes, user_id: str, project_id: str, content_ty
             Body=file_data,
             ContentType=content_type,
         )
-        return _public_url(key)
+        return _asset_path(key)
     except Exception as e:
         logger.error("upload_thumbnail failed project_id=%s: %s", project_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload thumbnail.")
@@ -113,7 +122,7 @@ def upload_exported(file_data: bytes, user_id: str, project_id: str, content_typ
             Body=file_data,
             ContentType=content_type,
         )
-        return _public_url(key)
+        return _asset_path(key)
     except Exception as e:
         logger.error("upload_exported failed project_id=%s: %s", project_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload file export.")

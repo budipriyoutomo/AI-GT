@@ -11,6 +11,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { projectsApi } from "@/api/projectsApi";
+import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { Project } from "@/types/project";
 
 const ACCENT_BY_INDEX = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
@@ -48,7 +49,7 @@ function HistoryCard({ project, onDelete }: { project: Project; onDelete: () => 
             {(project.thumbnail_url || project.exported_image_url) ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={project.thumbnail_url ?? project.exported_image_url!}
+                src={resolveAssetUrl(project.thumbnail_url ?? project.exported_image_url)!}
                 alt={headline}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />

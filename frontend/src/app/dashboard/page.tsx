@@ -16,6 +16,7 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { projectsApi } from "@/api/projectsApi";
+import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { Project } from "@/types/project";
 
 const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
@@ -60,7 +61,7 @@ function ProjectCard({
         {(project.thumbnail_url || project.exported_image_url) ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={project.thumbnail_url ?? project.exported_image_url!}
+            src={resolveAssetUrl(project.thumbnail_url ?? project.exported_image_url)!}
             alt={headline}
             style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: "var(--radius-md)" }}
           />

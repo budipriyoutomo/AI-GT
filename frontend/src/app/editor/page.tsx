@@ -18,6 +18,7 @@ import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
 import { generateApi } from "@/api/generateApi";
+import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { CarouselSlide, Project } from "@/types/project";
 import type { TemplateConfig } from "@/types/template";
 
@@ -401,8 +402,10 @@ export default function EditorPage() {
     backgroundType: bgType,
     backgroundColor: bgColor,
     backgroundGradient: bgGradient,
-    backgroundImageUrl: bgImageUrl,
-    thematicImageUrl,
+    // Resolve at render time only — state stays raw (relative path) so auto-save
+    // never re-persists an absolute host back into final_config.
+    backgroundImageUrl: resolveAssetUrl(bgImageUrl),
+    thematicImageUrl: resolveAssetUrl(thematicImageUrl),
     thematicVisible,
   };
 
@@ -874,7 +877,7 @@ export default function EditorPage() {
                   <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={thematicImageUrl}
+                      src={resolveAssetUrl(thematicImageUrl)!}
                       alt="Upload"
                       style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
                     />
@@ -933,7 +936,7 @@ export default function EditorPage() {
                   <div style={{ borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={thematicImageUrl}
+                      src={resolveAssetUrl(thematicImageUrl)!}
                       alt="Generated"
                       style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -1342,7 +1345,7 @@ export default function EditorPage() {
               }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={project.exported_image_url}
+                  src={resolveAssetUrl(project.exported_image_url)!}
                   alt="Export terakhir"
                   style={{ width: "100%", display: "block", aspectRatio: "4/5", objectFit: "cover" }}
                 />

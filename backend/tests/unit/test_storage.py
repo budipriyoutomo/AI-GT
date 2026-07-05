@@ -22,6 +22,31 @@ def _mock_settings():
     return s
 
 
+class TestAssetPath:
+    """Storage functions must return a ROOT-RELATIVE path (leading slash, no host),
+    so the public CDN domain is never baked into persisted DB values."""
+
+    def test_returns_relative_path_with_leading_slash(self):
+        assert storage_service._asset_path("permanent/thumbnails/u/p.png") == "/permanent/thumbnails/u/p.png"
+
+    def test_upload_functions_never_return_absolute_url(self):
+        mock_client = MagicMock()
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                urls = [
+                    storage_service.upload_temp(b"d", "s1"),
+                    storage_service.move_to_permanent("temp/x.png", "u1", "p1"),
+                    storage_service.upload_permanent_thematic(b"d", "u1", "p1"),
+                    storage_service.upload_thumbnail(b"d", "u1", "p1"),
+                    storage_service.upload_exported(b"d", "u1", "p1"),
+                ]
+        for url in urls:
+            assert url.startswith("/"), f"expected relative path, got {url!r}"
+            assert "http" not in url
+            assert "cloudflarestorage" not in url
+            assert "cdn.calira" not in url
+
+
 class TestUploadTemp:
     def test_upload_temp_success(self):
         mock_client = MagicMock()
@@ -34,7 +59,7 @@ class TestUploadTemp:
         assert call_kwargs["Bucket"] == _BUCKET
         assert "temp/thematic-images/session-123/" in call_kwargs["Key"]
         assert call_kwargs["ContentType"] == "image/png"
-        assert "session-123" in url
+        assert url == "/" + call_kwargs["Key"]
 
     def test_upload_temp_raises_on_failure(self):
         mock_client = MagicMock()
