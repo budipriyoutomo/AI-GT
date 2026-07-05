@@ -321,6 +321,10 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
     image_prompt = content.get("selected_image_prompt") or campaign.get("image_prompt") or template.theme
     image_input = ImageInput(theme=image_prompt) if image_source == "generated" else None
 
+    # Brief & template tervalidasi, AI copy/image mulai dipanggil.
+    session.progress = 20
+    await db.commit()
+
     try:
         copy_result, image_result = await ai_service.generate_content(
             copy_input, image_input, str(session_id)
@@ -330,6 +334,10 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         session.status = "failed"
         await db.commit()
         return
+
+    # AI selesai, tinggal persist varian & gambar.
+    session.progress = 75
+    await db.commit()
 
     for variant_data in copy_result.variants:
         idx = variant_data.variant_number - 1
@@ -346,6 +354,7 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         db.add(variant)
 
     session.status = "completed"
+    session.progress = 100
     await db.commit()
 
     # Quick Generate: auto-select the single variant and create a project

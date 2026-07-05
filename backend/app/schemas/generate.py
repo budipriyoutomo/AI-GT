@@ -59,6 +59,7 @@ class SessionData(BaseModel):
     id: uuid.UUID
     template_id: uuid.UUID
     status: str
+    progress: int = 0
     language_style: str
     goal: str | None
     platform: str | None

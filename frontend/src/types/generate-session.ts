@@ -28,6 +28,7 @@ export interface GenerateSession {
   id: string;
   template_id: string;
   status: SessionStatus;
+  progress: number;
   language_style: string;
   goal: GoalEnum | null;
   platform: PlatformEnum | null;
