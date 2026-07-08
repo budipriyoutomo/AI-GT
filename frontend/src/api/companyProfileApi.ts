@@ -32,4 +32,10 @@ export const companyProfileApi = {
 
   update: (data: CompanyProfileUpdate): Promise<CompanyProfile> =>
     api.patch<CompanyProfile>("/api/v1/company-profile", data),
+
+  uploadLogo: (file: File): Promise<CompanyProfile> => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.upload<CompanyProfile>("/api/v1/company-profile/logo", form);
+  },
 };

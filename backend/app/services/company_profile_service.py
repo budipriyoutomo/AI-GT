@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company_profile import CompanyProfile
 from app.schemas.company_profile import CompanyProfileCreate, CompanyProfileUpdate
+from app.services import storage_service
 from app.utils.exceptions import AppError, ErrorCode
 
 
@@ -39,6 +40,21 @@ async def create_profile(
         language_preference=data.language_preference,
     )
     db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def update_logo(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    file_data: bytes,
+    ext: str,
+    content_type: str,
+) -> CompanyProfile:
+    profile = await get_profile(db, user_id)
+    url = storage_service.upload_logo(file_data, str(user_id), ext, content_type)
+    profile.logo_url = url
     await db.commit()
     await db.refresh(profile)
     return profile

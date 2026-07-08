@@ -1,6 +1,8 @@
 """
 🔴 RED phase — test company profile endpoint.
 """
+from unittest.mock import patch
+
 import pytest
 from httpx import AsyncClient
 
@@ -126,4 +128,54 @@ class TestUpdateProfile:
 
     async def test_update_profile_no_auth(self, client: AsyncClient):
         res = await client.patch("/api/v1/company-profile", json={"business_name": "X"})
+        assert res.status_code == 401
+
+
+class TestUploadLogo:
+    async def test_upload_logo_success(
+        self, client: AsyncClient, auth_headers: dict, company_profile: CompanyProfile
+    ):
+        fake_url = "/permanent/logos/user/logo.png"
+        with patch(
+            "app.services.company_profile_service.storage_service.upload_logo",
+            return_value=fake_url,
+        ):
+            res = await client.post(
+                "/api/v1/company-profile/logo",
+                headers=auth_headers,
+                files={"file": ("logo.png", b"fake-png-data", "image/png")},
+            )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["success"] is True
+        assert body["data"]["logo_url"] == fake_url
+
+    async def test_upload_logo_profile_not_found(self, client: AsyncClient, auth_headers: dict):
+        with patch(
+            "app.services.company_profile_service.storage_service.upload_logo",
+            return_value="/permanent/logos/user/logo.png",
+        ):
+            res = await client.post(
+                "/api/v1/company-profile/logo",
+                headers=auth_headers,
+                files={"file": ("logo.png", b"data", "image/png")},
+            )
+        assert res.status_code == 404
+        assert res.json()["error"]["code"] == "PROFILE_NOT_FOUND"
+
+    async def test_upload_logo_rejects_non_image(
+        self, client: AsyncClient, auth_headers: dict, company_profile: CompanyProfile
+    ):
+        res = await client.post(
+            "/api/v1/company-profile/logo",
+            headers=auth_headers,
+            files={"file": ("evil.txt", b"not-an-image", "text/plain")},
+        )
+        assert res.status_code == 400
+
+    async def test_upload_logo_no_auth(self, client: AsyncClient):
+        res = await client.post(
+            "/api/v1/company-profile/logo",
+            files={"file": ("logo.png", b"data", "image/png")},
+        )
         assert res.status_code == 401

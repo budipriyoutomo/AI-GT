@@ -118,6 +118,34 @@ class TestUploadExported:
         assert exc_info.value.code == "STORAGE_UPLOAD_FAILED"
 
 
+class TestUploadLogo:
+    def test_upload_logo_success(self):
+        mock_client = MagicMock()
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                url = storage_service.upload_logo(b"png-data", "user-1", "png", "image/png")
+
+        mock_client.put_object.assert_called_once()
+        assert "permanent/logos/user-1/logo.png" in url
+
+    def test_upload_logo_keeps_extension(self):
+        mock_client = MagicMock()
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                url = storage_service.upload_logo(b"data", "user-1", "jpg", "image/jpeg")
+        assert url.endswith("permanent/logos/user-1/logo.jpg")
+
+    def test_upload_logo_raises_on_failure(self):
+        mock_client = MagicMock()
+        mock_client.put_object.side_effect = Exception("upload failed")
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                with pytest.raises(AppError) as exc_info:
+                    storage_service.upload_logo(b"data", "uid", "png", "image/png")
+
+        assert exc_info.value.code == "STORAGE_UPLOAD_FAILED"
+
+
 class TestDeleteFile:
     def test_delete_file_success(self):
         mock_client = MagicMock()

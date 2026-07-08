@@ -109,3 +109,81 @@ class TestGetMe:
         )
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "AUTH_TOKEN_EXPIRED"
+
+
+class TestChangePassword:
+    async def test_change_password_success(
+        self, client: AsyncClient, auth_headers: dict, verified_user: User
+    ):
+        res = await client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={"current_password": "password123", "new_password": "newsecret123"},
+        )
+        assert res.status_code == 200
+        assert res.json()["success"] is True
+
+        # password lama tidak lagi berlaku, password baru berlaku
+        old = await client.post("/api/v1/auth/login", json={
+            "email": verified_user.email, "password": "password123",
+        })
+        assert old.status_code == 401
+        new = await client.post("/api/v1/auth/login", json={
+            "email": verified_user.email, "password": "newsecret123",
+        })
+        assert new.status_code == 200
+
+    async def test_change_password_wrong_current(self, client: AsyncClient, auth_headers: dict):
+        res = await client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={"current_password": "salah-banget", "new_password": "newsecret123"},
+        )
+        assert res.status_code == 401
+        assert res.json()["error"]["code"] == "AUTH_INVALID_CREDENTIALS"
+
+    async def test_change_password_too_short(self, client: AsyncClient, auth_headers: dict):
+        res = await client.post(
+            "/api/v1/auth/change-password",
+            headers=auth_headers,
+            json={"current_password": "password123", "new_password": "123"},
+        )
+        assert res.status_code == 422
+
+    async def test_change_password_no_auth(self, client: AsyncClient):
+        res = await client.post(
+            "/api/v1/auth/change-password",
+            json={"current_password": "password123", "new_password": "newsecret123"},
+        )
+        assert res.status_code == 401
+
+
+class TestDeleteAccount:
+    async def test_delete_account_success(
+        self, client: AsyncClient, auth_headers: dict, verified_user: User
+    ):
+        res = await client.request(
+            "DELETE", "/api/v1/auth/me", headers=auth_headers
+        )
+        assert res.status_code == 200
+        assert res.json()["success"] is True
+
+        # user tidak bisa lagi login / akses /me
+        me = await client.get("/api/v1/auth/me", headers=auth_headers)
+        assert me.status_code == 404
+        login = await client.post("/api/v1/auth/login", json={
+            "email": verified_user.email, "password": "password123",
+        })
+        assert login.status_code == 401
+
+    async def test_delete_account_removes_related_data(
+        self, client: AsyncClient, auth_headers: dict, project, company_profile
+    ):
+        # ada project + company profile milik user, delete harus bersih tanpa error FK
+        res = await client.request("DELETE", "/api/v1/auth/me", headers=auth_headers)
+        assert res.status_code == 200
+        assert res.json()["success"] is True
+
+    async def test_delete_account_no_auth(self, client: AsyncClient):
+        res = await client.request("DELETE", "/api/v1/auth/me")
+        assert res.status_code == 401

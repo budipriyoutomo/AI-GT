@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
+import { resolveAssetUrl } from "@/lib/assetUrl";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import type { CompanyContact } from "@/types/company-profile";
 
@@ -78,7 +80,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 /* ── Tab: Profil ──────────────────────────────────────────── */
 
 function TabProfil() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword, deleteAccount } = useAuth();
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
   const [name, setName]                 = useState(user?.name ?? "");
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
@@ -88,6 +92,7 @@ function TabProfil() {
   const [newPw, setNewPw]         = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError]     = useState<string | null>(null);
+  const [savingPw, setSavingPw]   = useState(false);
 
   async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
@@ -103,14 +108,28 @@ function TabProfil() {
     }
   }
 
-  function handleChangePassword(e: FormEvent) {
+  async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
     setPwError(null);
     if (!currentPw || !newPw || !confirmPw) { setPwError("Semua kolom wajib diisi."); return; }
     if (newPw.length < 6) { setPwError("Password baru minimal 6 karakter."); return; }
     if (newPw !== confirmPw) { setPwError("Konfirmasi password tidak cocok."); return; }
+    setSavingPw(true);
+    const err = await changePassword(currentPw, newPw);
+    setSavingPw(false);
+    if (err) { setPwError(err); return; }
     setCurrentPw(""); setNewPw(""); setConfirmPw("");
     toast({ title: "Password berhasil diubah", variant: "success" });
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm("Hapus akun secara permanen? Semua data dan konten akan hilang dan tidak bisa dikembalikan.")) return;
+    setDeleting(true);
+    const err = await deleteAccount();
+    setDeleting(false);
+    if (err) { toast({ title: "Gagal menghapus akun", desc: err, variant: "error" }); return; }
+    toast({ title: "Akun dihapus", variant: "success" });
+    router.replace("/login");
   }
 
   return (
@@ -197,7 +216,9 @@ function TabProfil() {
             </div>
           )}
           <div>
-            <Button type="submit" size="sm" variant="outline">Ubah password</Button>
+            <Button type="submit" size="sm" variant="outline" disabled={savingPw}>
+              {savingPw ? "Menyimpan..." : "Ubah password"}
+            </Button>
           </div>
         </form>
       </Section>
@@ -345,9 +366,10 @@ function TabProfil() {
             size="sm"
             variant="destructive"
             icon="trash-2"
-            onClick={() => toast({ title: "Fitur ini belum tersedia", desc: "Hubungi support untuk menghapus akun.", variant: "warning" })}
+            disabled={deleting}
+            onClick={handleDeleteAccount}
           >
-            Hapus akun
+            {deleting ? "Menghapus..." : "Hapus akun"}
           </Button>
         </div>
       </Section>
@@ -359,13 +381,15 @@ function TabProfil() {
 /* ── Tab: Profil Bisnis ───────────────────────────────────── */
 
 function TabProfilBisnis() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, uploadLogo } = useAuth();
 
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
   const [industry, setIndustry]         = useState(user?.industry ?? "F&B / Kuliner");
   const [city, setCity]                 = useState("");
   const [desc, setDesc]                 = useState("");
-  const [logo, setLogo]                 = useState(false);
+  const [logoUrl, setLogoUrl]           = useState<string | null>(user?.logoUrl ?? null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [tagline, setTagline]           = useState(user?.tagline ?? "");
   const [primary, setPrimary]           = useState(user?.brandColors?.[0] ?? "#2F6BFF");
   const [secondary, setSecondary]       = useState(user?.brandColors?.[1] ?? "#7C3AED");
@@ -373,10 +397,32 @@ function TabProfilBisnis() {
   const [contact, setContact]           = useState<CompanyContact>(user?.contact ?? EMPTY_CONTACT);
   const [saving, setSaving]             = useState(false);
 
-  const initial = (businessName.trim()[0] || "S").toUpperCase();
-
   function setContactField(field: keyof CompanyContact, value: string) {
     setContact((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // reset agar file yang sama bisa dipilih ulang
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast({ title: "Format tidak didukung", desc: "Gunakan PNG, JPG, atau WEBP.", variant: "error" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Ukuran terlalu besar", desc: "Maksimal 5 MB.", variant: "error" });
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      await uploadLogo(file);
+      setLogoUrl(URL.createObjectURL(file));
+      toast({ title: "Logo terunggah", variant: "success" });
+    } catch {
+      toast({ title: "Gagal mengunggah logo", variant: "error" });
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   async function handleSave(e: FormEvent) {
@@ -444,36 +490,47 @@ function TabProfilBisnis() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Logo bisnis</label>
-            {logo ? (
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: "none" }}
+              onChange={handleLogoChange}
+            />
+            {logoUrl ? (
               <div style={{
                 display: "flex", alignItems: "center", gap: 14, padding: 16,
                 border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--card)",
               }}>
-                <span style={{
-                  width: 52, height: 52, borderRadius: "var(--radius-lg)", background: primary, color: "#fff",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22,
-                }}>{initial}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolveAssetUrl(logoUrl) ?? undefined}
+                  alt="Logo bisnis"
+                  style={{ width: 52, height: 52, borderRadius: "var(--radius-lg)", objectFit: "cover", background: "var(--surface-sunken)" }}
+                />
                 <div style={{ flex: 1 }}>
-                  <div className="aigt-h6">logo-bisnis.png</div>
-                  <div className="aigt-caption">512×512 · 84 KB</div>
+                  <div className="aigt-h6">Logo aktif</div>
+                  <div className="aigt-caption">Klik “Ganti” untuk mengunggah yang baru</div>
                 </div>
-                <Button type="button" variant="ghost" size="sm" icon="trash-2" onClick={() => setLogo(false)}>Ganti</Button>
+                <Button type="button" variant="ghost" size="sm" icon="upload-cloud" disabled={uploadingLogo} onClick={() => logoInputRef.current?.click()}>
+                  {uploadingLogo ? "Mengunggah..." : "Ganti"}
+                </Button>
               </div>
             ) : (
               <div
-                onClick={() => { setLogo(true); toast({ title: "Logo terunggah", variant: "success" }); }}
+                onClick={() => { if (!uploadingLogo) logoInputRef.current?.click(); }}
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 28,
                   border: "1.5px dashed color-mix(in oklch, var(--primary) 40%, var(--border))",
                   borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)",
-                  cursor: "pointer", textAlign: "center",
+                  cursor: uploadingLogo ? "wait" : "pointer", textAlign: "center",
                 }}
               >
                 <span style={{ width: 40, height: 40, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon name="upload-cloud" size={20} />
                 </span>
-                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Tarik logo ke sini atau klik untuk unggah</div>
-                <div className="aigt-caption">PNG, JPG atau SVG · maks 5 MB</div>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{uploadingLogo ? "Mengunggah…" : "Tarik logo ke sini atau klik untuk unggah"}</div>
+                <div className="aigt-caption">PNG, JPG atau WEBP · maks 5 MB</div>
               </div>
             )}
           </div>

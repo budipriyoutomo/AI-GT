@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -63,6 +63,43 @@ async def login_user(
 
     token = provider.create_token(str(user.id))
     return user, token
+
+
+async def change_password(
+    db: AsyncSession,
+    user: User,
+    current_password: str,
+    new_password: str,
+) -> None:
+    provider = get_auth_provider()
+    if not provider.verify_password(current_password, user.password_hash):
+        raise AppError(401, ErrorCode.AUTH_INVALID_CREDENTIALS, "Password saat ini salah.")
+
+    user.password_hash = provider.hash_password(new_password)
+    await db.commit()
+
+
+async def delete_account(db: AsyncSession, user: User) -> None:
+    """Hapus akun beserta seluruh data terkait (FK-safe order)."""
+    from app.models.company_profile import CompanyProfile
+    from app.models.generate_session import GenerateSession
+    from app.models.generate_variant import GenerateVariant
+    from app.models.project import Project
+
+    uid = user.id
+    session_ids = (
+        await db.scalars(select(GenerateSession.id).where(GenerateSession.user_id == uid))
+    ).all()
+
+    await db.execute(delete(Project).where(Project.user_id == uid))
+    if session_ids:
+        await db.execute(
+            delete(GenerateVariant).where(GenerateVariant.session_id.in_(session_ids))
+        )
+    await db.execute(delete(GenerateSession).where(GenerateSession.user_id == uid))
+    await db.execute(delete(CompanyProfile).where(CompanyProfile.user_id == uid))
+    await db.execute(delete(User).where(User.id == uid))
+    await db.commit()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User:

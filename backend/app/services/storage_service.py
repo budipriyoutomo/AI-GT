@@ -128,6 +128,23 @@ def upload_exported(file_data: bytes, user_id: str, project_id: str, content_typ
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload file export.")
 
 
+def upload_logo(file_data: bytes, user_id: str, ext: str, content_type: str) -> str:
+    """Upload logo company profile ke permanent/logos/{user_id}/logo.{ext}."""
+    key = f"permanent/logos/{user_id}/logo.{ext}"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=file_data,
+            ContentType=content_type,
+        )
+        return _asset_path(key)
+    except Exception as e:
+        logger.error("upload_logo failed user_id=%s: %s", user_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload logo.")
+
+
 def delete_file(key: str) -> None:
     """Hapus file dari R2. Dipakai oleh cron cleanup dan saat temp expired."""
     try:

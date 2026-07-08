@@ -46,6 +46,9 @@ interface AuthContextValue {
   ) => Promise<string | null>;
   logout: () => void;
   updateProfile: (data: Partial<Omit<UserContext, "id" | "email">>) => Promise<void>;
+  uploadLogo: (file: File) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
+  deleteAccount: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -142,6 +145,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => prev ? { ...prev, ...data } : prev);
   }
 
+  async function uploadLogo(file: File): Promise<void> {
+    const profile = await companyProfileApi.uploadLogo(file);
+    setUser((prev) => (prev ? { ...prev, logoUrl: profile.logo_url } : prev));
+  }
+
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<string | null> {
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
+    }
+  }
+
+  async function deleteAccount(): Promise<string | null> {
+    try {
+      await authApi.deleteAccount();
+      authApi.logout();
+      setUser(null);
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
+    }
+  }
+
   function logout() {
     authApi.logout();
     setUser(null);
@@ -150,7 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!ready) return null;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateProfile }}>
+    <AuthContext.Provider
+      value={{ user, login, register, logout, updateProfile, uploadLogo, changePassword, deleteAccount }}
+    >
       {children}
     </AuthContext.Provider>
   );
