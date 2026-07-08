@@ -54,6 +54,13 @@ const LANGUAGE_STYLES: { value: LanguageStyleEnum; label: string; description: s
 
 const DEFAULT_LANGUAGE_STYLE: LanguageStyleEnum | null = null;
 
+// Fallbacks for when the user reaches the brief step directly (shared template
+// link, "Mulai dari kosong", or browsing /templates without Step 1) and never
+// picked goal/platform. The backend requires both, so we default rather than
+// silently no-op the Generate button.
+const DEFAULT_GOAL: GoalEnum = "awareness";
+const DEFAULT_PLATFORM: PlatformEnum = "instagram_feed";
+
 const IMAGE_SOURCES: { id: ImageSourceEnum; label: string; icon: string; desc: string }[] = [
   { id: "upload",    label: "Upload gambar",    icon: "upload",   desc: "Gunakan foto atau aset brand milikmu sendiri"           },
   { id: "generated", label: "AI generate",      icon: "wand",     desc: "AI buat gambar tematik yang relevan dengan kontenmu"   },
@@ -269,7 +276,10 @@ export default function CreatePage() {
   }
 
   async function handleGenerate() {
-    if (!templateId || !goal || !platform) return;
+    // Only templateId is structurally required here. goal/platform come from
+    // Step 1 via URL params; when absent (direct entry) we fall back to defaults
+    // below instead of returning silently, which looked like "nothing happens".
+    if (!templateId) return;
 
     const parsed = contentBriefSchema.safeParse({
       product: productOrService.trim(),
@@ -298,8 +308,8 @@ export default function CreatePage() {
 
       const session = await generateApi.createSession({
         template_id: templateId,
-        goal,
-        platform,
+        goal: goal ?? DEFAULT_GOAL,
+        platform: platform ?? DEFAULT_PLATFORM,
         language_style: parsed.data.languageStyle,
         product_or_service: parsed.data.product,
         key_message: parsed.data.mainMessage,

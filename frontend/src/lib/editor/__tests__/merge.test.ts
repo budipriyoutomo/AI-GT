@@ -33,7 +33,7 @@ function makeTemplate(): TemplateConfig {
     color_scheme: { accent: "#FF6B35", primary: "#FFFFFF", secondary: "#1A1A1A" },
     font: { family: "Inter" },
     background: { type: "color", value: "#1A1A1A" },
-    brand_theme: { mode: "dark", color_slots: {}, font_brand_roles: [] },
+    brand_theme: { mode: "tint", color_slots: {}, font_brand_roles: [] },
     elements: [
       {
         type: "scrim",
