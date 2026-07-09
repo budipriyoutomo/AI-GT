@@ -5,9 +5,12 @@ from dataclasses import dataclass, field
 class CopyBrief:
     """Ringkasan slot AI yang dikompilasi dari template_config untuk mengarahkan prompt copy.
     `slots` = bind yang BENAR-BENAR ada di template (headline/body/cta) → batas kata per slot.
-    Slot yang tak ada tidak dimasukkan → prompt menyuruh AI set null (hindari CTA yang mubazir)."""
+    Slot yang tak ada tidak dimasukkan → prompt menyuruh AI set null (hindari CTA yang mubazir).
+    `static_context` = teks statis yang sudah tercetak di template (eyebrow/tanggal/S&K) sebagai
+    (role, teks) → diberikan ke AI sbagai konteks 'jangan diulang'."""
     intent: str | None
     slots: dict[str, int]
+    static_context: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass

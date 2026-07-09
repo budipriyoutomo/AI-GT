@@ -139,7 +139,7 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-│   ├── alembic/versions/        → migrasi 0001…0008
+│   ├── alembic/versions/        → migrasi 0001…0009
 │   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
 │   └── tests/                   → conftest.py, unit/, integration/
 │
@@ -185,6 +185,7 @@ Anchor visual. Kolom penting:
 |---|---|---|
 | name, industry, theme | String | metadata & filter |
 | content_type | String(20) | `"Single"` \| `"Carousel"` |
+| copy_intent | String(20) nullable | niat copy → arah AI: `"promotion"` \| `"story"` \| `"brand"` (null = fallback generic) |
 | layout_type | String | default `"promo_simple"` |
 | thumbnail_url | Text | foreground/gallery thumbnail |
 | background_url | Text nullable | image latar full-bleed (opsional, di-upload admin) |
@@ -234,10 +235,12 @@ User ──1:N── Project ──1:1── GenerateSession
 Template ──1:N── GenerateSession
 ```
 
-Migrasi dikelola Alembic (`0001_initial_schema` … `0008_ensure_projects_thumbnail_url`).
+Migrasi dikelola Alembic (`0001_initial_schema` … `0009_add_copy_intent_to_templates`).
 
 > `0008` adalah **guard idempoten** (`ADD COLUMN IF NOT EXISTS thumbnail_url`) untuk memperbaiki DB yang
 > revisi `0004`-nya sempat ter-skip akibat tabrakan revision id antar-branch — lihat pola serupa di `0007`.
+> `0009` menambah kolom `templates.copy_intent` (nullable, idempoten) — `seed_templates.py` juga
+> menambahnya via `SCHEMA_FALLBACKS` agar seed jalan sebelum migrasi di-apply.
 
 ---
 
@@ -338,7 +341,9 @@ Alur ini menyatukan router → service → AI layer → storage → DB.
 
 2. run_generation_task()  (DB session baru sendiri)
    └─ _do_generate()
-      ├─ Susun CopyInput (brand, brief, template_theme, content_type, slide_count)
+      ├─ build_copy_brief(template_config, copy_intent)   ← kompilasi slot AI yang ADA (rekursif ke
+      │     group) + batas kata per slot + teks statis template sebagai konteks
+      ├─ Susun CopyInput (brand, brief, template_theme, copy_intent, copy_brief, content_type, slide_count)
       ├─ ImageInput hanya jika image_source == "generated"
       ├─ ai_service.generate_content(copy_input, image_input, session_id)
       │     └─ asyncio.gather( _generate_copy_with_retry, _generate_images_safe )   ← PARALEL
@@ -387,7 +392,8 @@ di-hardcode.
 ```
 ai_service.py                  ← orkestrasi, seleksi provider, timeout, retry, gather
 providers/
-├── ai_types.py                ← CopyInput/CopyResult/CopyVariant, ImageInput/ImageResult,
+├── ai_types.py                ← CopyInput (incl. copy_intent, copy_brief)/CopyResult/CopyVariant,
+│                                 CopyBrief (slot + batas kata + static_context), ImageInput/ImageResult,
 │                                 exceptions (CopyError, CopyTimeoutError, CopyInvalidJsonError,
 │                                 ImageError, ImageTimeoutError, ImageProviderError)
 ├── base_copy.py               ← Protocol: async generate_copy(CopyInput) -> CopyResult
@@ -395,8 +401,16 @@ providers/
 ├── anthropic_copy.py          ← implementasi Haiku
 ├── deepseek_copy.py           ← implementasi DeepSeek (OpenAI-compatible SDK)
 ├── replicate_image.py         ← implementasi SDXL
-└── copy_prompt.py             ← template prompt (mis. IMAGE_SUGGESTIONS_PROMPT)
+└── copy_prompt.py             ← scaffold prompt + personalisasi per template:
+                                  intent_guidance/intent_lengths (arah & batas kata per copy_intent),
+                                  build_copy_brief/render_slot_spec (slot + maxWords + konteks statis)
 ```
+
+> **Personalisasi copy per template** (bukan prompt disimpan per template): satu scaffold prompt di
+> `copy_prompt.py` diisi DATA per template — `copy_intent` memilih blok guidance + batas kata; brief
+> compiler menyuntik slot mana yang harus diisi (+ suruh `null` slot yang tak ada) dan teks statis
+> template sebagai konteks. AI hanya menerima brief terkompilasi, BUKAN `template_config` mentah
+> (hemat token + Template Integrity). `template.copy_intent` null → fallback batas lama 12/35/5.
 
 ### Seleksi provider (via env)
 `get_copy_provider()` → `anthropic` | `deepseek`. `get_image_provider()` → `replicate`.

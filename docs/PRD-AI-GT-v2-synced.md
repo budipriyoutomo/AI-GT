@@ -5,7 +5,7 @@ AI-GT · Product Requirements Document · MVP 1.0 — **disinkronkan dengan impl
 > ***"Konten marketing profesional, tanpa desainer."***
 >
 > Dokumen ini adalah PRD awal yang sudah **disesuaikan dengan kode yang benar-benar ada di repo** per
-> 2026-07-08. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
+> 2026-07-09. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
 > Lihat juga §12 (Changelog) untuk ringkasan delta.
 
 ---
@@ -81,6 +81,9 @@ Library template terkategori. Setiap template sudah include layout, background, 
 - Kategori per **tema**: seasonal/tematik (Lebaran, Hari Buruh, Harbolnas), promo, product launch, event, brand awareness.
 - **Content type**: `Single` atau `Carousel`.
 - **[NEW] `layout_type`** — tiap template punya tipe layout (mis. `promo_simple`) untuk varian komposisi.
+- **[NEW] `copy_intent`** — tiap template dikategorikan menurut **niat copy**: `promotion` (jualan/penawaran),
+  `story` (edukasi/narasi), atau `brand` (statement brand). Ini memberi **arah ke AI cara menulis copy**
+  (nada, kekuatan CTA, panjang kata per slot) — bukan sekadar tema visual. Detail dampaknya di §4.3 (AI Copy).
 - **[NEW] Template element-based.** `template_config` bukan lagi sekadar "layout + background + color".
   Sekarang berisi struktur **elemen ternormalisasi 0–1** (`logo`, `text`, `group`, `footer`, `scrim`, `image`)
   dengan kontrak slot AI. Galeri **live-render** template dari `template_config` ini (komponen `TemplateRenderer`),
@@ -184,6 +187,24 @@ Untuk template `content_type = "Carousel"`, Step 3 menampilkan konfigurasi tamba
 AI generate typography otomatis berdasarkan **industri** (dari company profile) + **gaya bahasa** (dipilih user).
 Output: font pairing (headline + body), sizing hierarchy, letter spacing. Semua bisa di-override di editor.
 Field varian: `headline_font`, `body_font`, `headline_size`, `body_size`, `letter_spacing`.
+
+#### [NEW] AI Copy — diarahkan per template
+
+Copy (`headline`, `body`, `cta`) tidak lagi digenerate "buta" dengan aturan seragam. Saat generate, sistem
+mengompilasi **brief** dari template terpilih dan menyuntiknya ke prompt, sehingga copy **pas dengan tipe &
+kotak template**:
+
+- **Arah menurut `copy_intent`** — mode `promotion`/`story`/`brand` menentukan nada & kekuatan CTA
+  (promo = punchy + CTA mendesak; story = naratif + ajakan lembut; brand = tagline aspiratif).
+- **Batas kata per slot menurut intent** — promo paling pendek, story paling lapang, brand tagline; boleh
+  di-override per slot lewat `maxWords` di template. Template tanpa `copy_intent` → batas lama (fallback).
+- **Sadar slot** — AI hanya mengisi slot yang **benar-benar ada** di layout; slot yang tak ada (mis. CTA)
+  disuruh di-`null` (tidak ada copy mubazir).
+- **Konteks statis** — teks yang sudah tercetak di template (eyebrow/tanggal/S&K) diberikan sebagai konteks
+  "jangan diulang" agar copy nyambung.
+
+> AI hanya menerima **brief terkompilasi**, bukan `template_config` mentah — hemat token & tetap patuh
+> Template Integrity (AI tak pernah melihat/menyentuh layout & warna).
 
 ### 4.4 [CHANGED] Goal & Platform (sebelumnya "Generate by Campaign")
 
@@ -292,3 +313,4 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
 | 10 | Lokasi/segmen | **Dihapus** dari flow (belum diimplementasikan). |
 | 11 | Template brand | **[NEW]** Personalisasi brand saat render (`brand_theme` tint/derive) — read-only ke `template_config`. |
 | 12 | Goal/Platform | Fallback default (`awareness`/`instagram_feed`) saat entry langsung tanpa Step 1. |
+| 13 | AI Copy | **[NEW]** `copy_intent` per template (promotion/story/brand) mengarahkan copy: nada + kekuatan CTA + batas kata per slot (`maxWords` override), sadar-slot (null slot yang tak ada), + konteks teks statis. |

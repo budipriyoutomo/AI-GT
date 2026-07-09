@@ -86,10 +86,29 @@ def collect_bind_slots(template_config: dict) -> list[str]:
     return [b for b in _BIND_ORDER if b in binds]
 
 
+def _collect_static_text(template_config: dict) -> list[tuple[str, str]]:
+    """Teks STATIS (elemen `text` tanpa `bind`) beserta role-nya, urut dokumen, REKURSIF ke group.
+    Ini konteks 'sudah tercetak di kanvas' (eyebrow/tanggal/S&K) — bukan slot AI. `tagline`
+    (data company profile) sengaja DIKECUALIKAN: itu bukan teks statis template."""
+    out: list[tuple[str, str]] = []
+
+    def _walk(elements) -> None:
+        for el in elements or []:
+            if el.get("type") == "text" and not el.get("bind"):
+                value = " ".join((el.get("value") or "").split())  # kolaps newline/spasi
+                if value:
+                    out.append((el.get("role") or "text", value))
+            if el.get("type") == "group":
+                _walk(el.get("children"))
+
+    _walk((template_config or {}).get("elements"))
+    return out
+
+
 def build_copy_brief(template_config: dict, copy_intent: str | None) -> CopyBrief:
-    """Kompilasi template_config + copy_intent → CopyBrief: slot yang ada + batas kata per slot.
-    Batas per slot = override `maxWords` elemen (bila valid) → else default menurut copy_intent.
-    Pure & read-only (tak memutasi template_config → aman thd Template Integrity)."""
+    """Kompilasi template_config + copy_intent → CopyBrief: slot yang ada + batas kata per slot
+    + teks statis sebagai konteks. Batas per slot = override `maxWords` elemen (bila valid) →
+    else default menurut copy_intent. Pure & read-only (aman thd Template Integrity)."""
     binds = _collect_binds(template_config)
     lengths = intent_lengths(copy_intent)
     slots = {
@@ -97,7 +116,11 @@ def build_copy_brief(template_config: dict, copy_intent: str | None) -> CopyBrie
         for b in _BIND_ORDER
         if b in binds
     }
-    return CopyBrief(intent=copy_intent, slots=slots)
+    return CopyBrief(
+        intent=copy_intent,
+        slots=slots,
+        static_context=_collect_static_text(template_config),
+    )
 
 
 def render_slot_spec(brief: CopyBrief | None, copy_intent: str | None = None) -> str:
@@ -114,6 +137,14 @@ def render_slot_spec(brief: CopyBrief | None, copy_intent: str | None = None) ->
     for bind in ("body", "cta"):
         if bind not in brief.slots:
             lines.append(f'Template ini TIDAK punya slot {bind} → set "{bind}" ke null, jangan mengarang.')
+
+    # Teks yang sudah tercetak di template → konteks agar copy nyambung & tak duplikatif.
+    if brief.static_context:
+        lines.append("")
+        lines.append("Teks yang SUDAH tercetak di template (konteks — JANGAN diulang di copy):")
+        for role, text in brief.static_context:
+            lines.append(f'- {role}: "{text}"')
+
     return "\n".join(lines)
 
 

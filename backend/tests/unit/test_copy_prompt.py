@@ -183,6 +183,41 @@ class TestPerSlotMaxWordsOverride:
         assert collect_bind_slots(TPL_HEADLINE_OVERRIDE) == ["headline", "body", "cta"]
 
 
+TPL_WITH_STATIC = {"elements": [
+    {"type": "text", "role": "eyebrow", "value": "HARI SUSHI"},
+    {"type": "text", "bind": "headline", "value": "TEBUS"},
+    {"type": "text", "role": "terms", "value": "Berlaku di\nseluruh outlet"},   # \n → dirapikan
+    {"type": "logo", "source": "brand"},
+    {"type": "footer"},
+]}
+
+
+class TestStaticContext:
+    def test_collects_static_text_excluding_binds_and_nontext(self):
+        brief = build_copy_brief(TPL_WITH_STATIC, "promotion")
+        assert brief.static_context == [
+            ("eyebrow", "HARI SUSHI"),
+            ("terms", "Berlaku di seluruh outlet"),   # newline dikolaps jadi spasi
+        ]
+
+    def test_recurses_into_group(self):
+        """eyebrow statis di dalam group (TPL_GROUP_NO_CTA) harus terkumpul."""
+        brief = build_copy_brief(TPL_GROUP_NO_CTA, "story")
+        assert ("eyebrow", "Tau Gak Sih?") in brief.static_context
+
+    def test_no_static_text_gives_empty(self):
+        assert build_copy_brief(TPL_ALL_SLOTS, "brand").static_context == []
+
+    def test_render_includes_context_block_with_dont_repeat(self):
+        spec = render_slot_spec(build_copy_brief(TPL_WITH_STATIC, "promotion"))
+        assert "JANGAN diulang" in spec
+        assert 'eyebrow: "HARI SUSHI"' in spec
+
+    def test_render_omits_block_when_no_static(self):
+        spec = render_slot_spec(build_copy_brief(TPL_ALL_SLOTS, "promotion"))
+        assert "JANGAN diulang" not in spec
+
+
 class TestRenderSlotSpec:
     def test_lists_present_slots_with_limits(self):
         spec = render_slot_spec(build_copy_brief(TPL_ALL_SLOTS, "promotion"))
@@ -226,6 +261,29 @@ class TestSinglePromptSlotSpec:
         )
         await provider.generate_copy(inp)
         assert '"cta" ke null' in captured["prompt"]
+
+
+class TestBriefEdgeCases:
+    def test_untagged_template_uses_legacy_lengths(self):
+        """copy_intent None (template lama belum ditandai) → batas 12/35/5 lama, tetap jalan."""
+        brief = build_copy_brief(TPL_ALL_SLOTS, None)
+        assert brief.slots == {"headline": 12, "body": 35, "cta": 5}
+        assert brief.intent is None
+
+    def test_headline_only_layout_nulls_body_and_cta(self):
+        brief = build_copy_brief({"elements": [{"type": "text", "bind": "headline"}]}, "brand")
+        assert brief.slots == {"headline": 6}
+        spec = render_slot_spec(brief)
+        assert '"body" ke null' in spec
+        assert '"cta" ke null' in spec
+
+    def test_empty_and_malformed_config_do_not_crash(self):
+        for cfg in ({}, {"elements": None}, {"elements": []}, {"elements": [{"type": "logo"}]}):
+            brief = build_copy_brief(cfg, "story")
+            assert brief.slots == {}
+            assert brief.static_context == []
+            # render tetap aman walau tak ada slot
+            assert isinstance(render_slot_spec(brief), str)
 
 
 class TestCarouselPromptInjection:

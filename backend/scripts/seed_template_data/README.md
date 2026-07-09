@@ -219,7 +219,8 @@ Pada mode `derive`, `color_scheme` di JSON berfungsi sebagai **default/fallback*
 ```
 build_copy_brief(template_config, copy_intent)     ← kompilasi slot yang ADA + batas kata (rekursif ke group)
    → prompt copy diberi "slot spec": slot mana yang harus diisi + maksimal kata;
-     slot yang tak ada di layout → AI disuruh set null (hindari mis. CTA mubazir)
+     slot yang tak ada di layout → AI disuruh set null (hindari mis. CTA mubazir);
+     + teks statis template (eyebrow/tanggal/S&K) sbg konteks "jangan diulang"
 AI output (skema tetap): { headline, body, cta }
    → generate_service: untuk tiap elemen ber-`bind`, value = ai_output[bind]
    → elemen tanpa `bind` tetap statis
