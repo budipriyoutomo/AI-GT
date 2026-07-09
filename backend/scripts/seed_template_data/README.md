@@ -105,6 +105,25 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
 `style.fontSize` ditulis dalam **ruang 1080px** (bukan px layar). Renderer mengubahnya ke `cqw` agar skala
 otomatis mengikuti lebar container (kartu galeri kecil maupun canvas editor besar pakai angka yang sama).
 
+### Auto-fit & reflow (canvas editor)
+`fontSize` adalah ukuran **IDEAL**, bukan ukuran pasti. Copy AI panjangnya tak bisa ditebak, jadi canvas
+editor menyesuaikan teks agar tidak saling tabrak. Dua mekanisme, keduanya **hanya untuk `text` top-level**
+(anak `group` sudah mengalir vertikal, jadi dilewati):
+
+- **Auto-fit** — kalau copy tidak muat, `fontSize` **diturunkan** sampai muat (tak pernah dinaikkan;
+  lantai 50% ukuran template). Budget vertikal = jarak ke **elemen terdekat di bawahnya yang beririsan
+  pada sumbu X**. Elemen di kolom sebelah (tak beririsan X) tidak membatasi.
+- **Reflow** — kalau sebuah teks menyusut, teks di bawahnya **ikut naik**, menjaga *gap desain*
+  (jarak yang kamu rancang antara bawah teks authored dengan atas teks berikutnya). Jangkarnya hanya
+  teks; `image`/`footer` adalah jangkar tetap yang tak pernah bergeser.
+
+Konsekuensi untuk penulis template:
+1. **Jarak vertikal antar elemen = kontrak.** Gap antara `headline.y` dan `body.y` bukan sekadar estetika —
+   itulah ruang yang boleh dipakai headline. Menaruh elemen terlalu rapat = memaksa copy AI mengecil.
+2. **`value` placeholder harus muat di boks-nya sendiri** pada `fontSize` yang kamu tulis. Kalau teks
+   authored saja sudah meluber, ia ikut di-auto-fit dan itu tanda template over-scaled — kecilkan `fontSize`.
+3. Preview galeri (renderer CSS) **tidak** auto-fit; hanya canvas editor & export PNG.
+
 ### Menambah tipe baru
 Tambah tipe **hanya** kalau ada kebutuhan visual yang benar-benar baru (mis. `badge`, `sticker`, `image`,
 `image_card`). Bersifat **aditif** — template lama tidak berubah. Jangan bikin tipe baru kalau cukup `text`/`logo`.
@@ -133,9 +152,20 @@ panjang copy sesuai boks (mis. headline display raksasa "TEBUS MURAH" → `maxWo
 (int > 0), **menang** atas default panjang menurut `copy_intent` (§7 `intent_lengths`); bila tak ada,
 pakai default intent. Gunakan saat boks jauh lebih sempit/lebar dari tipikal intent-nya.
 
+**`maxChars` (opsional) — batas karakter per slot.** Jumlah kata **tidak** menentukan copy muat atau tidak;
+pembungkusan baris ditentukan **lebar karakter**. Karena itu prompt AI juga diberi batas karakter, yang
+**diturunkan otomatis dari geometri** elemen (lebar kolom ÷ `fontSize`, dikali jumlah baris yang muat di
+budget vertikal, dikurangi margin aman 10%). **Tidak perlu ditulis** — hitung sendiri hanya kalau mau
+menimpanya. Bila ditulis & valid (int > 0), nilai itu menang atas hasil turunan.
+
+Keduanya berlaku **bersamaan**: `maxWords` menjaga **gaya** (ringkas/naratif sesuai `copy_intent`),
+`maxChars` menjaga copy **MUAT** di layout. Slot yang jadi anak `group` tidak punya geometri absolut →
+tak dapat batas karakter (hanya batas kata).
+
 ```jsonc
 { "type":"text", "role":"headline", "bind":"headline",
   "maxWords":3,                                    // opsional: kunci ≤3 kata (override default intent)
+  "maxChars":16,                                   // opsional: override kapasitas hasil turunan geometri
   "x":0.1, "y":0.22, "width":0.8, "align":"center",
   "value":"TEBUS\nMURAH",                          // \n = baris baru; placeholder sebelum AI mengisi
   "style":{ "fontSize":130, "weight":"800", "color":"accent" } }
@@ -297,3 +327,5 @@ Aturan: **preset = base, field/style INLINE MENANG** (shallow merge). Nama prese
 - [ ] Warna pakai role bila memungkinkan, konsisten dengan `color_scheme`
 - [ ] Posisi 0–1, `fontSize` dalam ruang 1080px
 - [ ] `value` pada elemen ber-`bind` diisi placeholder yang masuk akal
+- [ ] **(§3) `value` placeholder MUAT di boksnya** pada `fontSize` yang ditulis — kalau teks authored saja
+      sudah meluber ke elemen bawahnya, template over-scaled: kecilkan `fontSize` atau lebarkan gap vertikal

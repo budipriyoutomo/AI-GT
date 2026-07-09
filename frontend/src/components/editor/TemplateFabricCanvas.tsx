@@ -1,10 +1,13 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
-import type { Canvas, Textbox } from "fabric";
+import type { Canvas, FabricObject, Textbox } from "fabric";
+import { computeTextLayout, textBoxLayout } from "@/lib/editor/canvas-spec";
+import type { MeasureBlock } from "@/lib/editor/fit-text";
 import type {
   CanvasSpecResult,
   FooterSpec,
+  GradientSpec,
   GroupSpec,
   ImageSpec,
   RectSpec,
@@ -42,6 +45,39 @@ function resolveFontStack(family: string): string {
   return `'${family}', sans-serif`;
 }
 
+// ── Auto-fit ──────────────────────────────────────────────────────────────────
+
+/**
+ * Pengukur berbasis Fabric: membangun Textbox sementara (tidak pernah ditambahkan ke
+ * canvas) lalu membaca lebar & jumlah baris HASIL PEMBUNGKUSAN FABRIC SENDIRI.
+ *
+ * Wajib Fabric, bukan `measureText` di canvas terpisah: pembungkusnya harus persis
+ * sama dengan yang menggambar. Estimasi sendiri meleset di ambang kolom → fitter
+ * mengira teks muat 1 baris padahal digambar 2 baris, dan teks menabrak elemen bawah.
+ */
+function measurerFor(f: FabricNS, spec: TextSpec): MeasureBlock {
+  const fontFamily = resolveFontStack(spec.fontFamily);
+  // Binary search menyondir ukuran yang sama berulang; rebuild terjadi tiap ketikan.
+  const cache = new Map<string, { width: number; lines: number }>();
+  return (text, fontSize) => {
+    const key = `${fontSize}|${text}`;
+    const hit = cache.get(key);
+    if (hit) return hit;
+
+    const probe = new f.Textbox(text, {
+      width: spec.width,
+      fontSize,
+      fontFamily,
+      fontWeight: spec.fontWeight,
+      lineHeight: spec.lineHeight,
+      charSpacing: spec.charSpacing ?? 0,
+    });
+    const measured = { width: probe.calcTextWidth(), lines: probe.textLines.length };
+    cache.set(key, measured);
+    return measured;
+  };
+}
+
 // ── Image cache ───────────────────────────────────────────────────────────────
 
 interface LoadedImage {
@@ -75,7 +111,7 @@ function loadImageElement(url: string): Promise<LoadedImage | null> {
 
 type FabricNS = typeof import("fabric");
 
-function makeGradient(f: FabricNS, g: NonNullable<RectSpec["gradient"]>) {
+function makeGradient(f: FabricNS, g: GradientSpec) {
   return new f.Gradient({
     type: "linear",
     gradientUnits: "pixels",
@@ -85,8 +121,17 @@ function makeGradient(f: FabricNS, g: NonNullable<RectSpec["gradient"]>) {
 }
 
 function makeRect(f: FabricNS, spec: RectSpec) {
+  // Rotasi (rule miring) berputar terhadap PUSAT rect — paritas transformOrigin:center
+  // di TemplateRenderer. Origin center → left/top spec (sudut kiri-atas) digeser ke pusat.
+  const rotated = spec.angle != null;
   const rect = new f.Rect({
-    left: spec.left, top: spec.top, width: spec.width, height: spec.height,
+    left: rotated ? spec.left + spec.width / 2 : spec.left,
+    top: rotated ? spec.top + spec.height / 2 : spec.top,
+    width: spec.width,
+    height: spec.height,
+    rx: spec.radius ?? 0,
+    ry: spec.radius ?? 0,
+    ...(rotated ? { originX: "center" as const, originY: "center" as const, angle: spec.angle } : {}),
     selectable: false, evented: false,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,12 +154,13 @@ function accentToStyles(text: string, accent: NonNullable<TextSpec["accent"]>) {
   return styles;
 }
 
-function makeText(f: FabricNS, spec: TextSpec): Textbox {
+function makeText(f: FabricNS, spec: TextSpec, fontSize = spec.fontSize): Textbox {
   const tb = new f.Textbox(spec.text, {
     left: spec.left,
     top: spec.top,
     width: spec.width,
-    fontSize: spec.fontSize,
+    // charSpacing dalam 1/1000 em → ikut mengecil sendiri saat fontSize turun
+    fontSize,
     fontFamily: resolveFontStack(spec.fontFamily),
     fontWeight: spec.fontWeight,
     fill: spec.fill,
@@ -129,7 +175,7 @@ function makeText(f: FabricNS, spec: TextSpec): Textbox {
     const grad = new f.Gradient({
       type: "linear",
       gradientUnits: "percentage",
-      coords: { x1: 0, y1: 0, x2: 0, y2: 1 },
+      coords: spec.fillGradientCoords ?? { x1: 0, y1: 0, x2: 0, y2: 1 },
       colorStops: spec.fillGradient.map((color, i, arr) => ({
         offset: arr.length > 1 ? i / (arr.length - 1) : 0,
         color,
@@ -184,29 +230,72 @@ function makeImage(f: FabricNS, spec: ImageSpec, { el, cors }: LoadedImage) {
   return img;
 }
 
+// Teks + (opsional) box pill di belakangnya (CTA). Box hug-content: lebarnya ikut teks,
+// posisinya tunduk pada textAlign — paritas <span inline-block> di TemplateRenderer.
+// `top` = garis atas blok TERMASUK padding; `height` dipakai group untuk menumpuk anak berikutnya.
+function makeTextObjects(
+  f: FabricNS,
+  spec: TextSpec,
+  top = spec.top,
+  fontSize = spec.fontSize,
+): { objects: FabricObject[]; height: number } {
+  const tb = makeText(f, spec, fontSize);
+  if (!spec.box) {
+    tb.set({ top });
+    return { objects: [tb], height: tb.height ?? 0 };
+  }
+
+  // padding em-relatif → ikut menyusut bila auto-fit mengecilkan fontSize
+  const k = tb.fontSize / spec.fontSize;
+  const box = { ...spec.box, padX: spec.box.padX * k, padY: spec.box.padY * k };
+
+  // Ukur teks lewat Fabric (butuh font metrics), geometri box dihitung di layer spec
+  const l = textBoxLayout(spec, box, tb.calcTextWidth(), tb.height ?? 0, top);
+  tb.set({ left: l.textLeft, top: l.textTop });
+
+  const pill = new f.Rect({
+    left: l.boxLeft, top, width: l.boxW, height: l.boxH,
+    rx: box.radius, ry: box.radius, fill: box.fill,
+    selectable: false, evented: false,
+  });
+  return { objects: [pill, tb], height: l.boxH };
+}
+
 // Group: anak mengalir vertikal dengan gap tetap; anchor bottom = tumbuh ke atas
 function makeGroupObjects(f: FabricNS, spec: GroupSpec) {
-  const boxes = spec.children.map((c) => makeText(f, c));
-  const heights = boxes.map((b) => b.height ?? 0);
-  const totalH = heights.reduce((a, b) => a + b, 0) + spec.gap * Math.max(boxes.length - 1, 0);
+  // Dibangun relatif top=0 dulu — tinggi tiap anak (termasuk padding box) baru
+  // diketahui setelah teks diukur, sedangkan anchor bottom butuh total tinggi.
+  const parts = spec.children.map((c) => makeTextObjects(f, c, 0));
+  const totalH =
+    parts.reduce((a, p) => a + p.height, 0) + spec.gap * Math.max(parts.length - 1, 0);
 
   let y = spec.anchor === "bottom" ? spec.y - totalH : spec.y;
-  boxes.forEach((b, i) => {
-    b.set({ top: y });
-    y += heights[i] + spec.gap;
-  });
-  return boxes;
+  const objects: FabricObject[] = [];
+  for (const p of parts) {
+    p.objects.forEach((o) => o.set({ top: (o.top ?? 0) + y }));
+    objects.push(...p.objects);
+    y += p.height + spec.gap;
+  }
+  return objects;
 }
 
 function makeFooterObjects(f: FabricNS, spec: FooterSpec) {
-  const objs = [];
-  if (spec.backgroundColor && spec.backgroundColor !== "transparent") {
-    objs.push(new f.Rect({
+  const objs: FabricObject[] = [];
+  const hasBg = spec.backgroundGradient || (spec.backgroundColor && spec.backgroundColor !== "transparent");
+  if (hasBg) {
+    const bar = new f.Rect({
       left: spec.left, top: spec.top, width: spec.width, height: spec.height,
-      fill: spec.backgroundColor, opacity: spec.opacity,
+      opacity: spec.opacity,
       rx: spec.height / 2, ry: spec.height / 2,
       selectable: false, evented: false,
-    }));
+    });
+    // Gradient menang atas warna solid (paritas TemplateRenderer)
+    bar.set(
+      "fill",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      spec.backgroundGradient ? (makeGradient(f, spec.backgroundGradient) as any) : spec.backgroundColor,
+    );
+    objs.push(bar);
   }
   if (spec.items.length) {
     objs.push(new f.FabricText(spec.items.join("   ·   "), {
@@ -233,6 +322,8 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
     urls.map(async (u) => [u, await loadImageElement(u)] as const),
   ));
 
+  const textLayout = computeTextLayout(result.specs, (spec) => measurerFor(f, spec));
+
   canvas.clear();
   for (const spec of result.specs) {
     switch (spec.kind) {
@@ -244,9 +335,11 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
         if (el) canvas.add(makeImage(f, spec, el));
         break;
       }
-      case "text":
-        canvas.add(makeText(f, spec));
+      case "text": {
+        const l = textLayout.get(spec.id);
+        canvas.add(...makeTextObjects(f, spec, l?.top ?? spec.top, l?.fontSize ?? spec.fontSize).objects);
         break;
+      }
       case "group":
         canvas.add(...makeGroupObjects(f, spec));
         break;

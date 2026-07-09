@@ -2,10 +2,12 @@
   "_meta": {
     "source_ref": "Referensi visual: flyer NANJO GLOBAL LOGISTICS — 'Cleared. Weekend Mode.' (bg biru muda, forklift + palet kardus, footer kontak biru gelap).",
     "keputusan_desain": {
-      "canvas": "1:1 (1080x1080) — sumber aslinya persegi, bukan 4:5.",
-      "forklift": "Area kanan = SLOT GENERIK foreground (README §1: 'kecuali memang slot generik'). Element image source:'thumbnail' fit:'contain' → foto transparan (forklift/produk/dll) yang di-upload admin ke templates.thumbnail_url, bukan di-bake ke template_config.",
+      "canvas": "4:5 (1080x1350) — feed IG portrait. Sumber aslinya persegi, tapi 4:5 memberi ruang vertikal: headline, gambar, dan body/CTA dapat kolomnya sendiri tanpa saling tindih.",
+      "layout": "Dua kolom seperti flyer asli: teks KIRI (x 0.06–0.54), gambar KANAN (x 0.56–0.96), jarak antar-kolom 0.02. Versi awal memakai kolom yang saling tindih (teks 0.06–0.62 vs gambar 0.44–0.98) — aman untuk cutout transparan (forklift), rusak untuk foto opaque apa pun. Karena thumbnail_url slot generik (admin bebas upload), layout TIDAK BOLEH mengandalkan transparansi: kolom dipisah tegas, bukan ditumpuk.",
+      "headline_size": "80 (bukan 104): kolom teks kini 0.48 lebar (518px di ruang 1080). Di 104px kata sepanjang 'Tinggalkan' (10 char) melewati kolom dan wrap jadi jelek. 80px menyisakan ~7% headroom untuk font brand yang lebih lebar dari Poppins.",
+      "forklift": "Kolom kanan = SLOT GENERIK foreground (README §1: 'kecuali memang slot generik'). Element image source:'thumbnail' fit:'contain' → foto (forklift/produk/dll) yang di-upload admin ke templates.thumbnail_url, bukan di-bake ke template_config.",
       "font": "Headline geometric sans -> Poppins (paling mendekati, sudah di-load di layout.tsx). Logo asli 'NANJO GLOBAL' pakai font sendiri = slot logo brand (bukan bagian font template).",
-      "background": "Swoosh biru di sudut = dekorasi generic. Straight rule tak bisa meniru kurva, jadi diringkas ke gradient biru muda + 2 rule aksen tipis sebagai echo. Background LOCKED (light) demi kontras teks navy.",
+      "background": "Swoosh biru di sudut = dekorasi generic. Straight rule tak bisa meniru kurva, jadi diringkas ke gradient biru muda + 2 rule aksen tipis sebagai echo. Rule kedua pindah ke kanan-bawah (bukan kiri-bawah) agar tidak menabrak CTA yang rata kiri. Background LOCKED (light) demi kontras teks navy.",
       "cta": "Posisi CTA tidak ada di flyer asli (user tak yakin). Ditaruh sebagai pill aksen di bawah body, rata kiri — opsional, boleh dipindah/dihapus di editor (README §4). AI tetap mengisi bind:cta.",
       "footer": "Bar kontak biru gelap di bawah: phone + location + sosial (tiktok/facebook/instagram). Slot 'x/twitter' di flyer dilewati (belum ada di SocialIcon)."
     },
@@ -29,8 +31,8 @@
 
   "template_config": {
     "canvas": {
-      "aspect": "1:1",
-      "dimensions": { "width": 1080, "height": 1080 }
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
     },
     "background": {
       "type": "gradient",
@@ -53,28 +55,28 @@
     "elements": [
       {
         "type": "rule",
-        "x": 0.60, "y": 0.10, "width": 0.34,
+        "x": 0.60, "y": 0.07, "width": 0.34,
         "style": { "color": "accent", "thickness": 3, "rotate": 32 }
       },
       {
         "type": "rule",
-        "x": 0.04, "y": 0.80, "width": 0.30,
+        "x": 0.68, "y": 0.79, "width": 0.26,
         "style": { "color": "accent", "thickness": 3, "rotate": 28 }
+      },
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.06, "y": 0.045, "width": 0.40, "height": 0.09
       },
       {
         "type": "image",
         "source": "thumbnail",
         "fit": "contain",
-        "x": 0.44, "y": 0.22, "width": 0.54, "height": 0.60
-      },
-      {
-        "type": "logo",
-        "source": "brand",
-        "x": 0.06, "y": 0.05, "width": 0.40, "height": 0.11
+        "x": 0.56, "y": 0.22, "width": 0.38, "height": 0.34
       },
       {
         "type": "group",
-        "x": 0.06, "y": 0.27, "width": 0.56,
+        "x": 0.06, "y": 0.20, "width": 0.48,
         "anchor": "top",
         "gap": 26,
         "children": [
@@ -84,7 +86,7 @@
             "bind": "headline",
             "align": "left",
             "value": "Text.\nUntuk\nHeadline.",
-            "style": { "fontSize": 104, "weight": "700", "color": "primary", "lineHeight": 0.98, "letterSpacing": -1, "fillGradient": ["primary", "accent"], "fillGradientDirection": "to right" }
+            "style": { "fontSize": 80, "weight": "700", "color": "primary", "lineHeight": 0.98, "letterSpacing": -1, "fillGradient": ["primary", "accent"], "fillGradientDirection": "to right" }
           },
           {
             "type": "text",
@@ -109,7 +111,7 @@
       },
       {
         "type": "footer",
-        "x": 0.06, "y": 0.90, "width": 0.88, "height": 0.06,
+        "x": 0.06, "y": 0.90, "width": 0.88, "height": 0.055,
         "slots": ["phone", "location", "facebook"],
         "style": { "color": "#FFFFFF", "backgroundGradient": ["accent", "primary"], "backgroundGradientDirection": "to right", "opacity": 1, "fontSize": 20 }
       }

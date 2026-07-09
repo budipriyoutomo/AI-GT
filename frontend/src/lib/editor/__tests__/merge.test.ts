@@ -263,3 +263,41 @@ describe("mergeCopyIntoTemplate", () => {
     });
   });
 });
+
+// ── templateValue (dipakai auto-fit untuk tahu tinggi ideal desainer) ─────────
+
+describe("mergeCopyIntoTemplate — templateValue", () => {
+  const cfg = (): TemplateConfig => ({
+    canvas: { aspect: "4:5", dimensions: { width: 1080, height: 1350 } },
+    color_scheme: { accent: "#000", primary: "#fff", secondary: "#888" },
+    elements: [
+      { type: "text", role: "headline", bind: "headline", x: 0, y: 0.1, width: 1, value: "GIGI BERLUBANG", style: { fontSize: 118 } },
+      { type: "text", role: "kicker", x: 0, y: 0.05, width: 1, value: "Statis", style: { fontSize: 20 } },
+    ],
+  });
+
+  const copy = (headline: string): CopyResult => ({
+    copy: { headline, body: "b", cta: "c" },
+    typography: { headline_font: "Poppins", headline_size: 0, body_font: "Inter", body_size: 0, letter_spacing: 0 },
+    image_prompt: "", image_source: "none", thematic_image_url: null,
+  });
+
+  it("teks bound: value diganti copy AI, templateValue menyimpan teks asli template", () => {
+    const { template } = mergeCopyIntoTemplate(copy("Kenapa Pipa Bisa Bocor?"), cfg(), { fontSizeStrategy: "template" });
+    const headline = template.elements[0];
+    expect(headline.value).toBe("Kenapa Pipa Bisa Bocor?");
+    expect(headline.templateValue).toBe("GIGI BERLUBANG");
+  });
+
+  it("teks statis (tanpa bind): tidak diberi templateValue", () => {
+    const { template } = mergeCopyIntoTemplate(copy("X"), cfg(), { fontSizeStrategy: "template" });
+    expect(template.elements[1].templateValue).toBeUndefined();
+  });
+
+  it("copy kosong → value tetap placeholder, tanpa templateValue palsu", () => {
+    const empty = { ...copy(""), copy: { headline: "", body: "", cta: "" } };
+    const { template } = mergeCopyIntoTemplate(empty, cfg(), { fontSizeStrategy: "template" });
+    expect(template.elements[0].value).toBe("GIGI BERLUBANG");
+    expect(template.elements[0].templateValue).toBeUndefined();
+  });
+});

@@ -213,7 +213,11 @@ function processTextElement(
     }
   }
 
-  return { ...el, value: newValue, style };
+  // Teks asli disimpan HANYA bila benar-benar ditimpa — renderer memakainya untuk
+  // menghitung tinggi ideal, dan dari situ gap vertikal yang dirancang desainer.
+  return valueChanged
+    ? { ...el, value: newValue, templateValue: el.value, style }
+    : { ...el, value: newValue, style };
 }
 
 // ── Typography helpers ────────────────────────────────────────────────────────

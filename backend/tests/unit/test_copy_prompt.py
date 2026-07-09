@@ -348,3 +348,82 @@ class TestProviderPassesIntent:
 
         await provider.generate_copy(MOCK_INPUT)
         assert intent_guidance("story") in captured["prompt"]
+
+
+# ── Batas KARAKTER dari geometri template ────────────────────────────────────
+# Kapasitas = (chars per baris) × (jumlah baris muat), diukur pada fontSize authored.
+# Ini yang menentukan copy MUAT atau tidak — batas kata tidak berkorelasi dengan wrap.
+
+TPL_GEOMETRY = {
+    "canvas": {"dimensions": {"width": 1080, "height": 1350}},
+    "elements": [
+        # headline: lebar 0.92*1080=993.6px @118px → ~16 char/baris.
+        # Penghalang di bawah = body (y 0.30) → budget 148.5px → 1 baris (118*1.1=129.8)
+        {"type": "text", "bind": "headline", "x": 0.04, "y": 0.19, "width": 0.92,
+         "style": {"fontSize": 118}},
+        # body: 864px @36px → 48 char/baris; budget ke image (0.40) = 135px → 2 baris
+        {"type": "text", "bind": "body", "x": 0.10, "y": 0.30, "width": 0.80,
+         "style": {"fontSize": 36, "lineHeight": 1.3}},
+        {"type": "image", "source": "thumbnail", "x": 0.06, "y": 0.40, "width": 0.88, "height": 0.30},
+    ],
+}
+
+TPL_GEOMETRY_OVERRIDE = {
+    "canvas": {"dimensions": {"width": 1080, "height": 1350}},
+    "elements": [
+        {"type": "text", "bind": "headline", "x": 0.04, "y": 0.19, "width": 0.92,
+         "maxChars": 40, "style": {"fontSize": 118}},
+        {"type": "text", "bind": "body", "x": 0.10, "y": 0.30, "width": 0.80,
+         "maxChars": 0, "style": {"fontSize": 36, "lineHeight": 1.3}},  # invalid → derive
+        {"type": "image", "source": "thumbnail", "x": 0.06, "y": 0.40, "width": 0.88, "height": 0.30},
+    ],
+}
+
+TPL_GROUP_CHILD = {
+    "canvas": {"dimensions": {"width": 1080, "height": 1350}},
+    "elements": [
+        {"type": "group", "x": 0.06, "y": 0.2, "width": 0.5, "children": [
+            {"type": "text", "bind": "headline", "style": {"fontSize": 80}},
+        ]},
+    ],
+}
+
+
+class TestCharLimitsFromGeometry:
+    def test_capacity_derived_from_width_fontsize_and_budget(self):
+        brief = build_copy_brief(TPL_GEOMETRY, "story")
+        # headline: 993.6/(118*0.5)=16.8 → 16/baris × 1 baris = 16 → margin 0.9 → 14
+        assert brief.char_limits["headline"] == 14
+        # body: 864/(36*0.5)=48/baris × 2 baris = 96 → margin 0.9 → 86
+        assert brief.char_limits["body"] == 86
+
+    def test_word_limits_still_come_from_intent(self):
+        brief = build_copy_brief(TPL_GEOMETRY, "story")
+        assert brief.slots == {"headline": 10, "body": 35}
+
+    def test_explicit_maxchars_overrides_derived(self):
+        brief = build_copy_brief(TPL_GEOMETRY_OVERRIDE, "story")
+        assert brief.char_limits["headline"] == 40   # override menang, tanpa margin
+        assert brief.char_limits["body"] == 86       # maxChars invalid → kembali ke derivasi
+
+    def test_group_child_has_no_char_limit(self):
+        # anak group mengalir vertikal → tak punya geometri absolut → tak bisa dihitung
+        brief = build_copy_brief(TPL_GROUP_CHILD, "story")
+        assert "headline" not in brief.char_limits
+        assert brief.slots == {"headline": 10}
+
+    def test_template_without_canvas_or_geometry_has_no_char_limit(self):
+        brief = build_copy_brief(TPL_HEADLINE_OVERRIDE, "promotion")
+        assert brief.char_limits == {}
+
+
+class TestSlotSpecRendersCharLimit:
+    def test_char_limit_appears_next_to_word_limit(self):
+        spec = render_slot_spec(build_copy_brief(TPL_GEOMETRY, "story"))
+        assert "headline — maksimal 10 kata, maksimal 14 karakter" in spec
+        assert "body — maksimal 35 kata, maksimal 86 karakter" in spec
+
+    def test_slot_without_char_limit_renders_word_limit_only(self):
+        spec = render_slot_spec(build_copy_brief(TPL_HEADLINE_OVERRIDE, "promotion"))
+        assert "headline — maksimal 3 kata" in spec
+        assert "karakter" not in spec

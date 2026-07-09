@@ -3,6 +3,7 @@ import type {
   TemplateConfig,
   TemplateElement,
 } from "@/types/template";
+import { blockHeight, fitFontSize, type MeasureBlock } from "./fit-text";
 
 /**
  * Transformasi murni template_config → daftar spec render pixel untuk canvas Fabric.
@@ -25,6 +26,8 @@ export interface RectSpec {
   height: number;
   fill?: string;
   gradient?: GradientSpec;
+  radius?: number; // px
+  angle?: number;  // derajat, rotasi terhadap pusat rect
 }
 
 export interface ImageSpec {
@@ -41,6 +44,10 @@ export interface ImageSpec {
 export interface TextSpec {
   kind: "text";
   text: string;
+  templateText: string; // teks asli template → tinggi ideal yang diasumsikan desainer
+  id: string;
+  bind?: string;        // slot copy AI (headline/body/cta) — sumber batas input editor
+  anchorId?: string;    // teks terdekat di atas yang beririsan X; posisi mengikuti bawahnya
   left: number;
   top: number;
   width: number;
@@ -51,10 +58,16 @@ export interface TextSpec {
   textAlign: "left" | "center" | "right";
   lineHeight: number;
   charSpacing?: number; // 1/1000 em (unit Fabric)
-  fillGradient?: string[]; // hex top→bottom
+  fillGradient?: string[]; // hex, urut sesuai arah
+  fillGradientCoords?: { x1: number; y1: number; x2: number; y2: number }; // ternormalisasi 0..1
   stroke?: { color: string; width: number };
   shadow?: { offsetX: number; offsetY: number; blur: number; color: string };
   accent?: { start: number; end: number; fill: string; fontWeight: string };
+  // box treatment (CTA pill): latar hug-content di belakang teks
+  box?: { fill: string; radius: number; padX: number; padY: number }; // px
+  // px — garis y elemen penghalang berikutnya. Batas ABSOLUT (bukan tinggi relatif) agar
+  // budget bisa dihitung ulang dari posisi hasil reflow, bukan dari posisi authored.
+  fitBottom?: number;
 }
 
 export interface GroupSpec {
@@ -74,6 +87,7 @@ export interface FooterSpec {
   width: number;
   height: number;
   backgroundColor: string;
+  backgroundGradient?: GradientSpec; // menang atas backgroundColor
   opacity: number;
   color: string;
   fontSize: number;
@@ -130,6 +144,20 @@ function gradientCoords(direction: string | undefined, w: number, h: number) {
   }
 }
 
+// "0.5em 1.4em" → { padY, padX } px. em relatif fontSize (sudah dalam px canvas), px ikut skala.
+function parsePadding(css: string, fontSize: number, scale: number): { padX: number; padY: number } {
+  const toPx = (part: string) => {
+    const n = parseFloat(part);
+    if (Number.isNaN(n)) return 0;
+    return part.includes("em") ? n * fontSize : n * scale;
+  };
+  const parts = css.trim().split(/\s+/);
+  const padY = toPx(parts[0]);
+  // 1 nilai → seragam; 2+ nilai → [vertikal, horizontal] (nilai ke-3/4 CSS diabaikan)
+  const padX = parts.length > 1 ? toPx(parts[1]) : padY;
+  return { padX, padY };
+}
+
 // "0 4px 12px rgba(0,0,0,0.35)" → komponen shadow
 function parseTextShadow(css: string): TextSpec["shadow"] | undefined {
   const colorMatch = css.match(/(rgba?\([^)]*\)|#[0-9a-fA-F]{3,8})/);
@@ -144,6 +172,158 @@ function parseTextShadow(css: string): TextSpec["shadow"] | undefined {
   return { offsetX, offsetY, blur, color };
 }
 
+// ── Budget & reflow ───────────────────────────────────────────────────────────
+
+/**
+ * Garis y tempat elemen teks absolut mulai menabrak: elemen TERDEKAT di bawahnya yang
+ * beririsan pada sumbu X. Yang tidak beririsan X (kolom sebelah) tidak membatasi.
+ *
+ * Dikembalikan sebagai batas ABSOLUT, bukan tinggi relatif: setelah reflow menaikkan
+ * elemen, budget-nya bertambah — dan hanya batas absolut yang menangkap itu.
+ */
+export function obstacleY(el: TemplateElement, siblings: TemplateElement[], canvasH: number): number {
+  const left = el.x;
+  const right = el.x + el.width;
+  let nextY = 1;
+  for (const other of siblings) {
+    if (other === el || other.y <= el.y) continue;
+    if (other.x + other.width <= left || other.x >= right) continue; // kolom terpisah
+    nextY = Math.min(nextY, other.y);
+  }
+  return nextY * canvasH;
+}
+
+/** Teks terdekat di atas `el` yang beririsan pada sumbu X — anchor reflow-nya. */
+function anchorIndexOf(el: TemplateElement, siblings: TemplateElement[]): number | undefined {
+  const left = el.x;
+  const right = el.x + el.width;
+  let best: number | undefined;
+  let bestY = -1;
+  siblings.forEach((other, i) => {
+    if (other === el || other.y >= el.y) return;
+    if (other.x + other.width <= left || other.x >= right) return; // kolom terpisah
+    if (other.y > bestY) {
+      bestY = other.y;
+      best = i;
+    }
+  });
+  // Hanya teks yang tingginya bisa berubah; elemen lain adalah jangkar tetap.
+  return best !== undefined && siblings[best].type === "text" ? best : undefined;
+}
+
+/**
+ * Posisi atas sebuah teks setelah reflow: jaga GAP DESAIN (jarak dari bawah anchor
+ * versi authored ke atas elemen ini) terhadap bawah anchor yang SEBENARNYA ter-render.
+ *
+ * Anchor menyusut (auto-fit mengecilkan copy panjang) → elemen ini ikut naik, jadi
+ * tidak ada lubang menganga. Anchor membesar → elemen TIDAK didorong turun (di-clamp
+ * ke posisi authored) supaya tidak menabrak elemen non-teks di bawahnya yang tetap diam.
+ */
+export function flowedTop(
+  authoredTop: number,
+  anchor: { authoredBottom: number; actualBottom: number } | null,
+): number {
+  if (!anchor) return authoredTop;
+  // Gap tak pernah negatif. Teks authored bisa saja melebihi ruangnya sendiri; gap mentah
+  // jadi negatif dan elemen ini akan ditarik MASUK ke dalam anchor, bukan di bawahnya.
+  const designedGap = Math.max(0, authoredTop - anchor.authoredBottom);
+  return Math.min(authoredTop, anchor.actualBottom + designedGap);
+}
+
+// ── Box pill (CTA) ────────────────────────────────────────────────────────────
+
+/**
+ * Geometri box pill hug-content di belakang teks — paritas `<span inline-block>`
+ * berlatar di TemplateRenderer, di mana padding menggeser teks DAN memperbesar box.
+ *
+ * Fabric Textbox selalu selebar kolom (`spec.width`) dan meratakan teks di dalamnya,
+ * jadi padding horizontal harus diterapkan dengan menggeser Textbox-nya:
+ *   left   → teks digeser +padX (kalau tidak, teks nempel tepi kiri box)
+ *   right  → teks digeser -padX
+ *   center → tidak digeser; Textbox sudah memusatkan teks, dan box ikut ter-pusat
+ *
+ * `textWidth`/`textHeight` diukur oleh layer Fabric (butuh font metrics).
+ */
+export function textBoxLayout(
+  spec: Pick<TextSpec, "left" | "width" | "textAlign">,
+  box: NonNullable<TextSpec["box"]>,
+  textWidth: number,
+  textHeight: number,
+  top: number,
+) {
+  const boxW = textWidth + box.padX * 2;
+  const boxH = textHeight + box.padY * 2;
+  const boxLeft =
+    spec.textAlign === "center" ? spec.left + (spec.width - boxW) / 2
+    : spec.textAlign === "right" ? spec.left + spec.width - boxW
+    : spec.left;
+  const textLeft =
+    spec.textAlign === "center" ? spec.left
+    : spec.textAlign === "right" ? spec.left - box.padX
+    : spec.left + box.padX;
+  return { boxLeft, boxW, boxH, textLeft, textTop: top + box.padY };
+}
+
+// ── Layout teks: fit + reflow ─────────────────────────────────────────────────
+
+export interface TextLayout {
+  top: number;
+  fontSize: number;
+}
+
+/**
+ * Ukuran font terpakai untuk `text` bila diletakkan pada `top`. Tanpa `fitBottom`
+ * (anak group) tak ada budget → ukuran template dipakai apa adanya.
+ */
+function fittedSize(spec: TextSpec, text: string, top: number, measure: MeasureBlock): number {
+  if (!spec.fitBottom) return spec.fontSize;
+  return fitFontSize(
+    {
+      text,
+      maxWidth: spec.width,
+      maxHeight: spec.fitBottom - top,
+      fontSize: spec.fontSize,
+      lineHeight: spec.lineHeight,
+    },
+    measure,
+  );
+}
+
+/**
+ * Posisi & ukuran final tiap teks absolut. Diproses dari atas ke bawah: bawah anchor
+ * harus sudah diketahui sebelum elemen yang berlabuh padanya dihitung. Urutan dalam
+ * satu elemen: top (dari anchor) → budget (dari top) → fontSize (fit) → tinggi aktual.
+ *
+ * Tinggi AUTHORED diukur lewat jalur fit yang SAMA, bukan mentah di fontSize template.
+ * Teks authored pun tunduk auto-fit saat dirender; mengukurnya mentah bisa menghasilkan
+ * "bawah authored" di luar budget → gap desain negatif → elemen berikutnya ditarik naik
+ * menimpa anchor-nya.
+ */
+export function computeTextLayout(
+  specs: CanvasSpec[],
+  measurerFor: (spec: TextSpec) => MeasureBlock,
+): Map<string, TextLayout> {
+  const texts = specs.filter((s): s is TextSpec => s.kind === "text").sort((a, b) => a.top - b.top);
+  const bottoms = new Map<string, { authoredBottom: number; actualBottom: number }>();
+  const layout = new Map<string, TextLayout>();
+
+  for (const spec of texts) {
+    const measure = measurerFor(spec);
+
+    const top = flowedTop(spec.top, (spec.anchorId && bottoms.get(spec.anchorId)) || null);
+    const fontSize = fittedSize(spec, spec.text, top, measure);
+
+    // "Di mana teks template ini akan berakhir, di bawah aturan yang sama?"
+    const authoredSize = fittedSize(spec, spec.templateText, spec.top, measure);
+    const authoredH = blockHeight(measure(spec.templateText, authoredSize).lines, authoredSize, spec.lineHeight);
+    const actualH = blockHeight(measure(spec.text, fontSize).lines, fontSize, spec.lineHeight);
+
+    layout.set(spec.id, { top, fontSize });
+    bottoms.set(spec.id, { authoredBottom: spec.top + authoredH, actualBottom: top + actualH });
+  }
+  return layout;
+}
+
 // ── Element builders ──────────────────────────────────────────────────────────
 
 interface Ctx {
@@ -155,6 +335,7 @@ interface Ctx {
   thumbnailUrl: string | null;
   logoUrl: string | null;
   contact: Record<string, string>;
+  siblings: TemplateElement[]; // elemen top-level — sumber budget auto-fit & anchor
 }
 
 function textSpec(el: TemplateElement, ctx: Ctx, overrides: Partial<TextSpec> = {}): TextSpec {
@@ -176,6 +357,9 @@ function textSpec(el: TemplateElement, ctx: Ctx, overrides: Partial<TextSpec> = 
   return {
     kind: "text",
     text: value,
+    templateText: el.templateValue ?? value,
+    id: "",
+    bind: el.bind,
     left: el.x * ctx.w,
     top: el.y * ctx.h,
     width: el.width * ctx.w,
@@ -186,18 +370,37 @@ function textSpec(el: TemplateElement, ctx: Ctx, overrides: Partial<TextSpec> = 
     textAlign: ((el.align ?? s.align) as TextSpec["textAlign"]) ?? "left",
     lineHeight: s.lineHeight ?? 1.1,
     charSpacing: s.letterSpacing != null ? (s.letterSpacing * ctx.scale * 1000) / fontSize : undefined,
-    fillGradient: s.fillGradient,
+    // stop boleh role → resolve agar gradient teks ikut brand adapt (paritas TemplateRenderer)
+    fillGradient: s.fillGradient?.map((c) => resolveColor(ctx.scheme, c)),
+    // arah dalam ruang ternormalisasi; default "180deg" = vertikal
+    fillGradientCoords: s.fillGradient ? gradientCoords(s.fillGradientDirection, 1, 1) : undefined,
     stroke: s.stroke ? { color: resolveColor(ctx.scheme, s.stroke.color), width: s.stroke.width * ctx.scale } : undefined,
     shadow: s.shadow ? parseTextShadow(s.shadow) : undefined,
     accent,
+    box: s.background
+      ? {
+          fill: resolveColor(ctx.scheme, s.background),
+          radius: (s.radius ?? 0) * ctx.scale,
+          ...parsePadding(s.padding ?? "0", fontSize, ctx.scale),
+        }
+      : undefined,
     ...overrides,
   };
 }
 
-function elementSpecs(el: TemplateElement, ctx: Ctx): CanvasSpec[] {
+const elementId = (i: number) => `el${i}`;
+
+function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[] {
   switch (el.type) {
-    case "text":
-      return [textSpec(el, ctx)];
+    case "text": {
+      // Hanya teks absolut yang punya budget & anchor; anak group sudah mengalir vertikal.
+      const anchor = anchorIndexOf(el, ctx.siblings);
+      return [textSpec(el, ctx, {
+        id: elementId(index),
+        anchorId: anchor !== undefined ? elementId(anchor) : undefined,
+        fitBottom: obstacleY(el, ctx.siblings, ctx.h),
+      })];
+    }
 
     case "scrim": {
       if (!el.gradient) return [];
@@ -247,6 +450,20 @@ function elementSpecs(el: TemplateElement, ctx: Ctx): CanvasSpec[] {
       }];
     }
 
+    case "rule": {
+      const s = el.style ?? {};
+      return [{
+        kind: "rect",
+        left: el.x * ctx.w,
+        top: el.y * ctx.h,
+        width: el.width * ctx.w,
+        height: (s.thickness ?? 4) * ctx.scale,
+        fill: resolveColor(ctx.scheme, s.color ?? "accent"),
+        radius: 2 * ctx.scale,
+        angle: s.rotate ?? undefined,
+      }];
+    }
+
     case "group": {
       const left = el.x * ctx.w;
       const width = el.width * ctx.w;
@@ -266,13 +483,26 @@ function elementSpecs(el: TemplateElement, ctx: Ctx): CanvasSpec[] {
 
     case "footer": {
       const s = el.style ?? {};
+      const w = el.width * ctx.w;
+      const h = (el.height ?? 0.06) * ctx.h;
+      const grad = s.backgroundGradient;
       return [{
         kind: "footer",
         left: el.x * ctx.w,
         top: el.y * ctx.h,
-        width: el.width * ctx.w,
-        height: (el.height ?? 0.06) * ctx.h,
-        backgroundColor: s.backgroundColor ?? "transparent",
+        width: w,
+        height: h,
+        backgroundColor: s.backgroundColor ? resolveColor(ctx.scheme, s.backgroundColor) : "transparent",
+        // Gradient latar menang atas backgroundColor; default horizontal (paritas TemplateRenderer)
+        backgroundGradient: grad?.length
+          ? {
+              coords: gradientCoords(s.backgroundGradientDirection ?? "to right", w, h),
+              stops: grad.map((color, i) => ({
+                offset: grad.length > 1 ? i / (grad.length - 1) : 0,
+                color: resolveColor(ctx.scheme, color),
+              })),
+            }
+          : undefined,
         opacity: s.opacity ?? 1,
         color: resolveColor(ctx.scheme, s.color),
         fontSize: (s.fontSize ?? 20) * ctx.scale,
@@ -340,11 +570,12 @@ export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
     thumbnailUrl: input.thumbnailUrl ?? null,
     logoUrl: input.logoUrl ?? null,
     contact: input.contact ?? {},
+    siblings: cfg.elements ?? [],
   };
 
   const specs: CanvasSpec[] = [
     ...backgroundSpecs(cfg, ctx),
-    ...(cfg.elements ?? []).flatMap((el) => elementSpecs(el, ctx)),
+    ...(cfg.elements ?? []).flatMap((el, i) => elementSpecs(el, ctx, i)),
   ];
 
   return { width, height, specs };

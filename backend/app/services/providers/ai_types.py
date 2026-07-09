@@ -11,6 +11,11 @@ class CopyBrief:
     intent: str | None
     slots: dict[str, int]
     static_context: list[tuple[str, str]] = field(default_factory=list)
+    # Batas KARAKTER per slot, diturunkan dari geometri template (lebar × fontSize × baris
+    # yang muat). Batas kata menjaga GAYA; batas karakter menjaga copy MUAT di layout —
+    # jumlah kata tak berkorelasi dengan wrap. Slot tanpa geometri absolut (anak group)
+    # tidak punya entri di sini.
+    char_limits: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

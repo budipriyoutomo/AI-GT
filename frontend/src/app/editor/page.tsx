@@ -14,6 +14,7 @@ import TemplateFabricCanvas from "@/components/editor/TemplateFabricCanvas";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { buildEditorPreviewConfig } from "@/lib/editor/preview-config";
 import { buildCanvasSpec } from "@/lib/editor/canvas-spec";
+import { charCapacity } from "@/lib/editor/fit-text";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
@@ -189,6 +190,22 @@ export default function EditorPage() {
       : null,
     [previewCfg, tplThumbnailUrl],
   );
+
+  // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
+  // batas yang diberikan ke AI di backend (copy_prompt._char_capacity). Slot tanpa
+  // geometri absolut (anak group) → fallback ke batas lama.
+  const copyLimits = useMemo(() => {
+    const limits: Record<string, number> = {};
+    for (const spec of templateSpec?.specs ?? []) {
+      if (spec.kind !== "text" || !spec.bind) continue;
+      const capacity = charCapacity(spec);
+      if (capacity) limits[spec.bind] = capacity;
+    }
+    return limits;
+  }, [templateSpec]);
+
+  const headlineMax = copyLimits.headline ?? 60;
+  const bodyMax = copyLimits.body ?? 120;
 
   /* ── Load project ── */
   useEffect(() => {
@@ -687,8 +704,8 @@ export default function EditorPage() {
                     <div>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                         <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)" }}>Headline</label>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: headline.length > 60 ? "var(--destructive)" : "var(--muted-foreground)" }}>
-                          {headline.length}/60
+                        <span style={{ fontSize: 10, fontWeight: 600, color: headline.length > headlineMax ? "var(--destructive)" : "var(--muted-foreground)" }}>
+                          {headline.length}/{headlineMax}
                         </span>
                       </div>
                       <textarea
@@ -703,8 +720,8 @@ export default function EditorPage() {
                     <div>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                         <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)" }}>Body copy</label>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: body.length > 120 ? "var(--warning)" : "var(--muted-foreground)" }}>
-                          {body.length}/120
+                        <span style={{ fontSize: 10, fontWeight: 600, color: body.length > bodyMax ? "var(--warning)" : "var(--muted-foreground)" }}>
+                          {body.length}/{bodyMax}
                         </span>
                       </div>
                       <textarea

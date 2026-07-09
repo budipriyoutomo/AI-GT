@@ -66,6 +66,9 @@ export interface TemplateElement {
   role?: string;
   bind?: string;
   value?: string;
+  // Teks asli template, disimpan saat `value` ditimpa copy AI. Dipakai renderer untuk
+  // tahu tinggi blok yang DIASUMSIKAN desainer → sumber "gap desain" saat reflow.
+  templateValue?: string;
   style?: ElementStyle;
   // logo / image
   source?: "brand" | "thumbnail" | "thematic" | "background";

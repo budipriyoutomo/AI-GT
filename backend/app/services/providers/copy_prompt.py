@@ -58,6 +58,52 @@ def intent_lengths(copy_intent: str | None) -> dict[str, int]:
 # Kosakata bind tetap (README §4). Urutan kanonik untuk output slot yang stabil.
 _BIND_ORDER: tuple[str, ...] = ("headline", "body", "cta")
 
+# ── Kapasitas karakter dari geometri template ────────────────────────────────
+# Lebar glyph rata-rata ≈ 0.5em (perkiraan; Poppins/Inter/Montserrat berkisar di situ).
+# Dipakai untuk MEMBATASI prompt, bukan untuk render — renderer mengukur font sungguhan.
+_AVG_GLYPH_EM = 0.5
+# Margin aman: estimasi glyph bisa meleset (huruf kapital/font lebar) → sisakan 10%.
+_CHAR_MARGIN = 0.9
+_DEFAULT_LINE_HEIGHT = 1.1
+
+
+def _obstacle_y(el: dict, elements: list[dict]) -> float:
+    """Fraksi y elemen TERDEKAT di bawah `el` yang beririsan pada sumbu X (mirror
+    `obstacleY` di frontend/src/lib/editor/canvas-spec.ts). Tak ada → dasar kanvas."""
+    left, right = el["x"], el["x"] + el["width"]
+    next_y = 1.0
+    for other in elements:
+        if other is el or other.get("y", 0) <= el["y"]:
+            continue
+        ox, ow = other.get("x"), other.get("width")
+        if ox is None or ow is None:
+            continue
+        if ox + ow <= left or ox >= right:   # kolom terpisah → tidak membatasi
+            continue
+        next_y = min(next_y, other["y"])
+    return next_y
+
+
+def _char_capacity(el: dict, elements: list[dict], width: int, height: int) -> int | None:
+    """Perkiraan jumlah karakter yang muat di slot ini pada fontSize AUTHORED.
+    None bila elemen tak punya geometri absolut (mis. anak group) → tak bisa dihitung."""
+    if any(k not in el for k in ("x", "y", "width")):
+        return None
+
+    style = el.get("style") or {}
+    font_size = style.get("fontSize")
+    if not isinstance(font_size, (int, float)) or font_size <= 0:
+        return None
+    line_height = style.get("lineHeight", _DEFAULT_LINE_HEIGHT)
+
+    # Satu baris tak bisa memuat pecahan karakter → bulatkan ke bawah PER BARIS dulu
+    chars_per_line = int((el["width"] * width) // (font_size * _AVG_GLYPH_EM))
+    budget_px = (_obstacle_y(el, elements) - el["y"]) * height
+    lines = max(1, int(budget_px // (font_size * line_height)))
+
+    capacity = int(chars_per_line * lines * _CHAR_MARGIN)
+    return capacity if capacity > 0 else None
+
 
 def _collect_binds(template_config: dict) -> dict[str, int | None]:
     """bind -> override `maxWords` (int > 0) atau None. REKURSIF ke `group.children` (README §6).
@@ -78,6 +124,35 @@ def _collect_binds(template_config: dict) -> dict[str, int | None]:
 
     _walk((template_config or {}).get("elements"))
     return found
+
+
+def _valid_override(value) -> int | None:
+    """Override numerik yang sah: int > 0 (bool ditolak). Selain itu → None (pakai default)."""
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _collect_char_limits(template_config: dict) -> dict[str, int]:
+    """bind -> batas karakter. `maxChars` elemen (bila valid) menang; selain itu diturunkan
+    dari geometri. Hanya elemen TOP-LEVEL yang punya geometri absolut — anak group mengalir
+    vertikal sehingga kapasitasnya tak tertentu, jadi dilewati."""
+    cfg = template_config or {}
+    elements = [e for e in (cfg.get("elements") or []) if isinstance(e, dict)]
+    dims = (cfg.get("canvas") or {}).get("dimensions") or {}
+    width, height = dims.get("width"), dims.get("height")
+
+    limits: dict[str, int] = {}
+    for el in elements:
+        bind = el.get("bind")
+        if not bind or bind in limits:
+            continue
+        override = _valid_override(el.get("maxChars"))
+        if override is not None:
+            limits[bind] = override
+        elif width and height:
+            capacity = _char_capacity(el, elements, width, height)
+            if capacity is not None:
+                limits[bind] = capacity
+    return limits
 
 
 def collect_bind_slots(template_config: dict) -> list[str]:
@@ -116,10 +191,12 @@ def build_copy_brief(template_config: dict, copy_intent: str | None) -> CopyBrie
         for b in _BIND_ORDER
         if b in binds
     }
+    char_limits = _collect_char_limits(template_config)
     return CopyBrief(
         intent=copy_intent,
         slots=slots,
         static_context=_collect_static_text(template_config),
+        char_limits={b: char_limits[b] for b in slots if b in char_limits},
     )
 
 
@@ -132,7 +209,12 @@ def render_slot_spec(brief: CopyBrief | None, copy_intent: str | None = None) ->
     lines = ["Slot teks yang HARUS diisi untuk template ini:"]
     for bind in _BIND_ORDER:
         if bind in brief.slots:
-            lines.append(f"- {bind} — maksimal {brief.slots[bind]} kata")
+            limit = f"- {bind} — maksimal {brief.slots[bind]} kata"
+            # Batas karakter = kapasitas nyata layout. Lebih dari ini, copy tidak muat.
+            chars = brief.char_limits.get(bind)
+            if chars:
+                limit += f", maksimal {chars} karakter"
+            lines.append(limit)
     # Slot opsional yang TIDAK ada di layout → suruh AI set null (jangan mengarang).
     for bind in ("body", "cta"):
         if bind not in brief.slots:

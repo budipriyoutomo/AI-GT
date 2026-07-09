@@ -194,6 +194,24 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
 > WAJIB baca dulu **`backend/scripts/seed_template_data/README.md`** — aturan pemisahan TEMPLATE vs GAMBAR,
 > struktur `elements`, dan kontrak slot AI (`role` vs `bind`).
 
+### Dua renderer — paritas wajib
+
+`template_config` digambar oleh **dua** renderer berbeda:
+
+| Renderer | File | Dipakai untuk |
+|---|---|---|
+| CSS | `frontend/src/components/template/TemplateRenderer.tsx` | galeri, preview modal, HTML preview |
+| Fabric | `frontend/src/lib/editor/canvas-spec.ts` + `components/editor/TemplateFabricCanvas.tsx` | canvas editor, export PNG |
+
+- **Fitur `template_config` baru wajib diimplementasi di KEDUANYA.** Fitur yang hanya ada di satu sisi tampil
+  benar di preview lalu rusak/crash di editor (atau sebaliknya) — ini sumber bug berulang.
+- **Fabric adalah sumber kebenaran soal pembungkusan teks.** Jangan pernah menulis word-wrap atau pengukur
+  teks tandingan; ukur lewat Fabric (`Textbox.calcTextWidth()` + `textLines.length`). Estimasi sendiri meleset
+  di ambang kolom → auto-fit salah putusan → teks bertabrakan.
+- **Pisahkan geometri (murni) dari pengukuran (butuh browser).** Logika posisi/ukuran ditaruh di
+  `canvas-spec.ts` sebagai fungsi murni dengan pengukur di-inject → bisa di-unit-test pakai pengukur palsu.
+  jsdom tidak punya canvas 2D, jadi apa pun yang butuh font metrics tak bisa diuji headless.
+
 ---
 
 ## 7. Storage Flow
