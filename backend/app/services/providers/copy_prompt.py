@@ -59,28 +59,44 @@ def intent_lengths(copy_intent: str | None) -> dict[str, int]:
 _BIND_ORDER: tuple[str, ...] = ("headline", "body", "cta")
 
 
-def collect_bind_slots(template_config: dict) -> list[str]:
-    """Kumpulkan bind yang ADA di template — REKURSIF ke `group.children` (README §6).
-    Hanya bind dari kosakata tetap yang dihitung; dikembalikan dalam urutan kanonik."""
-    found: set[str] = set()
+def _collect_binds(template_config: dict) -> dict[str, int | None]:
+    """bind -> override `maxWords` (int > 0) atau None. REKURSIF ke `group.children` (README §6).
+    maxWords tak valid (bukan int, ≤0) diabaikan → nanti fallback ke batas intent."""
+    found: dict[str, int | None] = {}
 
     def _walk(elements) -> None:
         for el in elements or []:
             bind = el.get("bind")
             if bind:
-                found.add(bind)
+                mw = el.get("maxWords")
+                if isinstance(mw, int) and not isinstance(mw, bool) and mw > 0:
+                    found[bind] = mw           # override valid menang
+                else:
+                    found.setdefault(bind, None)  # hadir tanpa override valid
             if el.get("type") == "group":
                 _walk(el.get("children"))
 
     _walk((template_config or {}).get("elements"))
-    return [b for b in _BIND_ORDER if b in found]
+    return found
+
+
+def collect_bind_slots(template_config: dict) -> list[str]:
+    """Bind yang ADA di template, urutan kanonik. Hanya kosakata tetap (headline/body/cta)."""
+    binds = _collect_binds(template_config)
+    return [b for b in _BIND_ORDER if b in binds]
 
 
 def build_copy_brief(template_config: dict, copy_intent: str | None) -> CopyBrief:
     """Kompilasi template_config + copy_intent → CopyBrief: slot yang ada + batas kata per slot.
+    Batas per slot = override `maxWords` elemen (bila valid) → else default menurut copy_intent.
     Pure & read-only (tak memutasi template_config → aman thd Template Integrity)."""
+    binds = _collect_binds(template_config)
     lengths = intent_lengths(copy_intent)
-    slots = {b: lengths[b] for b in collect_bind_slots(template_config) if b in lengths}
+    slots = {
+        b: (binds[b] if binds[b] is not None else lengths[b])
+        for b in _BIND_ORDER
+        if b in binds
+    }
     return CopyBrief(intent=copy_intent, slots=slots)
 
 

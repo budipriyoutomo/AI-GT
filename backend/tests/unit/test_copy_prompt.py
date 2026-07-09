@@ -147,6 +147,42 @@ class TestBuildCopyBrief:
         assert build_copy_brief(TPL_ALL_SLOTS, "brand").intent == "brand"
 
 
+TPL_HEADLINE_OVERRIDE = {"elements": [
+    {"type": "text", "bind": "headline", "maxWords": 3},   # override intent default
+    {"type": "text", "bind": "body"},
+    {"type": "text", "bind": "cta"},
+]}
+
+TPL_GROUP_OVERRIDE = {"elements": [
+    {"type": "group", "children": [
+        {"type": "text", "bind": "headline", "maxWords": 2},   # override inside group
+        {"type": "text", "bind": "body"},
+    ]},
+]}
+
+TPL_INVALID_OVERRIDE = {"elements": [
+    {"type": "text", "bind": "headline", "maxWords": 0},        # invalid → ignore
+    {"type": "text", "bind": "body", "maxWords": "lots"},       # invalid type → ignore
+]}
+
+
+class TestPerSlotMaxWordsOverride:
+    def test_element_maxwords_overrides_intent_default(self):
+        brief = build_copy_brief(TPL_HEADLINE_OVERRIDE, "promotion")
+        assert brief.slots == {"headline": 3, "body": 15, "cta": 4}  # headline pinned, rest = intent
+
+    def test_override_applies_inside_group(self):
+        brief = build_copy_brief(TPL_GROUP_OVERRIDE, "story")
+        assert brief.slots == {"headline": 2, "body": 35}
+
+    def test_invalid_override_falls_back_to_intent_default(self):
+        brief = build_copy_brief(TPL_INVALID_OVERRIDE, "promotion")
+        assert brief.slots == {"headline": 5, "body": 15}  # 0 & non-int ignored → intent default
+
+    def test_collect_bind_slots_unaffected_by_override(self):
+        assert collect_bind_slots(TPL_HEADLINE_OVERRIDE) == ["headline", "body", "cta"]
+
+
 class TestRenderSlotSpec:
     def test_lists_present_slots_with_limits(self):
         spec = render_slot_spec(build_copy_brief(TPL_ALL_SLOTS, "promotion"))

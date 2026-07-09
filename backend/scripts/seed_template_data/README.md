@@ -124,11 +124,18 @@ Aturan:
 - `text` dengan **`bind`** → `value`-nya diganti output AI saat generate. `value` di JSON = teks contoh/placeholder.
 - `text` tanpa `bind` → **teks statis** bawaan template (tanggal, S&K, label acara, disclaimer).
 - **Minimal wajib:** satu template harus punya ≥1 elemen `bind: "headline"`.
-- `body` & `cta` **opsional** — tergantung layout. Layout tanpa CTA cukup tidak punya elemen `bind:"cta"`
-  (AI tetap menghasilkan cta, hanya tidak ditempatkan). Inilah yang membuat layout boleh variatif.
+- `body` & `cta` **opsional** — tergantung layout. Layout tanpa CTA cukup tidak punya elemen `bind:"cta"`.
+  Slot yang tak ada di layout otomatis diberitahukan ke AI untuk **di-set `null`** (lihat §6, brief compiler),
+  jadi tak ada CTA mubazir. Inilah yang membuat layout boleh variatif.
+
+**`maxWords` (opsional) — batas kata per slot.** Boleh ditaruh di elemen ber-`bind` untuk **mengunci**
+panjang copy sesuai boks (mis. headline display raksasa "TEBUS MURAH" → `maxWords: 3`). Bila ada & valid
+(int > 0), **menang** atas default panjang menurut `copy_intent` (§7 `intent_lengths`); bila tak ada,
+pakai default intent. Gunakan saat boks jauh lebih sempit/lebar dari tipikal intent-nya.
 
 ```jsonc
 { "type":"text", "role":"headline", "bind":"headline",
+  "maxWords":3,                                    // opsional: kunci ≤3 kata (override default intent)
   "x":0.1, "y":0.22, "width":0.8, "align":"center",
   "value":"TEBUS\nMURAH",                          // \n = baris baru; placeholder sebelum AI mengisi
   "style":{ "fontSize":130, "weight":"800", "color":"accent" } }

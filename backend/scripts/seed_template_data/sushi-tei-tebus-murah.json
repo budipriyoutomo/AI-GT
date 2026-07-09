@@ -71,6 +71,7 @@
         "type": "text",
         "role": "headline",
         "bind": "headline",
+        "maxWords": 3,
         "x": 0.10, "y": 0.22, "width": 0.80,
         "align": "center",
         "value": "TEBUS\nMURAH",
