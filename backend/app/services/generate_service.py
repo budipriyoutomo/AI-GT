@@ -21,6 +21,7 @@ from app.models.template import Template
 from app.schemas.generate import CreateSessionRequest
 from app.services import ai_service, storage_service
 from app.services.providers.ai_types import CopyError, CopyInput, ImageInput
+from app.services.providers.copy_prompt import build_copy_brief
 from app.utils.exceptions import AppError, ErrorCode
 
 logger = logging.getLogger(__name__)
@@ -307,6 +308,8 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         language_style=session.language_style,
         language_preference=language_preference,
         template_theme=template.theme,
+        copy_intent=template.copy_intent,
+        copy_brief=build_copy_brief(template_cfg, template.copy_intent),
         goal=session.goal,
         platform=session.platform,
         product_or_service=content.get("product_or_service"),

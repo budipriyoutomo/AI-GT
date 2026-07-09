@@ -13,7 +13,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
-import { PosterThumb } from "@/components/poster-thumb";
+import { SelectedTemplatePanel } from "@/components/create/SelectedTemplatePanel";
 import { generateApi } from "@/api/generateApi";
 import type { CarouselSettings } from "@/api/generateApi";
 import { templatesApi } from "@/api/templatesApi";
@@ -21,13 +21,9 @@ import type { Template, TemplateListItem } from "@/types/template";
 import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from "@/types/generate-session";
 import { getBriefCompletion } from "@/lib/create/brief-completion";
 import { contentBriefSchema } from "@/lib/create/brief-schema";
+import { parseBrandPreview } from "@/lib/create/brand-preview";
 import type { ContentBrief } from "@/types/content-brief";
-
-const LOCKED_ELEMENTS = [
-  { label: "Layout & komposisi", icon: "layout-grid" },
-  { label: "Background",         icon: "image"       },
-  { label: "Color scheme",       icon: "palette"     },
-];
+import { useAuth } from "@/lib/auth";
 
 const GOALS: { id: GoalEnum; label: string; desc: string; icon: string }[] = [
   { id: "awareness",   label: "Brand Awareness",   desc: "Kenalkan brand atau produk ke audiens baru",       icon: "megaphone"    },
@@ -105,6 +101,8 @@ export default function CreatePage() {
   const templateId = searchParams.get("templateId");
   const goalParam  = searchParams.get("goal") as GoalEnum | null;
   const platParam  = searchParams.get("platform") as PlatformEnum | null;
+  const brandPreview = parseBrandPreview(searchParams.get("brandPreview"));
+  const { user } = useAuth();
 
   // Step 1: Goal + Platform
   const [goal, setGoal]         = useState<GoalEnum | null>(goalParam);
@@ -271,6 +269,9 @@ export default function CreatePage() {
     const params = new URLSearchParams({ templateId: t.id });
     if (goal) params.set("goal", goal);
     if (platform) params.set("platform", platform);
+    // No brand-preview toggle in this inline picker — carry over whatever the
+    // current URL already had (e.g. arrived branded from the gallery modal).
+    if (brandPreview) params.set("brandPreview", "true");
     router.replace(`/create?${params.toString()}`);
     setShowTemplatePicker(false);
   }
@@ -368,8 +369,11 @@ export default function CreatePage() {
       {/* ── Two-column layout: fills remaining height, no page scroll ── */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", gap: 24, padding: "16px 24px 0 24px" }}>
 
-        {/* ── Left: template preview OR inline picker ── */}
-        <div style={{ flexShrink: 0, width: "40%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {/* ── Left: template preview OR inline picker ──
+            overflowY auto (not hidden): the live-rendered preview sizes itself by
+            aspect-ratio and can be taller than this column for portrait templates
+            (9:16 stories) — scroll internally rather than clip content below it. */}
+        <div style={{ flexShrink: 0, width: "40%", overflow: "hidden auto", display: "flex", flexDirection: "column" }}>
           {showTemplatePicker ? (
 
             /* ─── Inline template picker ─── */
@@ -483,54 +487,16 @@ export default function CreatePage() {
 
           ) : (
 
-            /* ─── Template preview ─── */
-            <Card variant="elevated" padding={16}>
-              {/* Header row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <span className="aigt-label">Template dipilih</span>
-                <button
-                  onClick={() => setShowTemplatePicker(true)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}
-                >
-                  <Icon name="layout-template" size={11} />
-                  Ganti template
-                </button>
-              </div>
-
-              {template?.thumbnail_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={template.thumbnail_url} alt={template.name} style={{ width: "100%", maxHeight: "200px", objectFit: "cover", borderRadius: "var(--radius-md)" }} />
-              ) : (
-                <div style={{ maxHeight: "200px", overflow: "hidden", borderRadius: "var(--radius-md)" }}>
-                  <PosterThumb title={template?.name ?? "Template"} kicker={template?.theme ?? ""} cta={null} accent="--chart-1" ratio="4 / 5" />
-                </div>
-              )}
-              <div style={{ marginTop: 12 }}>
-                <div className="aigt-h6">{template?.name ?? "Memuat…"}</div>
-                <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                  {template?.content_type && <Badge variant="secondary">{template.content_type}</Badge>}
-                  {isCarousel && <Badge variant="info" icon="layers">{slideCount} Slide</Badge>}
-                  {template?.industry    && <Badge variant="secondary">{template.industry}</Badge>}
-                  {template?.theme       && <Badge variant="info">{template.theme}</Badge>}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                  <Icon name="lock" size={13} style={{ color: "var(--muted-foreground)" }} />
-                  <span className="aigt-label">Elemen terkunci</span>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {LOCKED_ELEMENTS.map((el) => (
-                    <div key={el.label} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: "var(--text-2xs)", color: "var(--muted-foreground)", padding: "5px 6px", background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
-                      <Icon name={el.icon as "image"} size={11} style={{ flex: "none" }} />
-                      <span style={{ textAlign: "center", lineHeight: 1.2 }}>{el.label}</span>
-                      <Icon name="lock" size={10} style={{ opacity: 0.4, flex: "none" }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
+            /* ─── Template preview (live-render, same TemplateRenderer as gallery modal) ─── */
+            <SelectedTemplatePanel
+              template={template}
+              brandPreview={brandPreview}
+              userBrandColors={user?.brandColors ?? null}
+              userBrandFont={user?.brandFont ?? null}
+              isCarousel={isCarousel}
+              slideCount={slideCount}
+              onChangeTemplate={() => setShowTemplatePicker(true)}
+            />
 
           )}
         </div>

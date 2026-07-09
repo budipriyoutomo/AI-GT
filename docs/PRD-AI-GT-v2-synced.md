@@ -5,7 +5,7 @@ AI-GT · Product Requirements Document · MVP 1.0 — **disinkronkan dengan impl
 > ***"Konten marketing profesional, tanpa desainer."***
 >
 > Dokumen ini adalah PRD awal yang sudah **disesuaikan dengan kode yang benar-benar ada di repo** per
-> 2026-06-29. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
+> 2026-07-08. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
 > Lihat juga §12 (Changelog) untuk ringkasan delta.
 
 ---
@@ -89,6 +89,10 @@ Library template terkategori. Setiap template sudah include layout, background, 
 - **[NEW] Kolom `platform`** ada di model `Template` (nullable) untuk menandai template spesifik platform.
   **[GAP]** Kolom ini **belum di-expose** di schema list (`TemplateListData`) sehingga filter template per-platform
   di galeri belum aktif — lihat §11.
+- **[NEW] Personalisasi brand saat render.** Galeri & preview me-render template yang **diadaptasi ke brand
+  user** — warna dari `brand_colors`, font dari `brand_font` — via kontrak `brand_theme` per-template
+  (mode `tint` / `derive`). Tetap **read-only** terhadap `template_config`: background & layout terkunci.
+  Detail mekanisme di `docs/render-template-logic.md`.
 - AI suggest template relevan berdasarkan company profile.
 - Premium: `is_premium` flag ada; fitur "generate background AI" masih roadmap.
 
@@ -211,6 +215,10 @@ Konsep "Generate by Campaign" sebagai mode terpisah **sudah tidak ada**. Goal + 
 > Konteks/momen seasonal (Lebaran, Harbolnas, dll) dari PRD kini ditangani lewat
 > kombinasi `thematic_image_theme` + `key_message`/`additional_notes`, bukan field "momen" terpisah.
 
+> **[CHANGED] Fallback direct-entry.** Goal & Platform tetap dipilih di Step 1, tapi bila user masuk
+> langsung ke Step 3 lewat link template (tanpa `goal`/`platform` di URL), tombol Generate kini memakai
+> default (`awareness` + `instagram_feed`) alih-alih diam tak merespons.
+
 ---
 
 ## 5. User Flow
@@ -282,3 +290,5 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
 | 8 | Company profile | **Diperluas**: brand_colors[], brand_font, tagline, contact/sosmed. |
 | 9 | Template | **Element-based** + `layout_type` + `platform` + live-render galeri. |
 | 10 | Lokasi/segmen | **Dihapus** dari flow (belum diimplementasikan). |
+| 11 | Template brand | **[NEW]** Personalisasi brand saat render (`brand_theme` tint/derive) — read-only ke `template_config`. |
+| 12 | Goal/Platform | Fallback default (`awareness`/`instagram_feed`) saat entry langsung tanpa Step 1. |

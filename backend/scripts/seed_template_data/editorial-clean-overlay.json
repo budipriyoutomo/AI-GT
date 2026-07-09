@@ -19,6 +19,7 @@
   "industry": "teknologi",
   "theme": "editorial",
   "content_type": "instagram_post",
+  "copy_intent": "story",
   "is_premium": false,
 
   "template_config": {

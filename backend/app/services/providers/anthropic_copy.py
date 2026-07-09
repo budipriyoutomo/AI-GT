@@ -4,7 +4,13 @@ import anthropic
 
 from app.config import settings
 from app.services.providers.ai_types import CopyInput, CopyResult, CopyVariant
-from app.services.providers.copy_prompt import COPY_PROMPT_TEMPLATE, build_carousel_prompt
+from app.services.providers.copy_prompt import (
+    COPY_PROMPT_TEMPLATE,
+    build_carousel_prompt,
+    intent_guidance,
+    intent_lengths,
+    render_slot_spec,
+)
 
 
 class AnthropicCopyProvider:
@@ -39,10 +45,16 @@ class AnthropicCopyProvider:
         )
 
     def _build_single_prompt(self, input: CopyInput) -> str:
+        lengths = intent_lengths(input.copy_intent)
         return COPY_PROMPT_TEMPLATE.format(
             business_name=input.business_name,
             industry=input.industry,
             template_theme=input.template_theme,
+            copy_intent_guidance=intent_guidance(input.copy_intent),
+            slot_spec=render_slot_spec(input.copy_brief, input.copy_intent),
+            max_headline_words=lengths["headline"],
+            max_body_words=lengths["body"],
+            max_cta_words=lengths["cta"],
             goal=input.goal or "promo",
             platform=input.platform or "instagram_feed",
             language_style=input.language_style,
@@ -61,6 +73,7 @@ class AnthropicCopyProvider:
             business_name=input.business_name,
             industry=input.industry,
             template_theme=input.template_theme,
+            copy_intent=input.copy_intent,
             goal=input.goal or "promo",
             platform=input.platform or "instagram_feed",
             language_style=input.language_style,

@@ -23,6 +23,7 @@
   "industry": "retail",
   "theme": "retro",
   "content_type": "instagram_post",
+  "copy_intent": "promotion",
   "is_premium": false,
 
   "template_config": {

@@ -36,6 +36,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_templa
 SCHEMA_FALLBACKS: tuple[str, ...] = (
     "ALTER TABLE templates ADD COLUMN IF NOT EXISTS platform VARCHAR(50)",
     "ALTER TABLE templates ADD COLUMN IF NOT EXISTS background_url TEXT",
+    "ALTER TABLE templates ADD COLUMN IF NOT EXISTS copy_intent VARCHAR(20)",
 )
 
 

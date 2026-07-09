@@ -15,6 +15,9 @@ class Template(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     industry: Mapped[str] = mapped_column(String(50), nullable=False)
     theme: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Niat copy template — memberi AI arah cara menulis (promotion | story | brand).
+    # Berbeda dari `theme` (label tema/visual) & `content_type` (format platform).
+    copy_intent: Mapped[str | None] = mapped_column(String(20), nullable=True)
     content_type: Mapped[str] = mapped_column(String(20), nullable=False)
     layout_type: Mapped[str] = mapped_column(String, nullable=False, default="promo_simple")
     thumbnail_url: Mapped[str] = mapped_column(Text, nullable=False)

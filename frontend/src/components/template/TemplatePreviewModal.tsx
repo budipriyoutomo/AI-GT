@@ -29,13 +29,15 @@ export function TemplatePreviewModal({
   template,
   brandColors,
   brandFont,
-  useHref,
+  buildHref,
   onClose,
 }: {
   template: TemplateListItem | null;
   brandColors: string[] | null; // dari company profile; null/empty → belum diisi
   brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
-  useHref: string;
+  // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
+  // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
+  buildHref: (brandPreview: boolean) => string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -160,7 +162,7 @@ export function TemplatePreviewModal({
             </div>
 
             <div style={{ marginTop: "auto" }}>
-              <Button icon="sparkles" size="lg" style={{ width: "100%" }} onClick={() => router.push(useHref)}>
+              <Button icon="sparkles" size="lg" style={{ width: "100%" }} onClick={() => router.push(buildHref(branded))}>
                 Pakai template ini
               </Button>
             </div>

@@ -164,9 +164,10 @@ export default function TemplatesPage() {
     });
   }, [templates, fmt, industry, q]);
 
-  // Build template link that preserves goal+platform context
-  function templateLink(templateId: string) {
-    const params = new URLSearchParams({ templateId });
+  // Build template link that preserves goal+platform context + the brand-preview
+  // toggle state from the preview modal at the moment "Pakai template ini" is clicked.
+  function templateLink(templateId: string, brandPreview: boolean) {
+    const params = new URLSearchParams({ templateId, brandPreview: String(brandPreview) });
     if (goalParam) params.set("goal", goalParam);
     if (platformParam) params.set("platform", platformParam);
     return `/create?${params.toString()}`;
@@ -267,7 +268,7 @@ export default function TemplatesPage() {
         template={preview}
         brandColors={brandColors}
         brandFont={brandFont}
-        useHref={preview ? templateLink(preview.id) : "/create"}
+        buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />
     </Shell>

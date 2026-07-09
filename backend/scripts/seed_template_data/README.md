@@ -210,10 +210,16 @@ Pada mode `derive`, `color_scheme` di JSON berfungsi sebagai **default/fallback*
 ## 6. Alur generate (konteks)
 
 ```
+build_copy_brief(template_config, copy_intent)     ← kompilasi slot yang ADA + batas kata (rekursif ke group)
+   → prompt copy diberi "slot spec": slot mana yang harus diisi + maksimal kata;
+     slot yang tak ada di layout → AI disuruh set null (hindari mis. CTA mubazir)
 AI output (skema tetap): { headline, body, cta }
    → generate_service: untuk tiap elemen ber-`bind`, value = ai_output[bind]
    → elemen tanpa `bind` tetap statis
 ```
+
+> Prompt hanya menerima **brief terkompilasi** (slot + batas kata), BUKAN `template_config` mentah —
+> AI tak pernah melihat layout/warna (Template Integrity) & token tetap hemat.
 
 > ⚠️ **Dependency saat implement AI-fill:** penelusuran elemen ber-`bind` WAJIB rekursif ke dalam
 > `children` element `group` — bukan cuma elemen top-level. (Contoh: SOPWER menaruh headline & body
@@ -224,10 +230,30 @@ AI output (skema tetap): { headline, body, cta }
 ## 7. Field metadata di file JSON
 
 Setiap file boleh punya blok `_meta` (dokumentasi, bukan bagian config) + field row DB:
-`name`, `industry`, `theme`, `content_type`, `thumbnail_url`, `background_url`, `is_premium`, lalu `template_config`.
+`name`, `industry`, `theme`, `content_type`, `copy_intent`, `thumbnail_url`, `background_url`, `is_premium`, lalu `template_config`.
 
 - `thumbnail_url` = foreground / gallery thumbnail (element image `source:"thumbnail"`).
 - `background_url` = foto latar full-bleed (`background.type:"image"` + `source:"background"`). Dua-duanya di-upload admin per-baris → biasa dikosongkan di JSON. Template image-bg legacy (foto latar dulu di `thumbnail_url`) otomatis di-**backfill** ke `background_url` saat seed (`needs_background_backfill`).
+
+### `copy_intent` — niat copy (arah untuk AI)
+
+`copy_intent` mengkategorikan **niat komunikasi** template supaya AI tahu *cara* menulis copy, bukan
+sekadar tema visual. Berbeda dari `theme` (label tema/gaya) & `content_type` (format platform). Nilai ini
+menggerakkan DUA hal di prompt copy (`copy_prompt.py`): (1) blok instruksi cara-menulis (`intent_guidance`)
+dan (2) **batas kata per slot** (`intent_lengths`) — promo paling pendek, story paling lapang, brand tagline —
+agar copy proporsional dengan tipe template. Kosakata tetap **3 mode**:
+
+| `copy_intent` | Untuk template yang… | Gaya copy yang diarahkan ke AI |
+|---|---|---|
+| `promotion` | menjual penawaran/diskon (flash sale, tebus murah) | headline memikat, tonjolkan angka/urgensi, **CTA kuat & mendesak** |
+| `story` | mengedukasi / narasi / pain point (edukasi, awareness, editorial) | hook → insight → ajakan **lembut**; body deskriptif, hindari hard-sell |
+| `brand` | menegaskan positioning/nilai brand (statement korporat) | headline seperti tagline, aspiratif; **jangan mengarang promo**; CTA soft |
+
+Aturan:
+
+- **Wajib diisi** tiap template baru — pilih 1 dari 3. Jangan campur dengan `theme`.
+- Nullable di DB: template lama tanpa nilai → prompt pakai **fallback generic** (tidak error), tapi kualitas arah copy berkurang. Isi bila memungkinkan.
+- Ragu antara `story` vs `brand`? Kalau copy-nya **mengajari/menceritakan sesuatu** → `story`. Kalau cuma **menegaskan siapa brand-nya** (tanpa narasi/edukasi) → `brand`.
 
 ---
 
@@ -253,6 +279,7 @@ Aturan: **preset = base, field/style INLINE MENANG** (shallow merge). Nama prese
 - [ ] **(§0) Aspect ratio sudah DIKONFIRMASI ke user** sebelum menulis — bukan asumsi
 - [ ] **(§0) `brand_theme` ADA dan EFEKTIF** — brand preview dgn warna kontras benar-benar mengubah ≥1 elemen visible
 - [ ] **(§0) Ada slot gambar** (`thumbnail_url`/`background_url`) yang bisa diisi admin
+- [ ] **(§7) `copy_intent` sudah diisi** — satu dari `promotion` / `story` / `brand`
 - [ ] Tidak ada gambar konten spesifik di `template_config` (lihat bagian 1)
 - [ ] Pertimbangkan preset design-system (§8) sebelum menulis `style`/`color_scheme` inline dari nol
 - [ ] Preset yang dirujuk (`palette`/`preset`/`stylePreset`) ADA di `design_system.json`

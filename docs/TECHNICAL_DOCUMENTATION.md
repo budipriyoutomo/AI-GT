@@ -98,6 +98,8 @@ External providers:
 | Styling | Tailwind CSS v4 |
 | Canvas editor | Fabric.js 6 |
 | Ikon | lucide-react, react-icons |
+| Validasi (form/schema) | Zod |
+| Testing | Vitest, Testing Library, jsdom |
 
 ---
 
@@ -137,7 +139,7 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-│   ├── alembic/versions/        → migrasi 0001…0007
+│   ├── alembic/versions/        → migrasi 0001…0008
 │   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
 │   └── tests/                   → conftest.py, unit/, integration/
 │
@@ -218,8 +220,9 @@ Terbentuk saat varian dipilih (atau otomatis pada Quick Generate):
 `exported_image_url`, `thumbnail_url`, `is_exported`.
 
 `final_config` menggabungkan `copy`, `typography`, `thematic_image_url`, `image_source`,
-`image_prompt`, dan subset read-only dari `template_config` (background, color_scheme, layout,
-slide_count) — inilah payload yang di-render canvas editor.
+`image_prompt`, dan **seluruh `template_config`** (disalin apa adanya, read-only) plus field runtime
+yang di-inject di top-level — `name`, `content_type`, `thumbnail_url` (lihat
+`generate_service._normalize_template_config`). Inilah payload yang di-render canvas editor.
 
 ### Relasi (ringkas)
 
@@ -231,7 +234,10 @@ User ──1:N── Project ──1:1── GenerateSession
 Template ──1:N── GenerateSession
 ```
 
-Migrasi dikelola Alembic (`0001_initial_schema` … `0007_add_background_url_to_templates`).
+Migrasi dikelola Alembic (`0001_initial_schema` … `0008_ensure_projects_thumbnail_url`).
+
+> `0008` adalah **guard idempoten** (`ADD COLUMN IF NOT EXISTS thumbnail_url`) untuk memperbaiki DB yang
+> revisi `0004`-nya sempat ter-skip akibat tabrakan revision id antar-branch — lihat pola serupa di `0007`.
 
 ---
 
@@ -411,6 +417,13 @@ Konstanta: `_COPY_TIMEOUT=30.0`, `_IMAGE_TIMEOUT=60.0`, `_COPY_MAX_RETRIES=2`.
 
 `storage_service.py` menggunakan `boto3` S3 client terhadap endpoint R2 (`signature_version=s3v4`).
 
+> **Yang disimpan di DB adalah path root-relative, bukan URL absolut.** Semua fungsi upload/move
+> mengembalikan path berawalan slash (mis. `/permanent/thumbnails/{user_id}/{project_id}.png`) —
+> host publik **tidak** pernah di-bake ke data. Frontend menambahkan base CDN publik
+> (`NEXT_PUBLIC_CDN_URL`) saat render via `resolveAssetUrl` (`lib/assetUrl.ts`); URL absolut/data/blob
+> dilewatkan apa adanya. Leading slash juga diandalkan `cleanup_service` (`"/temp/" in url`) dan
+> `generate_service._resolve_thematic_image` (parsing `urlparse().path`).
+
 ### Struktur bucket
 ```
 ai-gt-bucket/
@@ -507,6 +520,7 @@ CORS_ORIGINS=http://localhost:3000
 Frontend (`frontend/.env.local`):
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_CDN_URL=https://cdn.calira.my.id   # base CDN untuk asset R2 (path relatif dari backend)
 ```
 
 > File `.env` tidak boleh di-commit — gunakan `.env.example` sebagai referensi.
@@ -560,6 +574,10 @@ aigt/bin/pytest --cov=app --cov-report=term-missing
 Struktur test: `tests/conftest.py` (fixtures: test DB, mock AI, auth token), `tests/unit/*`,
 `tests/integration/*`.
 
+**Frontend** memakai **Vitest** (+ Testing Library, jsdom): `cd frontend && npm test` (`vitest run`),
+`npm run test:coverage`. Unit test ada untuk lib editor (`merge`, `canvas-spec`, `preview-config`),
+brief (`brief-schema`, `brief-completion`), dan komponen UI (`dropdown`).
+
 **Test wajib per endpoint (minimal):** happy path, auth failure (401), forbidden (403),
 not found (404), validation error (400), AI failure mock (mengikuti aturan Section 6), business logic.
 
@@ -591,5 +609,5 @@ not found (404), validation error (400), AI failure mock (mengikuti aturan Secti
 
 ---
 
-*Dokumen ini menggambarkan kondisi implementasi aktual di branch `devv2`. Jika kode berubah,
+*Dokumen ini menggambarkan kondisi implementasi aktual di branch `dev`. Jika kode berubah,
 perbarui dokumen ini bersamaan dengan perubahan tersebut.*

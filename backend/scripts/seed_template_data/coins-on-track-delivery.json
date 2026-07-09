@@ -26,6 +26,7 @@
   "industry": "logistik",
   "theme": "corporate",
   "content_type": "instagram_post",
+  "copy_intent": "brand",
   "is_premium": false,
 
   "template_config": {

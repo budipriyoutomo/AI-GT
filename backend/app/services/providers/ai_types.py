@@ -2,12 +2,23 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class CopyBrief:
+    """Ringkasan slot AI yang dikompilasi dari template_config untuk mengarahkan prompt copy.
+    `slots` = bind yang BENAR-BENAR ada di template (headline/body/cta) → batas kata per slot.
+    Slot yang tak ada tidak dimasukkan → prompt menyuruh AI set null (hindari CTA yang mubazir)."""
+    intent: str | None
+    slots: dict[str, int]
+
+
+@dataclass
 class CopyInput:
     business_name: str
     industry: str
     language_style: str
     language_preference: str
     template_theme: str
+    copy_intent: str | None = None   # niat copy template: "promotion" | "story" | "brand"
+    copy_brief: "CopyBrief | None" = None
     goal: str | None = None
     platform: str | None = None
     product_or_service: str | None = None
