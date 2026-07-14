@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { PosterThumb } from "@/components/poster-thumb";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
-import { resolveBrandColors, resolveBrandFont } from "@/lib/create/brand-preview";
+import { resolveBrandColors, resolveBrandFont, resolveLogoUrl } from "@/lib/create/brand-preview";
 import type { Template } from "@/types/template";
 
 const LOCKED_ELEMENTS = [
@@ -25,6 +25,7 @@ export function SelectedTemplatePanel({
   brandPreview,
   userBrandColors,
   userBrandFont,
+  userLogoUrl,
   isCarousel,
   slideCount,
   onChangeTemplate,
@@ -33,12 +34,14 @@ export function SelectedTemplatePanel({
   brandPreview: boolean;
   userBrandColors: string[] | null;
   userBrandFont: string | null;
+  userLogoUrl: string | null;
   isCarousel: boolean;
   slideCount: number;
   onChangeTemplate: () => void;
 }) {
   const brandColors = resolveBrandColors(userBrandColors, brandPreview);
   const brandFont = resolveBrandFont(userBrandFont, brandPreview);
+  const logoUrl = resolveLogoUrl(userLogoUrl, brandPreview);
   const [w, h] = (template?.template_config.canvas?.aspect ?? "4:5").split(":").map(Number);
 
   return (
@@ -75,6 +78,7 @@ export function SelectedTemplatePanel({
               backgroundUrl={template.background_url ?? ""}
               brandColors={brandColors}
               brandFont={brandFont}
+              logoUrl={logoUrl}
             />
           ) : (
             <PosterThumb title="Template" kicker="" cta={null} accent="--chart-1" ratio="4 / 5" />

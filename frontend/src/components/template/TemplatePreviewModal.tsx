@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TemplateRenderer } from "./TemplateRenderer";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { TemplateListItem } from "@/types/template";
 
 // "instagram_post" → "Instagram post". Fallback ke nilai mentah bila kosong.
@@ -29,12 +30,14 @@ export function TemplatePreviewModal({
   template,
   brandColors,
   brandFont,
+  logoUrl,
   buildHref,
   onClose,
 }: {
   template: TemplateListItem | null;
   brandColors: string[] | null; // dari company profile; null/empty → belum diisi
   brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
+  logoUrl: string | null;       // dari company profile; null → slot logo hidden saat branded
   // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
   // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
   buildHref: (brandPreview: boolean) => string;
@@ -130,6 +133,7 @@ export function TemplatePreviewModal({
                 backgroundUrl={template.background_url ?? ""}
                 brandColors={branded ? brandColors : null}
                 brandFont={branded ? brandFont : null}
+                logoUrl={branded ? logoUrl : DEFAULT_COMPANY_PROFILE.logo_url}
               />
             </div>
           </div>

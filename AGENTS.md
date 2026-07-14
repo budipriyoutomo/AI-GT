@@ -109,6 +109,7 @@ AUTH_INVALID_CREDENTIALS     AUTH_EMAIL_NOT_VERIFIED      AUTH_TOKEN_EXPIRED
 PROFILE_NOT_FOUND            TEMPLATE_NOT_FOUND           SESSION_NOT_FOUND
 SESSION_EXPIRED              VARIANT_NOT_SELECTED         AI_GENERATION_FAILED
 STORAGE_UPLOAD_FAILED        RATE_LIMIT_EXCEEDED
+INVALID_FILE_TYPE            FILE_TOO_LARGE
 ```
 
 ### HTTP Status Code:
@@ -224,7 +225,7 @@ ai-gt-bucket/
 └── permanent/
     ├── thematic-images/{user_id}/{project_id}.png      ← Dipindah saat pilih varian
     ├── exported/{user_id}/{project_id}/export.png      ← Final PNG setelah export
-    ├── logos/{user_id}/logo.{ext}                      ← Logo company profile
+    ├── logos/{user_id}/logo.png                        ← Logo company profile (selalu dinormalisasi ke PNG)
     └── templates/thumbnails/{template_id}.png          ← Thumbnail template
 ```
 

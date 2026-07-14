@@ -37,3 +37,17 @@ export function resolveBrandFont(
   if (!enabled) return null;
   return userBrandFont || null;
 }
+
+/**
+ * Resolve the logoUrl to pass into TemplateRenderer. Same "never blank" shape as
+ * resolveBrandColors: `enabled` here is a raw query-string flag (not gated on whether
+ * the user actually has a logo), so falling back to the canonical default keeps a
+ * branded preview from silently rendering with no logo at all.
+ */
+export function resolveLogoUrl(
+  userLogoUrl: string | null | undefined,
+  enabled: boolean,
+): string | null {
+  if (!enabled) return null;
+  return userLogoUrl ?? DEFAULT_COMPANY_PROFILE.logo_url;
+}

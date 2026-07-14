@@ -3,12 +3,14 @@ Storage service — semua operasi Cloudflare R2.
 Lifecycle: temp/ (TTL 1 jam) → permanent/ (saat user pilih varian) → exported/ (saat export).
 """
 import logging
+import time
 from datetime import datetime, timezone
 
 import boto3
 from botocore.client import Config
 
 from app.config import settings
+from app.utils import images
 from app.utils.exceptions import AppError, ErrorCode
 
 logger = logging.getLogger(__name__)
@@ -126,6 +128,26 @@ def upload_exported(file_data: bytes, user_id: str, project_id: str, content_typ
     except Exception as e:
         logger.error("upload_exported failed project_id=%s: %s", project_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload file export.")
+
+
+def upload_logo(user_id: str, file_bytes: bytes) -> str:
+    """Normalize + upload ke permanent/logos/{user_id}/logo.png (key deterministik → overwrite,
+    tanpa file orphan). Return path + query version (`?v={epoch}`) untuk cache busting CDN."""
+    normalized = images.normalize_logo_image(file_bytes)
+    key = f"permanent/logos/{user_id}/logo.png"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=normalized,
+            ContentType="image/png",
+        )
+        version = int(time.time())
+        return f"{_asset_path(key)}?v={version}"
+    except Exception as e:
+        logger.error("upload_logo failed for user %s: %s", user_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload logo ke storage.")
 
 
 def delete_file(key: str) -> None:

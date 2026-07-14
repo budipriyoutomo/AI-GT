@@ -16,6 +16,7 @@ import { buildEditorPreviewConfig } from "@/lib/editor/preview-config";
 import { buildCanvasSpec } from "@/lib/editor/canvas-spec";
 import { charCapacity } from "@/lib/editor/fit-text";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import { useAuth } from "@/lib/auth";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
 import { generateApi } from "@/api/generateApi";
@@ -98,6 +99,7 @@ function FontButton({
 export default function EditorPage() {
   const searchParams = useSearchParams();
   const projectId    = searchParams.get("projectId");
+  const { user }      = useAuth();
 
   const [project,       setProject]       = useState<Project | null>(null);
   const [loadError,     setLoadError]     = useState(false);
@@ -184,11 +186,11 @@ export default function EditorPage() {
       ? buildCanvasSpec({
           cfg: previewCfg,
           thumbnailUrl: tplThumbnailUrl || null,
-          logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
+          logoUrl: resolveAssetUrl(user?.logoUrl) ?? null,
           contact: DEFAULT_COMPANY_PROFILE.contact,
         })
       : null,
-    [previewCfg, tplThumbnailUrl],
+    [previewCfg, tplThumbnailUrl, user?.logoUrl],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
@@ -1439,6 +1441,7 @@ export default function EditorPage() {
                 <TemplateRenderer
                   cfg={previewCfg}
                   thumbnailUrl={tplThumbnailUrl}
+                  logoUrl={user?.logoUrl ?? null}
                 />
                 <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
                   Render HTML dari template_config + copy AI yang sudah diedit

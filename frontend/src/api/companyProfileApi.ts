@@ -15,7 +15,7 @@ export interface CompanyProfileCreate {
 export interface CompanyProfileUpdate {
   business_name?: string;
   industry?: string;
-  logo_url?: string;
+  logo_url?: string | null;
   brand_colors?: string[];
   brand_font?: string;
   tagline?: string;
@@ -32,4 +32,10 @@ export const companyProfileApi = {
 
   update: (data: CompanyProfileUpdate): Promise<CompanyProfile> =>
     api.patch<CompanyProfile>("/api/v1/company-profile", data),
+
+  uploadLogo: (file: File): Promise<{ logo_url: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.upload<{ logo_url: string }>("/api/v1/company-profile/logo", formData);
+  },
 };

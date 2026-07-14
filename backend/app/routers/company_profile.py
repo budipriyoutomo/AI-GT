@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -8,10 +8,21 @@ from app.schemas.company_profile import (
     CompanyProfileData,
     CompanyProfileUpdate,
 )
-from app.services import company_profile_service
+from app.services import company_profile_service, storage_service
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1/company-profile", tags=["company-profile"])
+
+
+@router.post("/logo")
+async def upload_logo(
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+):
+    """Upload + normalize logo ke R2. TIDAK menyentuh DB — penulisan logo_url ke
+    company_profiles tetap lewat POST/PATCH profil biasa (lihat handoff §3.1)."""
+    logo_url = storage_service.upload_logo(str(current_user.id), await file.read())
+    return {"success": True, "data": {"logo_url": logo_url}}
 
 
 @router.get("")

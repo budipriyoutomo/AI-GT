@@ -40,6 +40,7 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
         onChangeTemplate={() => {}}
@@ -55,6 +56,7 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={["#111111"]}
         userBrandFont="Poppins"
+        userLogoUrl="/permanent/logos/u1/logo.png?v=1"
         isCarousel={false}
         slideCount={5}
         onChangeTemplate={() => {}}
@@ -66,17 +68,19 @@ describe("SelectedTemplatePanel", () => {
         thumbnailUrl: TEMPLATE.thumbnail_url,
         brandColors: null,
         brandFont: null,
+        logoUrl: null,
       }),
     );
   });
 
-  it("brandPreview=true + user has colors → TemplateRenderer receives user's brandColors/brandFont", () => {
+  it("brandPreview=true + user has colors/logo → TemplateRenderer receives user's brandColors/brandFont/logoUrl", () => {
     render(
       <SelectedTemplatePanel
         template={TEMPLATE}
         brandPreview={true}
         userBrandColors={["#111111", "#222222"]}
         userBrandFont="Poppins"
+        userLogoUrl="/permanent/logos/u1/logo.png?v=1"
         isCarousel={false}
         slideCount={5}
         onChangeTemplate={() => {}}
@@ -86,17 +90,19 @@ describe("SelectedTemplatePanel", () => {
       expect.objectContaining({
         brandColors: ["#111111", "#222222"],
         brandFont: "Poppins",
+        logoUrl: "/permanent/logos/u1/logo.png?v=1",
       }),
     );
   });
 
-  it("brandPreview=true + user has no brand colors → falls back to DEFAULT_COMPANY_PROFILE.brand_colors (never blank/error)", () => {
+  it("brandPreview=true + user has no brand colors/logo → falls back to DEFAULT_COMPANY_PROFILE (never blank/error)", () => {
     render(
       <SelectedTemplatePanel
         template={TEMPLATE}
         brandPreview={true}
         userBrandColors={null}
         userBrandFont={null}
+        userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
         onChangeTemplate={() => {}}
@@ -106,6 +112,7 @@ describe("SelectedTemplatePanel", () => {
       expect.objectContaining({
         brandColors: DEFAULT_COMPANY_PROFILE.brand_colors,
         brandFont: null,
+        logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
       }),
     );
   });
@@ -118,6 +125,7 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
         onChangeTemplate={onChangeTemplate}
@@ -134,6 +142,7 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        userLogoUrl={null}
         isCarousel={true}
         slideCount={6}
         onChangeTemplate={() => {}}

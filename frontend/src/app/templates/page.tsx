@@ -17,6 +17,7 @@ import { templatesApi } from "@/api/templatesApi";
 import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { TemplateListItem } from "@/types/template";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
@@ -33,7 +34,7 @@ function TemplateCard({
   t,
   fav,
   onFav,
-  onPreview,
+  onPreview
 }: {
   t: TemplateListItem;
   fav: boolean;
@@ -59,7 +60,15 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
-          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} backgroundUrl={t.background_url ?? ""} aspect="4:5" />
+           {/* Galeri = generic/unbranded browsing: logo default statis (bukan logo brand user),
+               tanpa adaptasi warna/font — beda dari TemplatePreviewModal yang branded. */}
+           <TemplateRenderer
+             cfg={t.template_config}
+             thumbnailUrl={t.thumbnail_url}
+             backgroundUrl={t.background_url ?? ""}
+             logoUrl={DEFAULT_COMPANY_PROFILE.logo_url}
+             aspect="4:5"
+           />
 
           {t.is_premium && (
             <div style={{
@@ -143,16 +152,17 @@ export default function TemplatesPage() {
   const [preview, setPreview] = useState<TemplateListItem | null>(null);
   const [brandColors, setBrandColors] = useState<string[] | null>(null);
   const [brandFont, setBrandFont] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     templatesApi.list()
       .then(setTemplates)
       .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
       .finally(() => setLoading(false));
-    // Brand color & font untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
+    // Brand color/font/logo untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); })
-      .catch(() => { setBrandColors(null); setBrandFont(null); });
+      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); setLogoUrl(p.logo_url ?? null); })
+      .catch(() => { setBrandColors(null); setBrandFont(null); setLogoUrl(null); });
   }, []);
 
   const list = useMemo(() => {
@@ -268,6 +278,7 @@ export default function TemplatesPage() {
         template={preview}
         brandColors={brandColors}
         brandFont={brandFont}
+        logoUrl={logoUrl}
         buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />

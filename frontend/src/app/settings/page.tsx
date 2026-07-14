@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
+import { LogoUploadField } from "@/components/ui/logo-upload-field";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -359,21 +360,19 @@ function TabProfil() {
 /* ── Tab: Profil Bisnis ───────────────────────────────────── */
 
 function TabProfilBisnis() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, refreshProfile } = useAuth();
 
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
   const [industry, setIndustry]         = useState(user?.industry ?? "F&B / Kuliner");
   const [city, setCity]                 = useState("");
   const [desc, setDesc]                 = useState("");
-  const [logo, setLogo]                 = useState(false);
+  const [logoUrl, setLogoUrl]           = useState<string | null>(user?.logoUrl ?? null);
   const [tagline, setTagline]           = useState(user?.tagline ?? "");
   const [primary, setPrimary]           = useState(user?.brandColors?.[0] ?? "#2F6BFF");
   const [secondary, setSecondary]       = useState(user?.brandColors?.[1] ?? "#7C3AED");
   const [font, setFont]                 = useState(user?.brandFont ?? "Inter");
   const [contact, setContact]           = useState<CompanyContact>(user?.contact ?? EMPTY_CONTACT);
   const [saving, setSaving]             = useState(false);
-
-  const initial = (businessName.trim()[0] || "S").toUpperCase();
 
   function setContactField(field: keyof CompanyContact, value: string) {
     setContact((prev) => ({ ...prev, [field]: value }));
@@ -390,7 +389,9 @@ function TabProfilBisnis() {
         brandColors: [primary, secondary],
         brandFont: font,
         contact,
+        logoUrl,
       });
+      await refreshProfile();
       toast({ title: "Profil bisnis disimpan", variant: "success" });
     } catch {
       toast({ title: "Gagal menyimpan profil bisnis", variant: "error" });
@@ -444,38 +445,7 @@ function TabProfilBisnis() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Logo bisnis</label>
-            {logo ? (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 14, padding: 16,
-                border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--card)",
-              }}>
-                <span style={{
-                  width: 52, height: 52, borderRadius: "var(--radius-lg)", background: primary, color: "#fff",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22,
-                }}>{initial}</span>
-                <div style={{ flex: 1 }}>
-                  <div className="aigt-h6">logo-bisnis.png</div>
-                  <div className="aigt-caption">512×512 · 84 KB</div>
-                </div>
-                <Button type="button" variant="ghost" size="sm" icon="trash-2" onClick={() => setLogo(false)}>Ganti</Button>
-              </div>
-            ) : (
-              <div
-                onClick={() => { setLogo(true); toast({ title: "Logo terunggah", variant: "success" }); }}
-                style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 28,
-                  border: "1.5px dashed color-mix(in oklch, var(--primary) 40%, var(--border))",
-                  borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)",
-                  cursor: "pointer", textAlign: "center",
-                }}
-              >
-                <span style={{ width: 40, height: 40, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="upload-cloud" size={20} />
-                </span>
-                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Tarik logo ke sini atau klik untuk unggah</div>
-                <div className="aigt-caption">PNG, JPG atau SVG · maks 5 MB</div>
-              </div>
-            )}
+            <LogoUploadField value={logoUrl} onChange={setLogoUrl} />
           </div>
           <Input
             label="Tagline (opsional)"

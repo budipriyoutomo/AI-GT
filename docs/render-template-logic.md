@@ -19,7 +19,7 @@ di aplikasi layer, bukan di database.
 | Sumber | Asal | Kapan di-fetch |
 |---|---|---|
 | `template_config` | Tabel `templates` | Saat user pilih satu template |
-| `company_profile` | Tabel `company_profiles` | Saat user login → simpan di global state |
+| `company_profile` | Tabel `company_profiles` | Saat halaman `/create` di-mount → simpan di global state |
 | `generate_config` | Input user per-sesi | Saat user trigger generate |
 
 ---
@@ -111,10 +111,14 @@ Fase generate (setelah AI):
 ## Fetch Strategy
 
 ```
-Saat user login:
-  → fetch company_profile sekali
-  → simpan di global state (React Context / Zustand)
-  → tidak perlu fetch ulang selama session aktif
+Saat halaman /create di-mount:
+  → fetch company_profile sekali (fresh, bukan dari cache waktu login)
+  → simpan/timpa di global state yang sama (React Context / Zustand) yang juga
+    dibaca Settings & Dashboard
+  → Step 1-4 di dalam wizard /create adalah satu page mount — pindah antar step
+    TIDAK memicu fetch ulang, cukup pakai hasil fetch di awal mount ini
+  → mount baru ke /create (mis. setelah brand diubah di Settings lalu balik lagi)
+    akan fetch ulang, jadi datanya selalu segar tanpa perlu logout/login ulang
 
 Saat user browse template list:
   → fetch kolom ringan saja: id, name, thumbnail_url, layout_type, industry
@@ -132,7 +136,9 @@ Saat user pilih satu template:
 
 - ❌ Jangan simpan hasil merge ke database
 - ❌ Jangan modifikasi `template_config` di tabel `templates`
-- ❌ Jangan fetch `company_profile` ulang setiap render — ambil dari global state
+- ❌ Jangan fetch `company_profile` ulang di tiap render/perpindahan step di dalam satu mount
+  `/create` — cukup sekali di awal mount, lalu ambil dari global state selama mount itu aktif.
+  Fetch ulang tetap terjadi di mount baru berikutnya (bukan cuma sekali per sesi login).
 - ❌ Jangan fetch semua `template_config` saat list template — berat, tidak perlu
 - ❌ Jangan merge di SQL (JOIN) — merge di aplikasi layer
 

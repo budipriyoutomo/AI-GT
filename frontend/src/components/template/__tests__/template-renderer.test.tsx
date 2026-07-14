@@ -1,0 +1,33 @@
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { TemplateRenderer } from "../TemplateRenderer";
+import type { TemplateConfig } from "@/types/template";
+
+const CFG: TemplateConfig = {
+  canvas: { aspect: "4:5" },
+  color_scheme: { primary: "#fff", secondary: "#ccc", accent: "#f00" },
+  elements: [
+    { type: "logo", x: 0.35, y: 0.03, width: 0.3, height: 0.1 },
+    { type: "text", x: 0.06, y: 0.5, width: 0.88, value: "Headline" },
+  ],
+};
+
+describe("TemplateRenderer logo", () => {
+  it("logoUrl set → renders the logo <img> with the resolved CDN URL", () => {
+    render(<TemplateRenderer cfg={CFG} thumbnailUrl="" logoUrl="/permanent/logos/u1/logo.png?v=123" />);
+    const img = screen.getByAltText("Logo bisnis") as HTMLImageElement;
+    expect(img.src).toBe("https://cdn.calira.my.id/permanent/logos/u1/logo.png?v=123");
+  });
+
+  it("logoUrl null → no logo <img>, sibling elements unaffected", () => {
+    render(<TemplateRenderer cfg={CFG} thumbnailUrl="" logoUrl={null} />);
+    expect(screen.queryByAltText("Logo bisnis")).not.toBeInTheDocument();
+    expect(screen.getByText("Headline")).toBeInTheDocument();
+  });
+
+  it("logoUrl omitted (undefined) → no logo <img>, sibling elements unaffected", () => {
+    render(<TemplateRenderer cfg={CFG} thumbnailUrl="" />);
+    expect(screen.queryByAltText("Logo bisnis")).not.toBeInTheDocument();
+    expect(screen.getByText("Headline")).toBeInTheDocument();
+  });
+});

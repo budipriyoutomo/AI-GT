@@ -102,7 +102,13 @@ export default function CreatePage() {
   const goalParam  = searchParams.get("goal") as GoalEnum | null;
   const platParam  = searchParams.get("platform") as PlatformEnum | null;
   const brandPreview = parseBrandPreview(searchParams.get("brandPreview"));
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+
+  // company_profile bisa berubah kapan saja (mis. brand color diedit di Settings).
+  // Fetch fresh sekali di awal mount page ini — bukan pakai snapshot lama dari
+  // waktu login — supaya Step 1-4 di wizard ini konsisten pakai data terbaru.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshProfile(); }, []);
 
   // Step 1: Goal + Platform
   const [goal, setGoal]         = useState<GoalEnum | null>(goalParam);
@@ -493,6 +499,7 @@ export default function CreatePage() {
               brandPreview={brandPreview}
               userBrandColors={user?.brandColors ?? null}
               userBrandFont={user?.brandFont ?? null}
+              userLogoUrl={user?.logoUrl ?? null}
               isCarousel={isCarousel}
               slideCount={slideCount}
               onChangeTemplate={() => setShowTemplatePicker(true)}

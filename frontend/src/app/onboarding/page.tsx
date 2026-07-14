@@ -11,6 +11,7 @@ import { FontSelect } from "@/components/ui/font-select";
 import { Switch } from "@/components/ui/switch";
 import { Icon } from "@/components/ui/icon";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { LogoUploadField } from "@/components/ui/logo-upload-field";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 
@@ -30,7 +31,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("F&B / Kuliner");
-  const [logo, setLogo] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [color, setColor] = useState("#2F6BFF");
   const [secondary, setSecondary] = useState("#7C3AED");
   const [tagline, setTagline] = useState("");
@@ -47,6 +48,7 @@ export default function OnboardingPage() {
     if (user.brandColors?.[1]) setSecondary(user.brandColors[1]);
     if (user.tagline) setTagline(user.tagline);
     if (user.brandFont) setFont(user.brandFont);
+    if (user.logoUrl) setLogoUrl(user.logoUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -63,6 +65,7 @@ export default function OnboardingPage() {
         tagline: tagline.trim(),
         brandColors: [color, secondary],
         brandFont: font,
+        logoUrl,
       });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
       router.replace("/dashboard");
@@ -104,27 +107,7 @@ export default function OnboardingPage() {
         </p>
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Logo bisnis</label>
-          {logo ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "var(--card)" }}>
-              <span style={{ width: 52, height: 52, borderRadius: "var(--radius-lg)", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22 }}>{initial}</span>
-              <div style={{ flex: 1 }}>
-                <div className="aigt-h6">logo-senja.png</div>
-                <div className="aigt-caption">512×512 · 84 KB</div>
-              </div>
-              <Button variant="ghost" size="sm" icon="trash-2" onClick={() => setLogo(false)}>Ganti</Button>
-            </div>
-          ) : (
-            <div
-              onClick={() => { setLogo(true); toast({ title: "Logo terunggah", variant: "success" }); }}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 28, border: "1.5px dashed color-mix(in oklch, var(--primary) 40%, var(--border))", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)", cursor: "pointer", textAlign: "center" }}
-            >
-              <span style={{ width: 40, height: 40, borderRadius: "var(--radius-lg)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                <Icon name="upload-cloud" size={20} />
-              </span>
-              <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Tarik logo ke sini atau klik untuk unggah</div>
-              <div className="aigt-caption">PNG, JPG atau SVG · maks 5 MB</div>
-            </div>
-          )}
+          <LogoUploadField value={logoUrl} onChange={setLogoUrl} />
         </div>
         <Input label="Tagline (opsional)" value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="mis. Teman ngopi sore kamu" />
       </div>
