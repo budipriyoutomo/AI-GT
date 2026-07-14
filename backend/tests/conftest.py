@@ -132,64 +132,46 @@ async def company_profile(db: AsyncSession, verified_user: User) -> CompanyProfi
 
 
 SAMPLE_TEMPLATE_CONFIG = {
-    "font": {"family": "Inter", "locked": False},
-    "zones": {
-        "logo": {
-            "type": "image",
-            "anchors": [
-                {
-                    "id": "top_center",
-                    "logo": {"x": 0.35, "y": 0.03, "width": 0.30, "height": 0.10},
-                    "affects": {"body": {"y": 0.45}, "headline": {"y": 0.16}},
-                }
-            ],
-            "positioning": "anchored",
-        },
-        "headline": {
-            "x": 0.06, "y": 0.0, "type": "text",
+    "canvas": {"aspect": "1:1", "dimensions": {"width": 1080, "height": 1080}},
+    "background": {"type": "image", "fallback": "#000000"},
+    "color_scheme": {"accent": "#FFD700", "primary": "#FFFFFF", "secondary": "#CCCCCC"},
+    "font": {"family": "Inter"},
+    "brand_theme": {"mode": "tint", "color_slots": {"accent": 0}, "font_brand_roles": ["body"]},
+    "elements": [
+        {"type": "logo", "source": "brand", "x": 0.35, "y": 0.03, "width": 0.30, "height": 0.10},
+        {
+            "type": "text", "role": "headline", "bind": "headline",
+            "x": 0.06, "y": 0.16, "width": 0.88, "height": 0.28,
             "style": {
-                "align": "left", "color": "primary", "fontSize": 72, "fontWeight": "bold",
+                "align": "left", "color": "primary", "fontSize": 72, "weight": "bold",
                 "accentColor": "accent", "accentWords": "auto",
             },
             "value": "Headline Contoh Template",
-            "width": 0.88, "height": 0.28, "visible": True,
         },
-        "body": {
-            "x": 0.06, "y": 0.0, "type": "text",
-            "style": {"align": "left", "color": "primary", "fontSize": 32, "fontWeight": "semibold"},
+        {
+            "type": "text", "role": "body", "bind": "body",
+            "x": 0.06, "y": 0.45, "width": 0.88, "height": 0.10,
+            "style": {"align": "left", "color": "primary", "fontSize": 32, "weight": "semibold"},
             "value": "Body copy untuk template test",
-            "width": 0.88, "height": 0.10, "visible": True,
         },
-        "cta": {
-            "x": 0.06, "y": 0.0, "type": "text",
-            "style": {"align": "left", "color": "accent", "fontSize": 28, "fontWeight": "bold"},
+        {
+            "type": "text", "role": "cta", "bind": "cta",
+            "x": 0.06, "y": 0.6, "width": 0.88, "height": 0.07,
+            "style": {"align": "left", "color": "accent", "fontSize": 28, "weight": "bold"},
             "value": "Pesan Sekarang",
-            "width": 0.88, "height": 0.07, "visible": False,
         },
-        "footer": {
-            "x": 0.0, "y": 0.88, "type": "footer",
+        {
+            "type": "footer", "x": 0.0, "y": 0.88, "width": 1.0, "height": 0.12,
             "slots": ["instagram", "youtube"],
             "style": {"color": "primary", "opacity": 0.6, "fontSize": 22, "backgroundColor": "#000000"},
-            "width": 1.0, "height": 0.12,
-            "values": {"instagram": "", "youtube": ""},
         },
-    },
-    "layout": "full_bleed",
-    "background": {
-        "type": "image", "value": "",
-        "overlay": {"color": "#000000", "opacity": 0.45},
-        "replaceable": True,
-    },
-    "dimensions": {"width": 1080, "height": 1080},
-    "color_scheme": {
-        "accent": "#FFD700", "primary": "#FFFFFF", "secondary": "#CCCCCC", "brand_color_role": "accent",
-    },
+    ],
 }
 
 
 @pytest_asyncio.fixture
 async def sample_template(db: AsyncSession) -> Template:
-    """Template aktif dengan template_config realistis (zones + color_scheme)."""
+    """Template aktif dengan template_config realistis (elements-array + color_scheme + brand_theme)."""
     template = Template(
         id=uuid.uuid4(),
         name="Template Lebaran FnB",

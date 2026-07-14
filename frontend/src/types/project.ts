@@ -57,6 +57,9 @@ export interface ProjectFinalConfig {
   image_source: "upload" | "generated" | "none";
   image_prompt: string;
   template_config?: ProjectTemplateConfig;
+  // Intent user "Preview dengan brand color" dibawa dari /create (Handoff 8a §3.4) —
+  // absen di project lama = unbranded (backward compat, tidak mengubah tampilan lama).
+  brand_applied?: boolean;
 }
 
 export interface Project {

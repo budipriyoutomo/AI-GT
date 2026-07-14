@@ -17,7 +17,8 @@ import { templatesApi } from "@/api/templatesApi";
 import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
-import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import { resolveTemplateConfig } from "@/lib/template/resolve";
+import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
@@ -63,10 +64,9 @@ function TemplateCard({
            {/* Galeri = generic/unbranded browsing: logo default statis (bukan logo brand user),
                tanpa adaptasi warna/font — beda dari TemplatePreviewModal yang branded. */}
            <TemplateRenderer
-             cfg={t.template_config}
+             cfg={resolveTemplateConfig({ templateConfig: t.template_config, profile: null, branded: false })}
              thumbnailUrl={t.thumbnail_url}
              backgroundUrl={t.background_url ?? ""}
-             logoUrl={DEFAULT_COMPANY_PROFILE.logo_url}
              aspect="4:5"
            />
 
@@ -150,9 +150,7 @@ export default function TemplatesPage() {
   const [q, setQ] = useState("");
   const [favs, setFavs] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<TemplateListItem | null>(null);
-  const [brandColors, setBrandColors] = useState<string[] | null>(null);
-  const [brandFont, setBrandFont] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [profile, setProfile] = useState<BrandSource | null>(null);
 
   useEffect(() => {
     templatesApi.list()
@@ -161,8 +159,8 @@ export default function TemplatesPage() {
       .finally(() => setLoading(false));
     // Brand color/font/logo untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); setLogoUrl(p.logo_url ?? null); })
-      .catch(() => { setBrandColors(null); setBrandFont(null); setLogoUrl(null); });
+      .then((p) => setProfile({ brand_colors: p.brand_colors ?? null, brand_font: p.brand_font ?? null, logo_url: p.logo_url ?? null }))
+      .catch(() => setProfile(null));
   }, []);
 
   const list = useMemo(() => {
@@ -276,9 +274,7 @@ export default function TemplatesPage() {
 
       <TemplatePreviewModal
         template={preview}
-        brandColors={brandColors}
-        brandFont={brandFont}
-        logoUrl={logoUrl}
+        profile={profile}
         buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />

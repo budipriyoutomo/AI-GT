@@ -23,6 +23,7 @@ export interface CreateSessionRequest {
   promo_detail?: string | null;
   additional_notes?: string | null;
   campaign_data?: CarouselSettings | null;
+  brand_applied?: boolean;
 }
 
 export const generateApi = {

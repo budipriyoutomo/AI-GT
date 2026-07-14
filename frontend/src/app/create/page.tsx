@@ -326,6 +326,7 @@ export default function CreatePage() {
         thematic_image_theme: imageSrc === "generated" ? thematicTheme.trim() || null : null,
         selected_image_prompt: imageSrc === "generated" ? selectedPrompt || null : null,
         campaign_data: carouselData,
+        brand_applied: brandPreview,
       });
       router.push(`/generate?sessionId=${session.id}`);
     } catch (err) {

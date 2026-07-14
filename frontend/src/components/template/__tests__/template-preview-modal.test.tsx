@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TemplatePreviewModal } from "../TemplatePreviewModal";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
 
 const push = vi.fn();
@@ -34,6 +35,16 @@ const TEMPLATE: TemplateListItem = {
   },
 };
 
+const PROFILE: BrandSource = {
+  brand_colors: ["#111111"],
+  brand_font: "Poppins",
+  logo_url: "/permanent/logos/u1/logo.png?v=1",
+};
+
+function lastCfg() {
+  return renderSpy.mock.calls.at(-1)?.[0] as { cfg: { color_scheme: Record<string, string>; logoUrl: string | null } };
+}
+
 describe("TemplatePreviewModal", () => {
   beforeEach(() => {
     push.mockClear();
@@ -44,9 +55,7 @@ describe("TemplatePreviewModal", () => {
     render(
       <TemplatePreviewModal
         template={TEMPLATE}
-        brandColors={["#111111"]}
-        brandFont="Poppins"
-        logoUrl="/permanent/logos/u1/logo.png?v=1"
+        profile={PROFILE}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -54,9 +63,8 @@ describe("TemplatePreviewModal", () => {
     expect(screen.getByTestId("template-renderer-mock")).toBeInTheDocument();
     // Unbranded by default: original colors, but the static default logo still shows
     // (matches the gallery grid) — not the user's real logo, and not hidden.
-    expect(renderSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ brandColors: null, logoUrl: DEFAULT_COMPANY_PROFILE.logo_url }),
-    );
+    expect(lastCfg().cfg.color_scheme.accent).toBe("#FF6B35");
+    expect(lastCfg().cfg.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
   });
 
   it("toggle 'Preview dengan brand color' switches TemplateRenderer to branded colors/logo, and back", async () => {
@@ -64,23 +72,19 @@ describe("TemplatePreviewModal", () => {
     render(
       <TemplatePreviewModal
         template={TEMPLATE}
-        brandColors={["#111111"]}
-        brandFont="Poppins"
-        logoUrl="/permanent/logos/u1/logo.png?v=1"
+        profile={PROFILE}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
     );
 
     await user.click(screen.getByText("Preview dengan brand color"));
-    expect(renderSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({ brandColors: ["#111111"], brandFont: "Poppins", logoUrl: "/permanent/logos/u1/logo.png?v=1" }),
-    );
+    expect(lastCfg().cfg.color_scheme.accent).not.toBe("#FF6B35");
+    expect(lastCfg().cfg.logoUrl).toBe("https://cdn.calira.my.id/permanent/logos/u1/logo.png?v=1");
 
     await user.click(screen.getByText("Kembali ke original"));
-    expect(renderSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({ brandColors: null, brandFont: null, logoUrl: DEFAULT_COMPANY_PROFILE.logo_url }),
-    );
+    expect(lastCfg().cfg.color_scheme.accent).toBe("#FF6B35");
+    expect(lastCfg().cfg.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
   });
 
   it("'Pakai template ini' calls buildHref with the CURRENT toggle state (false by default)", async () => {
@@ -89,9 +93,7 @@ describe("TemplatePreviewModal", () => {
     render(
       <TemplatePreviewModal
         template={TEMPLATE}
-        brandColors={["#111111"]}
-        brandFont="Poppins"
-        logoUrl={null}
+        profile={PROFILE}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -107,9 +109,7 @@ describe("TemplatePreviewModal", () => {
     render(
       <TemplatePreviewModal
         template={TEMPLATE}
-        brandColors={["#111111"]}
-        brandFont="Poppins"
-        logoUrl={null}
+        profile={PROFILE}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -125,9 +125,7 @@ describe("TemplatePreviewModal", () => {
     render(
       <TemplatePreviewModal
         template={TEMPLATE}
-        brandColors={null}
-        brandFont={null}
-        logoUrl={null}
+        profile={{ brand_colors: null, brand_font: null, logo_url: null }}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -135,6 +133,6 @@ describe("TemplatePreviewModal", () => {
     await user.click(screen.getByText("Preview dengan brand color"));
     expect(push).toHaveBeenCalledWith("/settings?focus=brand");
     // still unbranded — toggle did not flip
-    expect(renderSpy).toHaveBeenLastCalledWith(expect.objectContaining({ brandColors: null }));
+    expect(lastCfg().cfg.color_scheme.accent).toBe("#FF6B35");
   });
 });

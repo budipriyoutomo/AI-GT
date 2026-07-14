@@ -9,25 +9,33 @@ import type {
   RectSpec,
   TextSpec,
 } from "../canvas-spec";
-import type { TemplateConfig, TemplateElement } from "@/types/template";
+import type { TemplateElement } from "@/types/template";
+import type { ResolvedConfig } from "@/lib/template/resolve";
 
 // ── Seed helpers ──────────────────────────────────────────────────────────────
 
 const CONTACT = { website: "www.toko.com", instagram: "@toko" };
 
-function makeCfg(overrides: Partial<TemplateConfig> = {}): TemplateConfig {
+function makeCfg(overrides: Partial<ResolvedConfig> = {}): ResolvedConfig {
   return {
     canvas: { aspect: "4:5", dimensions: { width: 1080, height: 1350 } },
     background: { type: "color", value: "#1A1A1A" },
     color_scheme: { accent: "#F2C200", primary: "#FFFFFF", secondary: "#2E6B34" },
     font: { family: "Montserrat" },
     elements: [],
+    logoUrl: "https://cdn/logo.png",
+    warnings: [],
     ...overrides,
   };
 }
 
-function build(cfg: TemplateConfig, extra: Partial<Parameters<typeof buildCanvasSpec>[0]> = {}) {
-  return buildCanvasSpec({ cfg, thumbnailUrl: null, logoUrl: "https://cdn/logo.png", contact: CONTACT, ...extra });
+function build(
+  cfg: ResolvedConfig,
+  extra: Partial<Parameters<typeof buildCanvasSpec>[0]> & { logoUrl?: string | null } = {},
+) {
+  const { logoUrl, ...rest } = extra;
+  const finalCfg = logoUrl !== undefined ? { ...cfg, logoUrl } : cfg;
+  return buildCanvasSpec({ cfg: finalCfg, thumbnailUrl: null, contact: CONTACT, ...rest });
 }
 
 function specOf<T extends CanvasSpec>(specs: CanvasSpec[], kind: T["kind"], nth = 0): T {

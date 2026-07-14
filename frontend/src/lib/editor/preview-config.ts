@@ -1,4 +1,5 @@
-import { mergeCopyIntoTemplate } from "./merge";
+import { resolveTemplateConfig } from "@/lib/template/resolve";
+import type { BrandSource, ResolvedConfig } from "@/lib/template/resolve";
 import type { CopyResult } from "./merge";
 import type { ProjectTemplateConfig } from "@/types/project";
 import type { TemplateConfig, TemplateElement } from "@/types/template";
@@ -13,6 +14,12 @@ export interface EditorPreviewState {
   headlineFont: string;
   bodyFont: string;
   letterSpacing: number; // px ruang preview 800px
+}
+
+/** Konteks brand editor — final_config.brand_applied + company profile live. */
+export interface EditorBrandState {
+  profile: BrandSource | null;
+  branded: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -32,7 +39,9 @@ const LETTER_SPACING_SCALE = 1080 / 800;
 
 const fontFamilyOf = (id: string): string => FONT_ID_TO_FAMILY[id] ?? id;
 
-/** Hapus elemen ber-bind cta (rekursif) — dipakai saat CTA kosong/null. */
+/** Hapus elemen ber-bind cta (rekursif) — dipakai saat CTA kosong/null. Ini fixup
+ * editor-spesifik murni (UI state), BUKAN aturan resolve — makanya tetap di adapter
+ * ini, bukan pindah ke lib/template/resolve.ts (lihat Handoff 8a §4.2). */
 function stripCtaElements(elements: TemplateElement[]): TemplateElement[] {
   return elements
     .filter((el) => el.bind !== "cta")
@@ -41,34 +50,12 @@ function stripCtaElements(elements: TemplateElement[]): TemplateElement[] {
     );
 }
 
-/**
- * merge.ts menerapkan letter_spacing ke SEMUA text element. Untuk fidelity preview,
- * elemen statis (tanpa bind) harus mempertahankan letterSpacing template — kicker
- * ber-tracking lebar jangan ikut nilai slider editor.
- */
-function restoreStaticLetterSpacing(
-  merged: TemplateElement[],
-  original: TemplateElement[],
-): TemplateElement[] {
-  return merged.map((el, i) => {
-    const orig = original[i];
-    if (el.type === "group" && el.children && orig?.children) {
-      return { ...el, children: restoreStaticLetterSpacing(el.children, orig.children) };
-    }
-    if (el.type !== "text" || el.bind) return el;
-    const style = { ...(el.style ?? {}) };
-    if (orig?.style?.letterSpacing !== undefined) style.letterSpacing = orig.style.letterSpacing;
-    else delete style.letterSpacing;
-    return { ...el, style };
-  });
-}
-
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
- * Bangun TemplateConfig siap-render untuk canvas editor: copy hasil edit di-merge
- * ke slot ber-bind (via mergeCopyIntoTemplate), font/letter-spacing editor diterapkan
- * per-role, dan elemen CTA dibuang bila CTA kosong.
+ * Bangun ResolvedConfig siap-render untuk canvas editor: state editor → CopyResult →
+ * resolveTemplateConfig() (satu resolver, dipakai juga oleh preview HTML & Fabric —
+ * Handoff 8a §3.2/§4.2). Adapter tipis: tidak resolve brand/font sendiri.
  *
  * Return null bila config tidak lengkap/tidak valid → pemanggil fallback ke
  * canvas generik (project lama tanpa template_config).
@@ -76,11 +63,12 @@ function restoreStaticLetterSpacing(
 export function buildEditorPreviewConfig(
   tplCfg: ProjectTemplateConfig | undefined,
   state: EditorPreviewState,
-): TemplateConfig | null {
+  brand: EditorBrandState,
+): ResolvedConfig | null {
   if (!tplCfg?.elements?.length || !tplCfg.color_scheme) return null;
   const cfg = { ...tplCfg, elements: tplCfg.elements, color_scheme: tplCfg.color_scheme } as TemplateConfig;
 
-  const result: CopyResult = {
+  const copy: CopyResult = {
     copy: {
       headline: state.headline,
       body: state.body,
@@ -98,15 +86,18 @@ export function buildEditorPreviewConfig(
     thematic_image_url: null,
   };
 
-  let merged: TemplateConfig;
+  let resolved: ResolvedConfig;
   try {
-    merged = mergeCopyIntoTemplate(result, cfg, { fontSizeStrategy: "template" }).template;
+    resolved = resolveTemplateConfig({
+      templateConfig: cfg,
+      profile: brand.profile,
+      branded: brand.branded,
+      copy,
+    });
   } catch {
     return null; // config lama/invalid — fallback ke canvas generik
   }
 
-  let elements = restoreStaticLetterSpacing(merged.elements, cfg.elements);
-  if (!state.cta) elements = stripCtaElements(elements);
-
-  return { ...merged, elements };
+  const elements = state.cta ? resolved.elements : stripCtaElements(resolved.elements);
+  return { ...resolved, elements };
 }

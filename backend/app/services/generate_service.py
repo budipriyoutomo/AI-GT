@@ -77,6 +77,7 @@ async def create_session(
         "product_or_service": data.product_or_service,
         "key_message": data.key_message,
         "image_source": data.image_source,
+        "brand_applied": data.brand_applied,
     }
     if data.promo_detail:
         content_data["promo_detail"] = data.promo_detail
@@ -162,6 +163,7 @@ async def select_variant(
         "image_source": image_source,
         "image_prompt": image_prompt,
         "template_config": _normalize_template_config(template, template_cfg),
+        "brand_applied": bool(content.get("brand_applied", False)),
     }
 
     project = Project(
@@ -387,6 +389,7 @@ async def _auto_select_first_variant(db: AsyncSession, session: GenerateSession)
         "image_source": content.get("image_source", "none"),
         "image_prompt": content.get("selected_image_prompt", ""),
         "template_config": _normalize_template_config(template, template_cfg),
+        "brand_applied": bool(content.get("brand_applied", False)),
     }
 
     project = Project(

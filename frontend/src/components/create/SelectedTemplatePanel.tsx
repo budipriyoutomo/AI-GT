@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { PosterThumb } from "@/components/poster-thumb";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
-import { resolveBrandColors, resolveBrandFont, resolveLogoUrl } from "@/lib/create/brand-preview";
+import { resolveTemplateConfig } from "@/lib/template/resolve";
 import type { Template } from "@/types/template";
 
 const LOCKED_ELEMENTS = [
@@ -39,9 +39,13 @@ export function SelectedTemplatePanel({
   slideCount: number;
   onChangeTemplate: () => void;
 }) {
-  const brandColors = resolveBrandColors(userBrandColors, brandPreview);
-  const brandFont = resolveBrandFont(userBrandFont, brandPreview);
-  const logoUrl = resolveLogoUrl(userLogoUrl, brandPreview);
+  const resolved = template
+    ? resolveTemplateConfig({
+        templateConfig: template.template_config,
+        profile: { brand_colors: userBrandColors, brand_font: userBrandFont, logo_url: userLogoUrl },
+        branded: brandPreview,
+      })
+    : null;
   const [w, h] = (template?.template_config.canvas?.aspect ?? "4:5").split(":").map(Number);
 
   return (
@@ -71,14 +75,11 @@ export function SelectedTemplatePanel({
       */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
         <div style={{ height: "100%", maxWidth: "100%", aspectRatio: `${w} / ${h}`, borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-          {template ? (
+          {template && resolved ? (
             <TemplateRenderer
-              cfg={template.template_config}
+              cfg={resolved}
               thumbnailUrl={template.thumbnail_url}
               backgroundUrl={template.background_url ?? ""}
-              brandColors={brandColors}
-              brandFont={brandFont}
-              logoUrl={logoUrl}
             />
           ) : (
             <PosterThumb title="Template" kicker="" cta={null} accent="--chart-1" ratio="4 / 5" />

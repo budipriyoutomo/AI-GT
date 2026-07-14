@@ -25,6 +25,9 @@ class CreateSessionRequest(BaseModel):
     additional_notes: str | None = None
     # null = Quick Generate (free); non-null = Campaign (premium — gated at server)
     campaign_data: dict | None = None
+    # Intent user "Preview dengan brand color" dari /create (Handoff 8a §3.4/§4.3/§4.4).
+    # Hanya boolean — TIDAK ada brand data (warna/font/logo) yang disnapshot.
+    brand_applied: bool = False
 
 
 class ImageSuggestionsRequest(BaseModel):

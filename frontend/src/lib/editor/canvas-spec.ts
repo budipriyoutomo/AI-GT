@@ -1,14 +1,14 @@
 import type {
   ColorScheme,
-  TemplateConfig,
   TemplateElement,
 } from "@/types/template";
+import type { ResolvedConfig } from "@/lib/template/resolve";
 import { blockHeight, fitFontSize, type MeasureBlock } from "./fit-text";
 
 /**
- * Transformasi murni template_config → daftar spec render pixel untuk canvas Fabric.
- * Semua resolusi (posisi fraksional → px, role color → hex, letterSpacing → charSpacing,
- * CSS shadow → objek) terjadi di sini agar layer Fabric tinggal menggambar.
+ * Transformasi murni ResolvedConfig (brand & copy SUDAH diresolve — lihat lib/template/resolve.ts)
+ * → daftar spec render pixel untuk canvas Fabric. Posisi fraksional → px, role color → hex,
+ * letterSpacing → charSpacing, CSS shadow → objek. Layer Fabric tinggal menggambar.
  */
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -103,9 +103,8 @@ export interface CanvasSpecResult {
 }
 
 export interface CanvasSpecInput {
-  cfg: TemplateConfig;
+  cfg: ResolvedConfig;
   thumbnailUrl?: string | null; // templates.thumbnail_url — background/foreground image
-  logoUrl?: string | null;
   contact?: Record<string, string>;
 }
 
@@ -519,7 +518,7 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
 
 // ── Background ────────────────────────────────────────────────────────────────
 
-function backgroundSpecs(cfg: TemplateConfig, ctx: Ctx): CanvasSpec[] {
+function backgroundSpecs(cfg: ResolvedConfig, ctx: Ctx): CanvasSpec[] {
   const bg = cfg.background;
   const full = { left: 0, top: 0, width: ctx.w, height: ctx.h };
 
@@ -568,7 +567,7 @@ export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
     scheme: cfg.color_scheme ?? ({} as ColorScheme),
     defaultFont: cfg.font?.family ?? "Inter",
     thumbnailUrl: input.thumbnailUrl ?? null,
-    logoUrl: input.logoUrl ?? null,
+    logoUrl: cfg.logoUrl ?? null,
     contact: input.contact ?? {},
     siblings: cfg.elements ?? [],
   };

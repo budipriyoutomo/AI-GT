@@ -66,24 +66,22 @@ describe("/templates gallery grid — generic default logo, no brand adaptation"
 
     await waitFor(() => expect(screen.getByTestId("template-renderer")).toBeTruthy());
     await waitFor(() => {
-      const lastCall = rendererProps.mock.calls.at(-1)?.[0] as { logoUrl?: string | null };
-      expect(lastCall.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
+      const lastCall = rendererProps.mock.calls.at(-1)?.[0] as { cfg?: { logoUrl?: string | null } };
+      expect(lastCall.cfg?.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
     });
 
-    const lastCall = rendererProps.mock.calls.at(-1)?.[0] as { logoUrl?: string | null };
-    expect(lastCall.logoUrl).not.toBe("/permanent/logos/u1/logo.png?v=1");
+    const lastCall = rendererProps.mock.calls.at(-1)?.[0] as { cfg?: { logoUrl?: string | null } };
+    expect(lastCall.cfg?.logoUrl).not.toBe("/permanent/logos/u1/logo.png?v=1");
   });
 
-  it("does not pass brandColors/brandFont into the grid card (no brand adaptation)", async () => {
+  it("does not brand-adapt the grid card colors (galeri = generic/unbranded)", async () => {
     render(<TemplatesPage />);
 
     await waitFor(() => expect(screen.getByTestId("template-renderer")).toBeTruthy());
 
-    const lastCall = rendererProps.mock.calls.at(-1)?.[0] as {
-      brandColors?: string[] | null;
-      brandFont?: string | null;
-    };
-    expect(lastCall.brandColors ?? null).toBeNull();
-    expect(lastCall.brandFont ?? null).toBeNull();
+    const lastCall = rendererProps.mock.calls.at(-1)?.[0] as { cfg?: { color_scheme?: Record<string, string> } };
+    // template_config di mock punya color_scheme kosong ({}); resolver unbranded tidak
+    // pernah menyentuhnya (adaptScheme early-return saat brandColors null).
+    expect(lastCall.cfg?.color_scheme).toEqual({});
   });
 });

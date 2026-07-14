@@ -22,7 +22,7 @@ import { projectsApi } from "@/api/projectsApi";
 import { generateApi } from "@/api/generateApi";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { CarouselSlide, Project } from "@/types/project";
-import type { TemplateConfig } from "@/types/template";
+import type { ResolvedConfig } from "@/lib/template/resolve";
 
 /* ── Constants ────────────────────────────────────────────── */
 
@@ -164,18 +164,24 @@ export default function EditorPage() {
   const effBody     = isCarousel ? (activeSlide?.body     ?? "") : body;
   const effCta      = isCarousel ? (activeSlide?.cta      ?? null) : cta;
 
-  // Template config dengan copy hasil edit di-merge ke slot ber-bind.
+  // brand_applied absen (project lama) → unbranded, tampilan tidak berubah (Handoff 8a §4.3).
+  const branded = project?.final_config.brand_applied ?? false;
+
+  // Config sudah full-resolved (brand + copy) via satu resolver (Handoff 8a §3.2) — dipakai
+  // IDENTIK oleh canvas Fabric dan toggle "HTML view" di bawah. Tidak ada jalur ganda lagi.
   // null → project lama tanpa template_config valid → fallback canvas generik.
-  const previewCfg = useMemo<TemplateConfig | null>(
-    () => buildEditorPreviewConfig(project?.final_config.template_config, {
-      headline: effHeadline,
-      body: effBody,
-      cta: effCta,
-      headlineFont,
-      bodyFont,
-      letterSpacing,
-    }),
-    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing],
+  const previewCfg = useMemo<ResolvedConfig | null>(
+    () => buildEditorPreviewConfig(
+      project?.final_config.template_config,
+      { headline: effHeadline, body: effBody, cta: effCta, headlineFont, bodyFont, letterSpacing },
+      {
+        profile: user
+          ? { logo_url: user.logoUrl, brand_colors: user.brandColors, brand_font: user.brandFont, tagline: user.tagline }
+          : null,
+        branded,
+      },
+    ),
+    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing, branded, user],
   );
 
   const tplThumbnailUrl = project?.final_config.template_config?.thumbnail_url ?? "";
@@ -186,11 +192,10 @@ export default function EditorPage() {
       ? buildCanvasSpec({
           cfg: previewCfg,
           thumbnailUrl: tplThumbnailUrl || null,
-          logoUrl: resolveAssetUrl(user?.logoUrl) ?? null,
           contact: DEFAULT_COMPANY_PROFILE.contact,
         })
       : null,
-    [previewCfg, tplThumbnailUrl, user?.logoUrl],
+    [previewCfg, tplThumbnailUrl],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
@@ -1441,7 +1446,6 @@ export default function EditorPage() {
                 <TemplateRenderer
                   cfg={previewCfg}
                   thumbnailUrl={tplThumbnailUrl}
-                  logoUrl={user?.logoUrl ?? null}
                 />
                 <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
                   Render HTML dari template_config + copy AI yang sudah diedit

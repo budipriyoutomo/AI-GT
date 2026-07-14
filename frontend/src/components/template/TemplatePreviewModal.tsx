@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TemplateRenderer } from "./TemplateRenderer";
-import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import { resolveTemplateConfig } from "@/lib/template/resolve";
+import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
 
 // "instagram_post" → "Instagram post". Fallback ke nilai mentah bila kosong.
@@ -28,16 +29,12 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 export function TemplatePreviewModal({
   template,
-  brandColors,
-  brandFont,
-  logoUrl,
+  profile,
   buildHref,
   onClose,
 }: {
   template: TemplateListItem | null;
-  brandColors: string[] | null; // dari company profile; null/empty → belum diisi
-  brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
-  logoUrl: string | null;       // dari company profile; null → slot logo hidden saat branded
+  profile: BrandSource | null; // dari company profile; null/brand_colors kosong → belum diisi
   // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
   // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
   buildHref: (brandPreview: boolean) => string;
@@ -63,7 +60,8 @@ export function TemplatePreviewModal({
 
   if (!template) return null;
 
-  const hasBrand = !!brandColors && brandColors.length > 0;
+  const hasBrand = !!profile?.brand_colors && profile.brand_colors.length > 0;
+  const resolved = resolveTemplateConfig({ templateConfig: template.template_config, profile, branded });
 
   // Preview "contained": dibatasi tinggi viewport (82vh) DAN lebar area yang tersisa
   // (viewport − sidebar − padding). min() memastikan tidak pernah ada scroll, apa pun rasionya.
@@ -128,12 +126,9 @@ export function TemplatePreviewModal({
           >
             <div style={previewBox}>
               <TemplateRenderer
-                cfg={template.template_config}
+                cfg={resolved}
                 thumbnailUrl={template.thumbnail_url}
                 backgroundUrl={template.background_url ?? ""}
-                brandColors={branded ? brandColors : null}
-                brandFont={branded ? brandFont : null}
-                logoUrl={branded ? logoUrl : DEFAULT_COMPANY_PROFILE.logo_url}
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildEditorPreviewConfig } from "../preview-config";
-import type { EditorPreviewState } from "../preview-config";
+import type { EditorBrandState, EditorPreviewState } from "../preview-config";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { ProjectTemplateConfig } from "@/types/project";
 import type { TemplateConfig, TemplateElement } from "@/types/template";
 
@@ -16,6 +17,13 @@ function makeState(overrides: Partial<EditorPreviewState> = {}): EditorPreviewSt
     letterSpacing: 0,
     ...overrides,
   };
+}
+
+const UNBRANDED: EditorBrandState = { profile: null, branded: false };
+
+/** Wrapper: proyek lama (belum ada brand_applied) selalu memanggil dengan UNBRANDED. */
+function build(tpl: ProjectTemplateConfig | undefined, state: EditorPreviewState, brand: EditorBrandState = UNBRANDED) {
+  return buildEditorPreviewConfig(tpl, state, brand);
 }
 
 function makeTemplate(): ProjectTemplateConfig {
@@ -101,22 +109,22 @@ function findByRole(cfg: TemplateConfig, role: string): TemplateElement | undefi
 
 describe("buildEditorPreviewConfig — guard", () => {
   it("null bila template_config undefined", () => {
-    expect(buildEditorPreviewConfig(undefined, makeState())).toBeNull();
+    expect(build(undefined, makeState())).toBeNull();
   });
 
   it("null bila elements kosong / tidak ada", () => {
     const tpl = makeTemplate();
     tpl.elements = [];
-    expect(buildEditorPreviewConfig(tpl, makeState())).toBeNull();
+    expect(build(tpl, makeState())).toBeNull();
 
     delete tpl.elements;
-    expect(buildEditorPreviewConfig(tpl, makeState())).toBeNull();
+    expect(build(tpl, makeState())).toBeNull();
   });
 
   it("null bila color_scheme tidak lengkap (merge schema menolak)", () => {
     const tpl = makeTemplate();
     tpl.color_scheme = { accent: "#FFF" } as ProjectTemplateConfig["color_scheme"];
-    expect(buildEditorPreviewConfig(tpl, makeState())).toBeNull();
+    expect(build(tpl, makeState())).toBeNull();
   });
 });
 
@@ -124,7 +132,7 @@ describe("buildEditorPreviewConfig — guard", () => {
 
 describe("buildEditorPreviewConfig — copy", () => {
   it("mengisi headline/body/cta ke elemen ber-bind", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState());
+    const out = build(makeTemplate(), makeState());
     expect(out).not.toBeNull();
     expect(findByBind(out!, "headline")?.value).toBe("Kopi Gula Aren Premium");
     expect(findByBind(out!, "body")?.value).toBe("Nikmati cita rasa kopi gula aren terbaik");
@@ -132,19 +140,19 @@ describe("buildEditorPreviewConfig — copy", () => {
   });
 
   it("elemen statis (tanpa bind) tidak berubah value-nya", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState());
+    const out = build(makeTemplate(), makeState());
     expect(findByRole(out!, "eyebrow")?.value).toBe("• HARI SUSHI INTERNASIONAL •");
   });
 
   it("cta kosong → elemen ber-bind cta dihapus (termasuk di dalam group)", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ cta: "" }));
+    const out = build(makeTemplate(), makeState({ cta: "" }));
     expect(findByBind(out!, "cta")).toBeUndefined();
     // headline/body tetap ada
     expect(findByBind(out!, "headline")).toBeDefined();
   });
 
   it("cta null (carousel content slide) → elemen cta dihapus", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ cta: null }));
+    const out = build(makeTemplate(), makeState({ cta: null }));
     expect(findByBind(out!, "cta")).toBeUndefined();
   });
 });
@@ -153,7 +161,7 @@ describe("buildEditorPreviewConfig — copy", () => {
 
 describe("buildEditorPreviewConfig — typography", () => {
   it("map font id editor → family name (syne→Syne, mono→Space Mono)", () => {
-    const out = buildEditorPreviewConfig(
+    const out = build(
       makeTemplate(),
       makeState({ headlineFont: "syne", bodyFont: "mono" }),
     );
@@ -162,7 +170,7 @@ describe("buildEditorPreviewConfig — typography", () => {
   });
 
   it("font id tidak dikenal dianggap family name apa adanya", () => {
-    const out = buildEditorPreviewConfig(
+    const out = build(
       makeTemplate(),
       makeState({ headlineFont: "Playfair Display" }),
     );
@@ -170,13 +178,13 @@ describe("buildEditorPreviewConfig — typography", () => {
   });
 
   it("fontSize template dipertahankan (strategy template)", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState());
+    const out = build(makeTemplate(), makeState());
     expect(findByBind(out!, "headline")?.style?.fontSize).toBe(142);
     expect(findByBind(out!, "body")?.style?.fontSize).toBe(34);
   });
 
   it("letterSpacing elemen statis dipertahankan; elemen ber-bind memakai nilai editor terskala 1080/800", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ letterSpacing: 4 }));
+    const out = build(makeTemplate(), makeState({ letterSpacing: 4 }));
     // statis: kicker tetap 6 (identitas template)
     expect(findByRole(out!, "eyebrow")?.style?.letterSpacing).toBe(6);
     // bound: 4 × (1080/800) = 5.4
@@ -190,13 +198,33 @@ describe("buildEditorPreviewConfig — integrity", () => {
   it("tidak memodifikasi input template", () => {
     const tpl = makeTemplate();
     const snapshot = JSON.parse(JSON.stringify(tpl));
-    buildEditorPreviewConfig(tpl, makeState({ cta: "", letterSpacing: 8 }));
+    build(tpl, makeState({ cta: "", letterSpacing: 8 }));
     expect(tpl).toEqual(snapshot);
   });
 
   it("background & color_scheme tidak berubah", () => {
-    const out = buildEditorPreviewConfig(makeTemplate(), makeState());
+    const out = build(makeTemplate(), makeState());
     expect(out!.background).toEqual({ type: "color", value: "#1A1A1A" });
     expect(out!.color_scheme).toEqual({ accent: "#F2C200", primary: "#FFFFFF", secondary: "#2E6B34" });
+  });
+});
+
+// ── Brand (Handoff 8a §7 AC1/AC3/AC6 — satu resolver dipakai editor) ─────────
+
+describe("buildEditorPreviewConfig — brand_applied", () => {
+  it("branded=true + profile brand_colors → resolver dipanggil dengan branded=true (warna berubah)", () => {
+    const brand: EditorBrandState = {
+      profile: { logo_url: "/logos/u1.png", brand_colors: ["#0033CC"], brand_font: null, tagline: null },
+      branded: true,
+    };
+    const out = build(makeTemplate(), makeState(), brand);
+    expect(out!.color_scheme).not.toEqual({ accent: "#F2C200", primary: "#FFFFFF", secondary: "#2E6B34" });
+    expect(out!.logoUrl).toBe("https://cdn.calira.my.id/logos/u1.png");
+  });
+
+  it("brand_applied absen (project lama) → diperlakukan false, tampilan tidak berubah", () => {
+    const out = build(makeTemplate(), makeState());
+    expect(out!.color_scheme).toEqual({ accent: "#F2C200", primary: "#FFFFFF", secondary: "#2E6B34" });
+    expect(out!.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
   });
 });

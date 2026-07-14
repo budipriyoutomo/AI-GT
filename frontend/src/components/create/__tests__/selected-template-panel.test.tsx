@@ -32,6 +32,12 @@ const TEMPLATE: Template = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
+function lastCfg() {
+  return renderSpy.mock.calls.at(-1)?.[0] as {
+    cfg: { color_scheme: Record<string, string>; logoUrl: string | null };
+  };
+}
+
 describe("SelectedTemplatePanel", () => {
   it("shows a loading placeholder (no TemplateRenderer) while template is null", () => {
     render(
@@ -49,7 +55,7 @@ describe("SelectedTemplatePanel", () => {
     expect(screen.queryByTestId("template-renderer-mock")).toBeNull();
   });
 
-  it("brandPreview=false → TemplateRenderer receives brandColors=null, brandFont=null (original)", () => {
+  it("brandPreview=false → TemplateRenderer receives original colors + default logo (unbranded)", () => {
     render(
       <SelectedTemplatePanel
         template={TEMPLATE}
@@ -64,16 +70,16 @@ describe("SelectedTemplatePanel", () => {
     );
     expect(renderSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        cfg: TEMPLATE.template_config,
         thumbnailUrl: TEMPLATE.thumbnail_url,
-        brandColors: null,
-        brandFont: null,
-        logoUrl: null,
+        cfg: expect.objectContaining({
+          color_scheme: { accent: "#FF6B35", primary: "#FFFFFF", secondary: "#1A1A1A" },
+          logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
+        }),
       }),
     );
   });
 
-  it("brandPreview=true + user has colors/logo → TemplateRenderer receives user's brandColors/brandFont/logoUrl", () => {
+  it("brandPreview=true + user has colors/logo → TemplateRenderer receives branded colors/logo", () => {
     render(
       <SelectedTemplatePanel
         template={TEMPLATE}
@@ -86,16 +92,11 @@ describe("SelectedTemplatePanel", () => {
         onChangeTemplate={() => {}}
       />,
     );
-    expect(renderSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        brandColors: ["#111111", "#222222"],
-        brandFont: "Poppins",
-        logoUrl: "/permanent/logos/u1/logo.png?v=1",
-      }),
-    );
+    expect(lastCfg().cfg.color_scheme.accent).not.toBe("#FF6B35");
+    expect(lastCfg().cfg.logoUrl).toBe("https://cdn.calira.my.id/permanent/logos/u1/logo.png?v=1");
   });
 
-  it("brandPreview=true + user has no brand colors/logo → falls back to DEFAULT_COMPANY_PROFILE (never blank/error)", () => {
+  it("brandPreview=true + user has no brand colors/logo → tidak crash; tidak ada data untuk di-brand jadi tampilan asli/hidden apa adanya", () => {
     render(
       <SelectedTemplatePanel
         template={TEMPLATE}
@@ -108,13 +109,12 @@ describe("SelectedTemplatePanel", () => {
         onChangeTemplate={() => {}}
       />,
     );
-    expect(renderSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        brandColors: DEFAULT_COMPANY_PROFILE.brand_colors,
-        brandFont: null,
-        logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
-      }),
-    );
+    // branded=true + no user logo → hidden (null), NOT the default (Handoff 0 §4.7 contract).
+    // Resolver §3.2 step 1 hanya swap SUMBER profil (branded ? profile : DEFAULT) — tidak
+    // per-field fallback ke DEFAULT saat branded=true tapi field kosong (beda dari behavior
+    // lama brand-preview.ts, sengaja disederhanakan: satu resolver, satu aturan eksplisit).
+    expect(lastCfg().cfg.logoUrl).toBeNull();
+    expect(lastCfg().cfg.color_scheme.accent).toBe("#FF6B35"); // tidak ada brand color → warna template asli
   });
 
   it("calls onChangeTemplate when 'Ganti template' is clicked", async () => {

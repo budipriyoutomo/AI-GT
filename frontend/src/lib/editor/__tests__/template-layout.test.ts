@@ -37,7 +37,7 @@ const measurerFor = (spec: { width: number }): MeasureBlock => (text, fontSize) 
 const cfgOf = (f: string) => JSON.parse(readFileSync(`${DIR}/${f}`, "utf-8")).template_config;
 const files = readdirSync(DIR).filter((f) => f.endsWith(".json"));
 const specsOf = (cfg: unknown) =>
-  buildCanvasSpec({ cfg: cfg as never, thumbnailUrl: "https://cdn/x.png", logoUrl: "https://cdn/l.png", contact: {} }).specs;
+  buildCanvasSpec({ cfg: cfg as never, thumbnailUrl: "https://cdn/x.png", contact: {} }).specs;
 
 const copy = (headline: string, body: string, cta: string): CopyResult => ({
   copy: { headline, body, cta },

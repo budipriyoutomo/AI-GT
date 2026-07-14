@@ -433,3 +433,164 @@ class TestRunGenerationTask:
         )).scalars().all()
         assert len(projects) == 1
         assert projects[0].final_config["copy"]["headline"] == "Boba viral!"
+
+
+class TestBrandApplied:
+    """Handoff 8a §3.4 — final_config.brand_applied: bool. Hanya boolean, tidak ada
+    brand data (warna/font/logo) yang disnapshot. template_config di DB tetap read-only."""
+
+    async def test_create_session_persists_brand_applied(
+        self,
+        db,
+        client: AsyncClient,
+        auth_headers: dict,
+        sample_template: Template,
+        company_profile: CompanyProfile,
+    ):
+        from sqlalchemy import select
+
+        from app.models.generate_session import GenerateSession
+
+        with patch("app.services.generate_service.run_generation_task", new_callable=AsyncMock):
+            res = await client.post(
+                "/api/v1/generate/session",
+                headers=auth_headers,
+                json=_payload(str(sample_template.id), brand_applied=True),
+            )
+        assert res.status_code == 201
+
+        session = await db.scalar(
+            select(GenerateSession).where(GenerateSession.id == uuid.UUID(res.json()["data"]["id"]))
+        )
+        assert session.content_data["brand_applied"] is True
+
+    async def test_create_session_brand_applied_not_sent_defaults_false(
+        self,
+        db,
+        client: AsyncClient,
+        auth_headers: dict,
+        sample_template: Template,
+        company_profile: CompanyProfile,
+    ):
+        from sqlalchemy import select
+
+        from app.models.generate_session import GenerateSession
+
+        with patch("app.services.generate_service.run_generation_task", new_callable=AsyncMock):
+            res = await client.post(
+                "/api/v1/generate/session",
+                headers=auth_headers,
+                json=_payload(str(sample_template.id)),
+            )
+        assert res.status_code == 201
+
+        session = await db.scalar(
+            select(GenerateSession).where(GenerateSession.id == uuid.UUID(res.json()["data"]["id"]))
+        )
+        assert session.content_data["brand_applied"] is False
+
+    async def test_select_variant_writes_brand_applied_to_final_config(
+        self,
+        db,
+        client: AsyncClient,
+        auth_headers: dict,
+        verified_user: User,
+        sample_template: Template,
+        company_profile: CompanyProfile,
+    ):
+        """Campaign flow (select_variant) — brand_applied ikut ke final_config top-level,
+        template_config di DB (sample_template.template_config) tidak berubah."""
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.generate_session import GenerateSession
+        from app.models.generate_variant import GenerateVariant
+
+        original_template_config = dict(sample_template.template_config)
+
+        session = GenerateSession(
+            id=uuid.uuid4(),
+            user_id=verified_user.id,
+            template_id=sample_template.id,
+            language_style="casual",
+            goal="promo",
+            platform="instagram_feed",
+            content_data={
+                "product_or_service": "Nasi Goreng",
+                "key_message": "Enak dan murah",
+                "image_source": "none",
+                "brand_applied": True,
+            },
+            status="completed",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db.add(session)
+        await db.flush()
+
+        variant = GenerateVariant(
+            id=uuid.uuid4(),
+            session_id=session.id,
+            variant_number=1,
+            copy_data={"headline": "Judul", "body": "Body", "cta": "CTA"},
+            typography_data={"headline_font": "Inter", "body_font": "Inter", "headline_size": 36, "body_size": 16, "letter_spacing": 0},
+            thematic_image_url=None,
+        )
+        db.add(variant)
+        await db.commit()
+
+        res = await client.post(
+            f"/api/v1/generate/session/{session.id}/select",
+            headers=auth_headers,
+            json={"variant_id": str(variant.id)},
+        )
+        assert res.status_code == 200
+        assert res.json()["data"]["final_config"]["brand_applied"] is True
+
+        await db.refresh(sample_template)
+        assert sample_template.template_config == original_template_config
+
+    async def test_auto_select_first_variant_writes_brand_applied(
+        self,
+        db,
+        verified_user: User,
+        sample_template: Template,
+        company_profile: CompanyProfile,
+    ):
+        """Quick Generate (auto-select) — brand_applied ikut tertulis ke final_config."""
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.generate_session import GenerateSession
+        from app.models.project import Project
+        from app.services import ai_service, generate_service
+        from app.services.providers.ai_types import CopyResult, CopyVariant, ImageResult
+        from sqlalchemy import select
+
+        session = GenerateSession(
+            id=uuid.uuid4(),
+            user_id=verified_user.id,
+            template_id=sample_template.id,
+            language_style="casual",
+            goal="promo",
+            platform="instagram_feed",
+            content_data={
+                "product_or_service": "Es Teh",
+                "key_message": "Segar",
+                "image_source": "none",
+                "brand_applied": True,
+            },
+            status="processing",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db.add(session)
+        await db.commit()
+
+        mock_copy = CopyResult(variants=[
+            CopyVariant(1, {"headline": "H", "body": "B", "cta": "C"}, {"headline_font": "Inter", "body_font": "Inter", "headline_size": 36, "body_size": 16, "letter_spacing": 0.5})
+        ])
+        mock_image = ImageResult(image_urls=[None])
+
+        with patch.object(ai_service, "generate_content", new=AsyncMock(return_value=(mock_copy, mock_image))):
+            await generate_service._do_generate(db, session.id)
+
+        project = await db.scalar(select(Project).where(Project.session_id == session.id))
+        assert project is not None
+        assert project.final_config["brand_applied"] is True
