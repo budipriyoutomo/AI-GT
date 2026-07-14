@@ -41,5 +41,11 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     cors_origins: str = "http://localhost:3000"
 
+    # Billing — transfer manual (tanpa payment gateway)
+    billing_bank_name: str = "BCA"
+    billing_bank_account: str = "1234567890"
+    billing_bank_holder: str = "PT AI-GT Indonesia"
+    billing_order_expire_hours: int = 24
+
 
 settings = Settings()

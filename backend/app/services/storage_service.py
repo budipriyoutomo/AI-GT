@@ -150,6 +150,23 @@ def upload_logo(user_id: str, file_bytes: bytes) -> str:
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload logo ke storage.")
 
 
+def upload_payment_proof(file_data: bytes, user_id: str, order_id: str, ext: str, content_type: str) -> str:
+    """Upload bukti transfer ke permanent/payment-proofs/{user_id}/{order_id}.{ext}."""
+    key = f"permanent/payment-proofs/{user_id}/{order_id}.{ext}"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=file_data,
+            ContentType=content_type,
+        )
+        return _asset_path(key)
+    except Exception as e:
+        logger.error("upload_payment_proof failed order_id=%s: %s", order_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload bukti transfer.")
+
+
 def delete_file(key: str) -> None:
     """Hapus file dari R2. Dipakai oleh cron cleanup dan saat temp expired."""
     try:

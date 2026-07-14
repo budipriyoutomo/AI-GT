@@ -139,7 +139,7 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-│   ├── alembic/versions/        → migrasi 0001…0009
+│   ├── alembic/versions/        → migrasi 0001…0011
 │   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
 │   └── tests/                   → conftest.py, unit/, integration/
 │
@@ -230,6 +230,10 @@ yang di-inject di top-level — `name`, `content_type`, `thumbnail_url` (lihat
 **relatif ukuran yang di-authored template** (1 = ukuran template; slider editor 0,6–1,6). Skala di-apply
 di `lib/editor/preview-config.ts` ke elemen ber-`bind`, lalu auto-fit canvas tetap membatasi ke budget
 layout. Project lama tanpa kedua field ini → fallback `1`.
+
+### `contact_messages`
+Pesan kontak/support dari form publik (endpoint tanpa auth, tidak terkait `user_id`):
+`id`, `name`, `email`, `category` (nullable), `message`, `is_handled` (default `false`), `created_at`.
 
 ### Relasi (ringkas)
 
@@ -327,6 +331,11 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 | DELETE | `/{project_id}` | Hapus project |
 | POST | `/{project_id}/thumbnail` | Upload snapshot canvas (multipart) |
 | POST | `/{project_id}/export` | Upload PNG final → tandai exported (multipart) |
+
+### Contact — `/api/v1/contact`
+| Method | Path | Deskripsi |
+|---|---|---|
+| POST | `` | Kirim pesan kontak/support (201). **Publik — tanpa auth.** Body `{name, email, category?, message}`; `email` divalidasi `EmailStr`, `name`/`message` tak boleh kosong. Disimpan ke `contact_messages` (`is_handled=false`) |
 
 ### Lain-lain
 - `GET /health` → `{ "success": true, "data": { "status": "ok" } }`

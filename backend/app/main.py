@@ -12,6 +12,7 @@ from app.config import settings
 # the AI copy prompt (logged in the copy providers) shows in the server console.
 logging.basicConfig(level=logging.INFO)
 from app.routers import auth as auth_router
+from app.routers import billing as billing_router
 from app.routers import company_profile as company_profile_router
 from app.routers import contact as contact_router
 from app.routers import generate as generate_router
@@ -47,6 +48,7 @@ app.add_middleware(
 app.add_exception_handler(AppError, app_error_handler)
 
 app.include_router(auth_router.router)
+app.include_router(billing_router.router)
 app.include_router(company_profile_router.router)
 app.include_router(contact_router.router)
 app.include_router(templates_router.router)
