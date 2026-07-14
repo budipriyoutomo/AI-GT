@@ -99,7 +99,7 @@ function FontButton({
 export default function EditorPage() {
   const searchParams = useSearchParams();
   const projectId    = searchParams.get("projectId");
-  const { user }      = useAuth();
+  const { user }     = useAuth();
 
   const [project,       setProject]       = useState<Project | null>(null);
   const [loadError,     setLoadError]     = useState(false);
@@ -113,6 +113,9 @@ export default function EditorPage() {
   const [bodyFont,      setBodyFont]      = useState("inter");
   const [headlineSize,  setHeadlineSize]  = useState(32);
   const [bodySize,      setBodySize]      = useState(15);
+  // Mode template: skala ukuran relatif template (1 = default template). Slider 0.6–1.6.
+  const [headlineScale, setHeadlineScale] = useState(1);
+  const [bodyScale,     setBodyScale]     = useState(1);
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [thematicImageUrl, setThematicImageUrl] = useState<string | null>(null);
   const [thematicVisible,  setThematicVisible]  = useState(true);
@@ -168,12 +171,14 @@ export default function EditorPage() {
   const branded = project?.final_config.brand_applied ?? false;
 
   // Config sudah full-resolved (brand + copy) via satu resolver (Handoff 8a §3.2) — dipakai
-  // IDENTIK oleh canvas Fabric dan toggle "HTML view" di bawah. Tidak ada jalur ganda lagi.
+  // IDENTIK oleh canvas Fabric dan toggle "HTML view" di bawah. Tidak ada jalur ganda lagi:
+  // brand-adapt TIDAK dilakukan terpisah di editor, resolver yang mengurus (Template Integrity —
+  // template_config di DB tetap tidak diubah).
   // null → project lama tanpa template_config valid → fallback canvas generik.
   const previewCfg = useMemo<ResolvedConfig | null>(
     () => buildEditorPreviewConfig(
       project?.final_config.template_config,
-      { headline: effHeadline, body: effBody, cta: effCta, headlineFont, bodyFont, letterSpacing },
+      { headline: effHeadline, body: effBody, cta: effCta, headlineFont, bodyFont, letterSpacing, headlineScale, bodyScale },
       {
         profile: user
           ? { logo_url: user.logoUrl, brand_colors: user.brandColors, brand_font: user.brandFont, tagline: user.tagline }
@@ -181,7 +186,7 @@ export default function EditorPage() {
         branded,
       },
     ),
-    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing, branded, user],
+    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing, headlineScale, bodyScale, branded, user],
   );
 
   const tplThumbnailUrl = project?.final_config.template_config?.thumbnail_url ?? "";
@@ -192,10 +197,13 @@ export default function EditorPage() {
       ? buildCanvasSpec({
           cfg: previewCfg,
           thumbnailUrl: tplThumbnailUrl || null,
-          contact: DEFAULT_COMPANY_PROFILE.contact,
+          // Kontak mengikuti brand_applied, sama seperti logo & tagline yang sudah diresolve
+          // resolver — unbranded → placeholder default, branded → kontak profil user.
+          // logoUrl & tagline TIDAK dikirim: sudah final di previewCfg (cfg.logoUrl / value elemen).
+          contact: (branded ? user?.contact : null) ?? DEFAULT_COMPANY_PROFILE.contact,
         })
       : null,
-    [previewCfg, tplThumbnailUrl],
+    [previewCfg, tplThumbnailUrl, branded, user?.contact],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
@@ -237,6 +245,8 @@ export default function EditorPage() {
         setBodyFont(typography.body_font || "inter");
         setHeadlineSize(typography.headline_size || 32);
         setBodySize(typography.body_size || 15);
+        setHeadlineScale(typography.headline_scale || 1);
+        setBodyScale(typography.body_scale || 1);
         setLetterSpacing(typography.letter_spacing || 0);
         setTitleInput(p.title || "");
         setThematicImageUrl(thematic_image_url);
@@ -292,6 +302,8 @@ export default function EditorPage() {
             body_font: bodyFont,
             headline_size: headlineSize,
             body_size: bodySize,
+            headline_scale: headlineScale,
+            body_scale: bodyScale,
             letter_spacing: letterSpacing,
           },
           thematic_image_url: thematicImageUrl,
@@ -311,12 +323,12 @@ export default function EditorPage() {
     } catch {
       toast({ title: "Auto-save gagal", variant: "error" });
     }
-  }, [project, isCarousel, slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, letterSpacing, thematicImageUrl, imageSource, imagePrompt]);
+  }, [project, isCarousel, slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicImageUrl, imageSource, imagePrompt]);
 
   useAutoSave(
     projectLoaded,
     doSave,
-    [slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, letterSpacing, thematicVisible, imageSource, imagePrompt],
+    [slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicVisible, imageSource, imagePrompt],
   );
 
   // Capture thumbnail as soon as canvas finishes initializing (even if user never edits)
@@ -816,18 +828,62 @@ export default function EditorPage() {
                 </div>
 
                 {templateSpec ? (
-                  /* Mode template: ukuran teks terkunci mengikuti layout template */
-                  <div style={{
-                    display: "flex", alignItems: "flex-start", gap: 8,
-                    padding: "9px 12px",
-                    background: "var(--surface-sunken)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
-                  }}>
-                    <Icon name="lock" size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                    Ukuran teks mengikuti template agar layout tetap presisi.
-                  </div>
+                  /* Mode template: ukuran relatif template (default 100%), auto-fit tetap jaga layout */
+                  <>
+                    <div style={{
+                      display: "flex", alignItems: "flex-start", gap: 8,
+                      padding: "9px 12px",
+                      background: "var(--surface-sunken)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.5,
+                    }}>
+                      <Icon name="info" size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                      Default 100% mengikuti template. Ubah bila perlu — layout tetap dijaga auto-fit.
+                    </div>
+
+                    {/* Skala headline */}
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)" }}>Ukuran Headline</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="aigt-mono" style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600 }}>{Math.round(headlineScale * 100)}%</span>
+                          {headlineScale !== 1 && (
+                            <button onClick={() => setHeadlineScale(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 10, fontWeight: 600, padding: 0 }} title="Kembali ke ukuran template">Reset</button>
+                          )}
+                        </div>
+                      </div>
+                      <input
+                        type="range" min={0.6} max={1.6} step={0.05} value={headlineScale}
+                        onChange={(e) => setHeadlineScale(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
+                        <span>60%</span><span>Template</span><span>160%</span>
+                      </div>
+                    </div>
+
+                    {/* Skala body */}
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--foreground)" }}>Ukuran Body</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="aigt-mono" style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600 }}>{Math.round(bodyScale * 100)}%</span>
+                          {bodyScale !== 1 && (
+                            <button onClick={() => setBodyScale(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)", fontSize: 10, fontWeight: 600, padding: 0 }} title="Kembali ke ukuran template">Reset</button>
+                          )}
+                        </div>
+                      </div>
+                      <input
+                        type="range" min={0.6} max={1.6} step={0.05} value={bodyScale}
+                        onChange={(e) => setBodyScale(Number(e.target.value))}
+                        style={{ width: "100%", accentColor: "var(--primary)", cursor: "pointer" }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, fontSize: 10, color: "var(--muted-foreground)" }}>
+                        <span>60%</span><span>Template</span><span>160%</span>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <>
                     {/* Headline size */}

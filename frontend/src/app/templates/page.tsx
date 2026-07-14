@@ -20,6 +20,7 @@ import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal
 import { resolveTemplateConfig } from "@/lib/template/resolve";
 import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
+import type { CompanyContact } from "@/types/company-profile";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
 const INDUSTRIES = [
@@ -61,14 +62,14 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
-           {/* Galeri = generic/unbranded browsing: logo default statis (bukan logo brand user),
-               tanpa adaptasi warna/font — beda dari TemplatePreviewModal yang branded. */}
-           <TemplateRenderer
-             cfg={resolveTemplateConfig({ templateConfig: t.template_config, profile: null, branded: false })}
-             thumbnailUrl={t.thumbnail_url}
-             backgroundUrl={t.background_url ?? ""}
-             aspect="4:5"
-           />
+          {/* Galeri = generic/unbranded browsing: logo default statis (bukan logo brand user),
+              kontak default, tanpa adaptasi warna/font — beda dari TemplatePreviewModal yang branded. */}
+          <TemplateRenderer
+            cfg={resolveTemplateConfig({ templateConfig: t.template_config, profile: null, branded: false })}
+            thumbnailUrl={t.thumbnail_url}
+            backgroundUrl={t.background_url ?? ""}
+            aspect="4:5"
+          />
 
           {t.is_premium && (
             <div style={{
@@ -151,6 +152,9 @@ export default function TemplatesPage() {
   const [favs, setFavs] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<TemplateListItem | null>(null);
   const [profile, setProfile] = useState<BrandSource | null>(null);
+  // Kontak company profile → mengisi slot footer template (boleh sebagian). Dipakai hanya di
+  // preview modal saat toggle brand aktif; galeri tetap generic (kontak default).
+  const [contact, setContact] = useState<CompanyContact | null>(null);
 
   useEffect(() => {
     templatesApi.list()
@@ -159,8 +163,11 @@ export default function TemplatesPage() {
       .finally(() => setLoading(false));
     // Brand color/font/logo untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => setProfile({ brand_colors: p.brand_colors ?? null, brand_font: p.brand_font ?? null, logo_url: p.logo_url ?? null }))
-      .catch(() => setProfile(null));
+      .then((p) => {
+        setProfile({ brand_colors: p.brand_colors ?? null, brand_font: p.brand_font ?? null, logo_url: p.logo_url ?? null });
+        setContact(p.contact ?? null);
+      })
+      .catch(() => { setProfile(null); setContact(null); });
   }, []);
 
   const list = useMemo(() => {
@@ -275,6 +282,7 @@ export default function TemplatesPage() {
       <TemplatePreviewModal
         template={preview}
         profile={profile}
+        contact={contact}
         buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />

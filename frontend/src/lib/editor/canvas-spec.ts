@@ -54,9 +54,12 @@ export interface TextSpec {
   fontSize: number;
   fontFamily: string;
   fontWeight: string;
+  fontStyle?: "italic";  // faux-italic (font tanpa face italic mis. Anton)
   fill: string;
   textAlign: "left" | "center" | "right";
   lineHeight: number;
+  angle?: number;       // rotasi blok teks (derajat, terhadap pusat) — paritas CSS transform:rotate
+  skewX?: number;       // skewX derajat — miringkan geometri (CTA paralelogram)
   charSpacing?: number; // 1/1000 em (unit Fabric)
   fillGradient?: string[]; // hex, urut sesuai arah
   fillGradientCoords?: { x1: number; y1: number; x2: number; y2: number }; // ternormalisasi 0..1
@@ -91,7 +94,9 @@ export interface FooterSpec {
   opacity: number;
   color: string;
   fontSize: number;
-  items: string[];
+  // Satu entri per slot (urut). `text` = kontak dari company profile (null → ikon saja).
+  // Ikon SELALU dirender (paritas SocialIcon di TemplateRenderer).
+  items: { slot: string; text: string | null }[];
 }
 
 export type CanvasSpec = RectSpec | ImageSpec | TextSpec | GroupSpec | FooterSpec;
@@ -106,6 +111,7 @@ export interface CanvasSpecInput {
   cfg: ResolvedConfig;
   thumbnailUrl?: string | null; // templates.thumbnail_url — background/foreground image
   contact?: Record<string, string>;
+  tagline?: string | null;      // company_profile.tagline — isi elemen tipe "tagline"
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -334,6 +340,7 @@ interface Ctx {
   thumbnailUrl: string | null;
   logoUrl: string | null;
   contact: Record<string, string>;
+  tagline: string;
   siblings: TemplateElement[]; // elemen top-level — sumber budget auto-fit & anchor
 }
 
@@ -365,9 +372,13 @@ function textSpec(el: TemplateElement, ctx: Ctx, overrides: Partial<TextSpec> = 
     fontSize,
     fontFamily: s.fontFamily ?? ctx.defaultFont,
     fontWeight: s.weight ?? "400",
+    fontStyle: s.italic ? "italic" : undefined,
     fill: resolveColor(ctx.scheme, s.color),
     textAlign: ((el.align ?? s.align) as TextSpec["textAlign"]) ?? "left",
     lineHeight: s.lineHeight ?? 1.1,
+    // rotate/skew blok — paritas transform:rotate()/skewX() + transformOrigin:center di TemplateRenderer
+    angle: s.rotate ?? undefined,
+    skewX: s.skew ?? undefined,
     charSpacing: s.letterSpacing != null ? (s.letterSpacing * ctx.scale * 1000) / fontSize : undefined,
     // stop boleh role → resolve agar gradient teks ikut brand adapt (paritas TemplateRenderer)
     fillGradient: s.fillGradient?.map((c) => resolveColor(ctx.scheme, c)),
@@ -396,6 +407,20 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
       const anchor = anchorIndexOf(el, ctx.siblings);
       return [textSpec(el, ctx, {
         id: elementId(index),
+        anchorId: anchor !== undefined ? elementId(anchor) : undefined,
+        fitBottom: obstacleY(el, ctx.siblings, ctx.h),
+      })];
+    }
+
+    case "tagline": {
+      // Isi dari company_profile.tagline; kosong → placeholder value template.
+      // Styling & posisi persis seperti "text" (paritas TaglineElement di TemplateRenderer).
+      const text = ctx.tagline || el.value || "Tagline Perusahaan";
+      const anchor = anchorIndexOf(el, ctx.siblings);
+      return [textSpec(el, ctx, {
+        id: elementId(index),
+        text,
+        templateText: text,
         anchorId: anchor !== undefined ? elementId(anchor) : undefined,
         fitBottom: obstacleY(el, ctx.siblings, ctx.h),
       })];
@@ -505,9 +530,9 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
         opacity: s.opacity ?? 1,
         color: resolveColor(ctx.scheme, s.color),
         fontSize: (s.fontSize ?? 20) * ctx.scale,
-        items: (el.slots ?? [])
-          .map((slot) => ctx.contact[slot])
-          .filter((v): v is string => !!v),
+        // Semua slot dipertahankan agar ikon tetap tampil walau kontak kosong.
+        // Nilai kosong/"" → null (ikon saja), paritas dengan TemplateRenderer (`contact[slot] && …`).
+        items: (el.slots ?? []).map((slot) => ({ slot, text: ctx.contact[slot] || null })),
       }];
     }
 
@@ -569,6 +594,7 @@ export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
     thumbnailUrl: input.thumbnailUrl ?? null,
     logoUrl: cfg.logoUrl ?? null,
     contact: input.contact ?? {},
+    tagline: input.tagline ?? "",
     siblings: cfg.elements ?? [],
   };
 

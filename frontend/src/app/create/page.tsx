@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { SelectedTemplatePanel } from "@/components/create/SelectedTemplatePanel";
+import { MiniTemplateCard } from "@/components/create/MiniTemplateCard";
+import { BrandPreviewToggle } from "@/components/create/BrandPreviewToggle";
 import { generateApi } from "@/api/generateApi";
 import type { CarouselSettings } from "@/api/generateApi";
 import { templatesApi } from "@/api/templatesApi";
@@ -22,6 +24,7 @@ import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from 
 import { getBriefCompletion } from "@/lib/create/brief-completion";
 import { contentBriefSchema } from "@/lib/create/brief-schema";
 import { parseBrandPreview } from "@/lib/create/brand-preview";
+import type { BrandSource } from "@/lib/template/resolve";
 import type { ContentBrief } from "@/types/content-brief";
 import { useAuth } from "@/lib/auth";
 
@@ -101,7 +104,6 @@ export default function CreatePage() {
   const templateId = searchParams.get("templateId");
   const goalParam  = searchParams.get("goal") as GoalEnum | null;
   const platParam  = searchParams.get("platform") as PlatformEnum | null;
-  const brandPreview = parseBrandPreview(searchParams.get("brandPreview"));
   const { user, refreshProfile } = useAuth();
 
   // company_profile bisa berubah kapan saja (mis. brand color diedit di Settings).
@@ -109,6 +111,11 @@ export default function CreatePage() {
   // waktu login — supaya Step 1-4 di wizard ini konsisten pakai data terbaru.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refreshProfile(); }, []);
+
+  // Brand-preview toggle — seeded from the query param carried over from the
+  // gallery modal, but now flippable in-page (mini picker cards + the selected
+  // template panel both reflect it).
+  const [brandPreview, setBrandPreview] = useState(() => parseBrandPreview(searchParams.get("brandPreview")));
 
   // Step 1: Goal + Platform
   const [goal, setGoal]         = useState<GoalEnum | null>(goalParam);
@@ -269,6 +276,27 @@ export default function CreatePage() {
   };
   const completion = getBriefCompletion(currentBrief);
 
+  // Brand-preview: whether the user has brand colors, plus the profil brand yang diteruskan
+  // ke resolver (lib/template/resolve.ts) — kartu picker & panel template memakai resolver
+  // yang sama dengan galeri/editor, jadi tidak ada jalur brand-adapt kedua di sini.
+  const hasBrand = !!user?.brandColors && user.brandColors.length > 0;
+  const pickerProfile: BrandSource = {
+    brand_colors: user?.brandColors ?? null,
+    brand_font: user?.brandFont ?? null,
+    logo_url: user?.logoUrl ?? null,
+    tagline: user?.tagline ?? null,
+  };
+  // Footer contact from business profile — filled into template footer slots (all or partial).
+  const profileContact = user?.contact ?? null;
+
+  function handleToggleBrand() {
+    if (!hasBrand) {
+      // Brand color belum diisi → arahkan ke Settings (sama seperti modal galeri).
+      router.push("/settings?focus=brand");
+      return;
+    }
+    setBrandPreview((v) => !v);
+  }
 
   function handlePickTemplate(t: TemplateListItem) {
     setTemplate(t as Template);
@@ -410,6 +438,12 @@ export default function CreatePage() {
                   onChange={(e) => setPickerIndustry(e.target.value)}
                   options={PICKER_INDUSTRIES}
                 />
+                <BrandPreviewToggle
+                  active={brandPreview}
+                  hasBrand={hasBrand}
+                  onToggle={handleToggleBrand}
+                  size="sm"
+                />
               </div>
 
               {/* Count */}
@@ -447,46 +481,17 @@ export default function CreatePage() {
                   </div>
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    {pickerList.map((t) => {
-                      const isActive = t.id === template?.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => handlePickTemplate(t)}
-                          style={{
-                            padding: 0,
-                            border: `2px solid ${isActive ? "var(--primary)" : "var(--border)"}`,
-                            borderRadius: "var(--radius-lg)",
-                            background: "var(--card)",
-                            cursor: "pointer",
-                            textAlign: "left",
-                            overflow: "hidden",
-                            transition: "border-color .15s ease",
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          {t.thumbnail_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={t.thumbnail_url} alt={t.name} style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
-                          ) : (
-                            <div style={{ width: "100%", aspectRatio: "4/5", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <Icon name="image" size={20} style={{ color: "var(--muted-foreground)" }} />
-                            </div>
-                          )}
-                          <div style={{ padding: "8px 10px" }}>
-                            <div style={{ fontSize: "var(--text-xs)", fontWeight: isActive ? 600 : 500, color: isActive ? "var(--primary)" : "var(--foreground)", lineHeight: 1.3, marginBottom: 5 }}>
-                              {t.name}
-                            </div>
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                              <Badge variant="secondary" style={{ fontSize: 9, padding: "1px 5px" }}>{t.content_type}</Badge>
-                              {t.theme && <Badge variant="info" style={{ fontSize: 9, padding: "1px 5px" }}>{t.theme}</Badge>}
-                              {isActive && <Icon name="check-circle-2" size={12} style={{ color: "var(--primary)", marginLeft: "auto" }} />}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                    {pickerList.map((t) => (
+                      <MiniTemplateCard
+                        key={t.id}
+                        t={t}
+                        active={t.id === template?.id}
+                        profile={pickerProfile}
+                        branded={brandPreview}
+                        contact={profileContact}
+                        onSelect={() => handlePickTemplate(t)}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -500,6 +505,9 @@ export default function CreatePage() {
               brandPreview={brandPreview}
               userBrandColors={user?.brandColors ?? null}
               userBrandFont={user?.brandFont ?? null}
+              contact={profileContact}
+              hasBrand={hasBrand}
+              onToggleBrand={handleToggleBrand}
               userLogoUrl={user?.logoUrl ?? null}
               isCarousel={isCarousel}
               slideCount={slideCount}

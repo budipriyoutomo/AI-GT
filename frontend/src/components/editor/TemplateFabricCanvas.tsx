@@ -1,7 +1,9 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useEffect, useRef } from "react";
+import { forwardRef, useImperativeHandle, useEffect, useRef, createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { Canvas, FabricObject, Textbox } from "fabric";
+import { ICONS } from "@/components/template/SocialIcon";
 import { computeTextLayout, textBoxLayout } from "@/lib/editor/canvas-spec";
 import type { MeasureBlock } from "@/lib/editor/fit-text";
 import type {
@@ -69,6 +71,7 @@ function measurerFor(f: FabricNS, spec: TextSpec): MeasureBlock {
       fontSize,
       fontFamily,
       fontWeight: spec.fontWeight,
+      fontStyle: spec.fontStyle ?? "normal",
       lineHeight: spec.lineHeight,
       charSpacing: spec.charSpacing ?? 0,
     });
@@ -76,6 +79,18 @@ function measurerFor(f: FabricNS, spec: TextSpec): MeasureBlock {
     cache.set(key, measured);
     return measured;
   };
+}
+
+// ── Footer social icons ─────────────────────────────────────────────────────────
+
+// Render ikon footer (react-icons yang sama dengan SocialIcon) ke SVG data-URI supaya
+// bisa digambar Fabric & ikut ter-export. `color` diteruskan sebagai currentColor →
+// jalan untuk ikon fill (Simple Icons) maupun stroke (Lucide). Slot tak dikenal → null.
+function footerIconUrl(slot: string, color: string, sizePx: number): string | null {
+  const Ico = ICONS[slot];
+  if (!Ico) return null;
+  const svg = renderToStaticMarkup(createElement(Ico, { color, size: sizePx }));
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 // ── Image cache ───────────────────────────────────────────────────────────────
@@ -163,6 +178,7 @@ function makeText(f: FabricNS, spec: TextSpec, fontSize = spec.fontSize): Textbo
     fontSize,
     fontFamily: resolveFontStack(spec.fontFamily),
     fontWeight: spec.fontWeight,
+    fontStyle: spec.fontStyle ?? "normal",
     fill: spec.fill,
     textAlign: spec.textAlign,
     lineHeight: spec.lineHeight,
@@ -239,9 +255,23 @@ function makeTextObjects(
   top = spec.top,
   fontSize = spec.fontSize,
 ): { objects: FabricObject[]; height: number } {
+  // rotate/skew berputar terhadap PUSAT blok — paritas transformOrigin:center di TemplateRenderer.
+  // Tinggi yang dilaporkan tetap tinggi TAK-terputar (CSS transform tak memengaruhi flow layout).
+  const rotated = spec.angle != null || spec.skewX != null;
+
   const tb = makeText(f, spec, fontSize);
   if (!spec.box) {
     tb.set({ top });
+    if (rotated) {
+      const h = tb.height ?? 0;
+      tb.set({
+        originX: "center", originY: "center",
+        left: spec.left + spec.width / 2,
+        top: top + h / 2,
+        angle: spec.angle ?? 0,
+        skewX: spec.skewX ?? 0,
+      });
+    }
     return { objects: [tb], height: tb.height ?? 0 };
   }
 
@@ -258,6 +288,20 @@ function makeTextObjects(
     rx: box.radius, ry: box.radius, fill: box.fill,
     selectable: false, evented: false,
   });
+
+  if (rotated) {
+    // pill + teks di-group agar berputar sebagai satu paralelogram terhadap pusat gabungan
+    const group = new f.Group([pill, tb], { selectable: false, evented: false });
+    const c = group.getCenterPoint();
+    group.set({
+      originX: "center", originY: "center",
+      left: c.x, top: c.y,
+      angle: spec.angle ?? 0,
+      skewX: spec.skewX ?? 0,
+    });
+    group.setCoords();
+    return { objects: [group], height: l.boxH };
+  }
   return { objects: [pill, tb], height: l.boxH };
 }
 
@@ -279,7 +323,11 @@ function makeGroupObjects(f: FabricNS, spec: GroupSpec) {
   return objects;
 }
 
-function makeFooterObjects(f: FabricNS, spec: FooterSpec) {
+function makeFooterObjects(
+  f: FabricNS,
+  spec: FooterSpec,
+  loaded: Map<string, LoadedImage | null>,
+) {
   const objs: FabricObject[] = [];
   const hasBg = spec.backgroundGradient || (spec.backgroundColor && spec.backgroundColor !== "transparent");
   if (hasBg) {
@@ -297,18 +345,41 @@ function makeFooterObjects(f: FabricNS, spec: FooterSpec) {
     );
     objs.push(bar);
   }
-  if (spec.items.length) {
-    objs.push(new f.FabricText(spec.items.join("   ·   "), {
-      left: spec.left + spec.width * 0.03,
-      top: spec.top + spec.height / 2,
-      originY: "center",
-      fontSize: spec.fontSize,
-      fontFamily: resolveFontStack("Inter"),
-      fill: spec.color,
-      opacity: spec.opacity,
-      selectable: false,
-      evented: false,
-    }));
+
+  // Ikon + teks per slot, mengalir kiri→kanan (paritas flex-start di TemplateRenderer).
+  // Ikon SELALU digambar; teks kontak menyusul bila ada. Skala/gap ikut fontSize.
+  const cy = spec.top + spec.height / 2;
+  const iconSize = spec.fontSize;
+  const iconGap = spec.fontSize * 0.4;   // 0.4em antara ikon & teks
+  const itemGap = spec.width * 0.025;    // 2.5% antar slot (paritas gap flex)
+  let x = spec.left + spec.width * 0.03; // padding 0 3%
+
+  for (const it of spec.items) {
+    const url = footerIconUrl(it.slot, spec.color, iconSize);
+    const icon = url ? loaded.get(url) : null;
+    if (icon) {
+      const scale = iconSize / (icon.el.naturalWidth || iconSize);
+      const img = new f.FabricImage(icon.el, {
+        left: x, top: cy, originY: "center",
+        scaleX: scale, scaleY: scale,
+        opacity: spec.opacity, selectable: false, evented: false,
+      });
+      (img as unknown as { aigtNoCors?: boolean }).aigtNoCors = !icon.cors;
+      objs.push(img);
+      x += iconSize + (it.text ? iconGap : 0);
+    }
+    if (it.text) {
+      const txt = new f.FabricText(it.text, {
+        left: x, top: cy, originY: "center",
+        fontSize: spec.fontSize,
+        fontFamily: resolveFontStack("Inter"),
+        fill: spec.color, opacity: spec.opacity,
+        selectable: false, evented: false,
+      });
+      objs.push(txt);
+      x += txt.width ?? 0;
+    }
+    x += itemGap;
   }
   return objs;
 }
@@ -316,8 +387,14 @@ function makeFooterObjects(f: FabricNS, spec: FooterSpec) {
 // ── Scene build ───────────────────────────────────────────────────────────────
 
 async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult) {
-  // Pre-load semua gambar dulu agar object bisa dibuat sinkron sesuai z-order
-  const urls = [...new Set(result.specs.filter((s) => s.kind === "image").map((s) => (s as ImageSpec).url))];
+  // Pre-load semua gambar dulu agar object bisa dibuat sinkron sesuai z-order.
+  // Ikon footer (SVG data-URI) ikut di-preload karena digambar sinkron di makeFooterObjects.
+  const imageUrls = result.specs.filter((s) => s.kind === "image").map((s) => (s as ImageSpec).url);
+  const footerIconUrls = result.specs
+    .filter((s): s is FooterSpec => s.kind === "footer")
+    .flatMap((ft) => ft.items.map((it) => footerIconUrl(it.slot, ft.color, ft.fontSize)))
+    .filter((u): u is string => !!u);
+  const urls = [...new Set([...imageUrls, ...footerIconUrls])];
   const loaded = new Map(await Promise.all(
     urls.map(async (u) => [u, await loadImageElement(u)] as const),
   ));
@@ -344,7 +421,7 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
         canvas.add(...makeGroupObjects(f, spec));
         break;
       case "footer": {
-        const objs = makeFooterObjects(f, spec);
+        const objs = makeFooterObjects(f, spec, loaded);
         if (objs.length) canvas.add(...objs);
         break;
       }

@@ -5,6 +5,7 @@ import { SocialIcon } from "./SocialIcon";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { ResolvedConfig } from "@/lib/template/resolve";
+import type { CompanyContact } from "@/types/company-profile";
 import type {
   TemplateElement,
   ColorScheme,
@@ -189,9 +190,8 @@ function GroupElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme
   );
 }
 
-function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
+function FooterElement({ el, scheme, contact }: { el: TemplateElement; scheme: ColorScheme; contact: Record<string, string> }) {
   const s = el.style ?? {};
-  const contact = DEFAULT_COMPANY_PROFILE.contact as Record<string, string>;
   // Latar: gradient (menang) atau warna solid. Gradient default horizontal ("to right").
   const bgFill: CSSProperties = s.backgroundGradient
     ? { backgroundImage: `linear-gradient(${s.backgroundGradientDirection ?? "to right"}, ${s.backgroundGradient.map((c) => resolveColor(scheme, c)).join(", ")})` }
@@ -327,13 +327,19 @@ export function TemplateRenderer({
   cfg,
   thumbnailUrl,
   backgroundUrl = "",
+  contact,
   aspect,
 }: {
   cfg: ResolvedConfig;
   thumbnailUrl: string;
-  backgroundUrl?: string; // foto latar full-bleed (source:"background"); kosong → pakai fallback warna
-  aspect?: string;        // override aspect (mis. galeri "4:5"); kosong → aspect asli
+  backgroundUrl?: string;          // foto latar full-bleed (source:"background"); kosong → pakai fallback warna
+  contact?: CompanyContact | null; // kontak footer dari company profile; kosong → placeholder default
+  aspect?: string;                 // override aspect (mis. galeri "4:5"); kosong → aspect asli
 }) {
+  // Footer contact: pakai kontak profil bila ada (boleh sebagian — slot kosong jadi ikon saja);
+  // tak ada sama sekali → placeholder default supaya preview tak terlihat rusak. Kontak bukan
+  // urusan resolver brand (paritas dgn CanvasSpecInput.contact di canvas-spec.ts) — prop terpisah.
+  const footerContact: Record<string, string> = contact ?? DEFAULT_COMPANY_PROFILE.contact;
   const background = cfg.background;
   const scheme = cfg.color_scheme;
   const isImageBg = background?.type === "image";
@@ -371,7 +377,7 @@ export function TemplateRenderer({
           case "tagline":
             return <TaglineElement key={i} el={el} scheme={scheme} />;
           case "footer":
-            return <FooterElement key={i} el={el} scheme={scheme} />;
+            return <FooterElement key={i} el={el} scheme={scheme} contact={footerContact} />;
           case "scrim":
             return <ScrimElement key={i} el={el} />;
           case "image":

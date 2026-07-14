@@ -195,7 +195,7 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
 > WAJIB baca dulu **`backend/scripts/seed_template_data/README.md`** — aturan pemisahan TEMPLATE vs GAMBAR,
 > struktur `elements`, dan kontrak slot AI (`role` vs `bind`).
 
-### Dua renderer — paritas wajib
+### Satu resolver, dua renderer
 
 `template_config` digambar oleh **dua** renderer berbeda:
 
@@ -204,8 +204,16 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
 | CSS | `frontend/src/components/template/TemplateRenderer.tsx` | galeri, preview modal, HTML preview |
 | Fabric | `frontend/src/lib/editor/canvas-spec.ts` + `components/editor/TemplateFabricCanvas.tsx` | canvas editor, export PNG |
 
+- **Resolusi brand HANYA di `frontend/src/lib/template/resolve.ts`.** `resolveTemplateConfig()` (fungsi murni)
+  menggabungkan warna brand + copy + precedence font + logo/tagline jadi satu `ResolvedConfig`; kedua renderer
+  **hanya menggambar** hasilnya. Renderer (dan halaman) **dilarang** meng-adapt brand sendiri — jangan bikin
+  jalur brand-adapt kedua. Jalur ganda = preview branded dan PNG hasil export berbeda diam-diam.
 - **Fitur `template_config` baru wajib diimplementasi di KEDUANYA.** Fitur yang hanya ada di satu sisi tampil
   benar di preview lalu rusak/crash di editor (atau sebaliknya) — ini sumber bug berulang.
+- **Data company profile ikut `branded`.** `branded` (galeri/preview: toggle "Preview dengan brand color";
+  editor: `final_config.brand_applied`) menentukan SEMUA data profil sekaligus — warna, font, logo, tagline,
+  dan kontak footer. Unbranded → `DEFAULT_COMPANY_PROFILE` (placeholder generik), branded → profil user.
+  Jangan campur (mis. kontak asli user tapi logo default) — itu bikin preview tak konsisten.
 - **Fabric adalah sumber kebenaran soal pembungkusan teks.** Jangan pernah menulis word-wrap atau pengukur
   teks tandingan; ukur lewat Fabric (`Textbox.calcTextWidth()` + `textLines.length`). Estimasi sendiri meleset
   di ambang kolom → auto-fit salah putusan → teks bertabrakan.

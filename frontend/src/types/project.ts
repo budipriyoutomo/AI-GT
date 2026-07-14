@@ -52,6 +52,9 @@ export interface ProjectFinalConfig {
     headline_size: number;
     body_size: number;
     letter_spacing: number;
+    // Faktor skala relatif ukuran template (mode template). 1 = ikut template. Opsional (proyek lama → 1).
+    headline_scale?: number;
+    body_scale?: number;
   };
   thematic_image_url: string | null;
   image_source: "upload" | "generated" | "none";

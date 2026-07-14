@@ -46,9 +46,12 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        contact={null}
         userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
       />,
     );
@@ -62,9 +65,12 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={["#111111"]}
         userBrandFont="Poppins"
+        contact={null}
         userLogoUrl="/permanent/logos/u1/logo.png?v=1"
         isCarousel={false}
         slideCount={5}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
       />,
     );
@@ -86,9 +92,12 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={true}
         userBrandColors={["#111111", "#222222"]}
         userBrandFont="Poppins"
+        contact={null}
         userLogoUrl="/permanent/logos/u1/logo.png?v=1"
         isCarousel={false}
         slideCount={5}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
       />,
     );
@@ -103,9 +112,12 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={true}
         userBrandColors={null}
         userBrandFont={null}
+        contact={null}
         userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
       />,
     );
@@ -125,14 +137,76 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        contact={null}
         userLogoUrl={null}
         isCarousel={false}
         slideCount={5}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={onChangeTemplate}
       />,
     );
     screen.getByText("Ganti template").click();
     expect(onChangeTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onToggleBrand when the brand-preview toggle is clicked", () => {
+    const onToggleBrand = vi.fn();
+    render(
+      <SelectedTemplatePanel
+        template={TEMPLATE}
+        brandPreview={false}
+        userBrandColors={["#111111"]}
+        userBrandFont="Poppins"
+        contact={null}
+        userLogoUrl={null}
+        hasBrand={true}
+        onToggleBrand={onToggleBrand}
+        isCarousel={false}
+        slideCount={5}
+        onChangeTemplate={() => {}}
+      />,
+    );
+    screen.getByText("Preview dengan brand color").click();
+    expect(onToggleBrand).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggle prompts to set brand color when the user has none", () => {
+    render(
+      <SelectedTemplatePanel
+        template={TEMPLATE}
+        brandPreview={false}
+        userBrandColors={null}
+        userBrandFont={null}
+        contact={null}
+        userLogoUrl={null}
+        hasBrand={false}
+        onToggleBrand={() => {}}
+        isCarousel={false}
+        slideCount={5}
+        onChangeTemplate={() => {}}
+      />,
+    );
+    expect(screen.getByText("Atur brand color")).toBeInTheDocument();
+  });
+
+  it("toggle shows 'Kembali ke original' when brand preview is active", () => {
+    render(
+      <SelectedTemplatePanel
+        template={TEMPLATE}
+        brandPreview={true}
+        userBrandColors={["#111111"]}
+        userBrandFont="Poppins"
+        contact={null}
+        userLogoUrl={null}
+        hasBrand={true}
+        onToggleBrand={() => {}}
+        isCarousel={false}
+        slideCount={5}
+        onChangeTemplate={() => {}}
+      />,
+    );
+    expect(screen.getByText("Kembali ke original")).toBeInTheDocument();
   });
 
   it("shows slide count badge when isCarousel is true", () => {
@@ -142,9 +216,12 @@ describe("SelectedTemplatePanel", () => {
         brandPreview={false}
         userBrandColors={null}
         userBrandFont={null}
+        contact={null}
         userLogoUrl={null}
         isCarousel={true}
         slideCount={6}
+        hasBrand={false}
+        onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
       />,
     );

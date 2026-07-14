@@ -1,8 +1,11 @@
 import json
+import logging
 
 import openai
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 from app.services.providers.ai_types import CopyInput, CopyResult, CopyVariant
 from app.services.providers.copy_prompt import (
     COPY_PROMPT_TEMPLATE,
@@ -62,6 +65,11 @@ class DeepSeekCopyProvider:
                 campaign_data=json.dumps(input.campaign_data, ensure_ascii=False) if input.campaign_data else "{}",
             )
             max_tokens = 2048
+
+        logger.info(
+            "AI COPY PROMPT [provider=deepseek model=%s content_type=%s]:\n%s",
+            settings.ai_copy_model, input.content_type, prompt,
+        )
 
         response = await self._client.chat.completions.create(
             model=settings.ai_copy_model,

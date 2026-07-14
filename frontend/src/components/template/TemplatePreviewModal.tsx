@@ -8,6 +8,7 @@ import { TemplateRenderer } from "./TemplateRenderer";
 import { resolveTemplateConfig } from "@/lib/template/resolve";
 import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
+import type { CompanyContact } from "@/types/company-profile";
 
 // "instagram_post" → "Instagram post". Fallback ke nilai mentah bila kosong.
 function formatLabel(contentType?: string): string {
@@ -30,11 +31,13 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 export function TemplatePreviewModal({
   template,
   profile,
+  contact,
   buildHref,
   onClose,
 }: {
   template: TemplateListItem | null;
-  profile: BrandSource | null; // dari company profile; null/brand_colors kosong → belum diisi
+  profile: BrandSource | null;    // dari company profile; null/brand_colors kosong → belum diisi
+  contact: CompanyContact | null; // kontak company profile untuk slot footer; null → placeholder
   // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
   // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
   buildHref: (brandPreview: boolean) => string;
@@ -129,6 +132,7 @@ export function TemplatePreviewModal({
                 cfg={resolved}
                 thumbnailUrl={template.thumbnail_url}
                 backgroundUrl={template.background_url ?? ""}
+                contact={branded ? contact : null}
               />
             </div>
           </div>

@@ -14,6 +14,8 @@ export interface EditorPreviewState {
   headlineFont: string;
   bodyFont: string;
   letterSpacing: number; // px ruang preview 800px
+  headlineScale: number; // faktor skala ukuran headline relatif template (1 = default template)
+  bodyScale: number;     // faktor skala ukuran body relatif template
 }
 
 /** Konteks brand editor — final_config.brand_applied + company profile live. */
@@ -48,6 +50,30 @@ function stripCtaElements(elements: TemplateElement[]): TemplateElement[] {
     .map((el) =>
       el.children ? { ...el, children: stripCtaElements(el.children) } : el,
     );
+}
+
+/**
+ * Skala ukuran font slot ber-bind (headline/body) relatif ukuran template. Default 1
+ * (ukuran template). Auto-fit di canvas tetap membatasi ke budget layout, jadi menaikkan
+ * ukuran tak akan menabrak elemen bawah — hanya melar sampai batas ruangnya.
+ */
+function scaleBoundFontSize(
+  elements: TemplateElement[],
+  headlineScale: number,
+  bodyScale: number,
+): TemplateElement[] {
+  const scaleFor = (bind?: string) =>
+    bind === "headline" ? headlineScale : bind === "body" ? bodyScale : 1;
+  const walk = (els: TemplateElement[]): TemplateElement[] =>
+    els.map((el) => {
+      let next = el.children ? { ...el, children: walk(el.children) } : el;
+      const s = scaleFor(el.bind);
+      if (s !== 1 && next.style?.fontSize != null) {
+        next = { ...next, style: { ...next.style, fontSize: next.style.fontSize * s } };
+      }
+      return next;
+    });
+  return walk(elements);
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -98,6 +124,8 @@ export function buildEditorPreviewConfig(
     return null; // config lama/invalid — fallback ke canvas generik
   }
 
-  const elements = state.cta ? resolved.elements : stripCtaElements(resolved.elements);
+  let elements = scaleBoundFontSize(resolved.elements, state.headlineScale, state.bodyScale);
+  if (!state.cta) elements = stripCtaElements(elements);
+
   return { ...resolved, elements };
 }

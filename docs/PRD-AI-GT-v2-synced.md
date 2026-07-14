@@ -105,6 +105,14 @@ Library template terkategori. Setiap template sudah include layout, background, 
   diisi **logo default generik** supaya komposisi tetap terbaca utuh. Brand user baru diterapkan saat user
   menekan toggle **"Preview dengan brand color"** di modal preview, dan pilihan itu terbawa ke flow generate.
   (Sebelumnya PRD ini menyatakan galeri selalu brand-adapted — tidak sesuai implementasi.)
+- **[NEW] Toggle brand bisa dibalik di halaman Create.** Pilihan brand dari galeri hanya jadi **nilai awal**;
+  di `/create` user bisa menyalakan/mematikan brand preview kapan saja — kartu mini template picker dan panel
+  "Template dipilih" ikut berubah seketika. User yang belum punya brand color diarahkan ke Settings
+  (perilaku sama dengan modal galeri).
+- **[NEW] Kontak bisnis tampil di slot footer template.** Template yang punya elemen `footer` diisi dari
+  `company_profile.contact` (boleh **sebagian** — slot tanpa nilai tampil ikonnya saja); profil yang belum
+  mengisi kontak sama sekali tetap memakai placeholder default supaya preview tidak terlihat rusak. Berlaku
+  konsisten di galeri, modal preview, panel `/create`, canvas editor, dan PNG hasil export.
 - AI suggest template relevan berdasarkan company profile.
 - Premium: `is_premium` flag ada; fitur "generate background AI" masih roadmap.
 
@@ -196,6 +204,12 @@ Untuk template `content_type = "Carousel"`, Step 3 menampilkan konfigurasi tamba
 AI generate typography otomatis berdasarkan **industri** (dari company profile) + **gaya bahasa** (dipilih user).
 Output: font pairing (headline + body), sizing hierarchy, letter spacing. Semua bisa di-override di editor.
 Field varian: `headline_font`, `body_font`, `headline_size`, `body_size`, `letter_spacing`.
+
+> **[NEW] Ukuran teks di editor diatur sebagai skala relatif template**, bukan angka piksel absolut.
+> Slider headline/body menggeser ukuran **relatif terhadap ukuran yang didesain template** (1 = ukuran
+> template, rentang 0,6–1,6), sehingga hasil edit tetap proporsional dengan komposisi template dan tidak
+> pernah menabrak elemen lain (auto-fit tetap membatasi ke ruang yang tersedia). Disimpan di
+> `final_config.typography` sebagai `headline_scale` / `body_scale`.
 
 #### [NEW] AI Copy — diarahkan per template
 
@@ -335,3 +349,6 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
 | 15 | Company profile | **[CHANGED]** Upload logo jadi **nyata** (sebelumnya mock UI): normalisasi server-side ke PNG (PNG/JPEG/WEBP, maks 2 MB, ≤1024px; SVG ditolak), logo bisa dihapus kembali, dan logo asli ikut ter-render di preview & editor + ikut ter-export ke PNG final. |
 | 16 | Company profile | **[NEW]** Perubahan brand di Settings langsung berlaku di `/create` **tanpa logout/login** (profil di-fetch ulang tiap `/create` dibuka). Konten lama tidak diubah surut. |
 | 17 | Template galeri | **[CHANGED]** Brand di galeri jadi **opt-in**: kartu galeri & preview awal tampil dengan warna/font asli template + **logo default generik**; brand user baru dipakai saat toggle "Preview dengan brand color" ditekan. |
+| 18 | Create flow | **[NEW]** Toggle brand preview bisa dibalik langsung di `/create` (bukan lagi terkunci dari pilihan di galeri) — mini template picker & panel "Template dipilih" ikut berubah seketika. |
+| 19 | Template footer | **[NEW]** Slot `footer` template diisi kontak asli dari `company_profile.contact` (boleh sebagian; slot kosong tampil ikon saja, profil tanpa kontak tetap pakai placeholder) — konsisten di galeri, preview, `/create`, editor, dan export PNG. |
+| 20 | Editor typography | **[CHANGED]** Ukuran headline/body di editor jadi **skala relatif template** (`headline_scale`/`body_scale` di `final_config.typography`, 1 = ukuran template) menggantikan ukuran piksel absolut — hasil edit tetap proporsional dengan komposisi template. |

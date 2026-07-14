@@ -4,11 +4,13 @@
       "Bash(npm install *)",
       "Bash(npm run *)",
       "Bash(npx vitest *)",
-      "Bash(npx tsc *)",
       "Bash(python3 -m pytest --version)",
       "Bash(python -m pytest --cov=app --cov-report=term-missing -q)",
       "Bash(python -m pytest --collect-only -q)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(python3 *)"
     ]
   }
 }

@@ -56,6 +56,7 @@ describe("TemplatePreviewModal", () => {
       <TemplatePreviewModal
         template={TEMPLATE}
         profile={PROFILE}
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -73,6 +74,7 @@ describe("TemplatePreviewModal", () => {
       <TemplatePreviewModal
         template={TEMPLATE}
         profile={PROFILE}
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -94,6 +96,7 @@ describe("TemplatePreviewModal", () => {
       <TemplatePreviewModal
         template={TEMPLATE}
         profile={PROFILE}
+        contact={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -110,6 +113,7 @@ describe("TemplatePreviewModal", () => {
       <TemplatePreviewModal
         template={TEMPLATE}
         profile={PROFILE}
+        contact={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -126,6 +130,7 @@ describe("TemplatePreviewModal", () => {
       <TemplatePreviewModal
         template={TEMPLATE}
         profile={{ brand_colors: null, brand_font: null, logo_url: null }}
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,

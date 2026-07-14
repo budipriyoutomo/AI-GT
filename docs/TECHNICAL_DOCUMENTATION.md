@@ -225,6 +225,12 @@ Terbentuk saat varian dipilih (atau otomatis pada Quick Generate):
 yang di-inject di top-level — `name`, `content_type`, `thumbnail_url` (lihat
 `generate_service._normalize_template_config`). Inilah payload yang di-render canvas editor.
 
+`final_config.typography` menyimpan hasil edit editor: `headline_font`, `body_font`, `headline_size`,
+`body_size`, `letter_spacing`, plus **`headline_scale` / `body_scale`** — faktor skala ukuran font
+**relatif ukuran yang di-authored template** (1 = ukuran template; slider editor 0,6–1,6). Skala di-apply
+di `lib/editor/preview-config.ts` ke elemen ber-`bind`, lalu auto-fit canvas tetap membatasi ke budget
+layout. Project lama tanpa kedua field ini → fallback `1`.
+
 ### Relasi (ringkas)
 
 ```
@@ -517,12 +523,30 @@ tiap varian.
 - **Template rendering** — `components/template/TemplateRenderer.tsx` me-render `template_config` +
   data hasil generate. Logika merge tiga sumber (`template_config` + `company_profile` +
   `generate_config`) di runtime dijelaskan di [`docs/render-template-logic.md`](render-template-logic.md).
+- **Satu resolver (`lib/template/resolve.ts`).** `resolveTemplateConfig({ templateConfig, profile, branded, copy })`
+  adalah **fungsi murni** yang menggabungkan warna brand (`lib/brandAdapt.ts`) + copy/tipografi (`lib/editor/merge.ts`)
+  + precedence font + logo/tagline jadi satu `ResolvedConfig`. Kedua renderer (CSS & Fabric) hanya **menggambar**
+  `ResolvedConfig` — tidak ada satu pun yang meng-adapt brand sendiri, jadi preview HTML, canvas editor, dan PNG
+  hasil export dijamin identik. Adapter editor `lib/editor/preview-config.ts` hanya menyiapkan state editor
+  (copy, font, skala, strip CTA kosong) lalu memanggil resolver yang sama. Lihat AGENTS.md §6.
 - **Galeri vs preview branded.** Kartu galeri (`app/templates/page.tsx`) dan preview modal dalam keadaan
   **unbranded** (default) merender template apa adanya — warna & font asli template — dengan slot logo diisi
   **logo default statis** (`DEFAULT_COMPANY_PROFILE.logo_url` di `lib/defaults.ts`), bukan logo brand user.
   Brand user (warna, font, logo asli) baru dipakai saat toggle **"Preview dengan brand color"** di
   `TemplatePreviewModal` diaktifkan, dan pilihan toggle itu terbawa ke `/create` lewat query `brandPreview`
-  (`lib/create/brand-preview.ts`).
+  (`lib/create/brand-preview.ts`). Di `/create` query itu hanya **seed** untuk state lokal: toggle yang sama
+  (`components/create/BrandPreviewToggle.tsx`) bisa dibalik in-page, dan mini template picker
+  (`MiniTemplateCard`) + `SelectedTemplatePanel` sama-sama membaca state itu. Saat generate, pilihan itu
+  dipersist sebagai `brand_applied` (request generate session → `final_config.brand_applied`); editor
+  membacanya sebagai `branded` untuk resolver, sehingga proyek lama (tanpa field itu) tetap unbranded.
+  **`branded` mengatur seluruh data profil sekaligus** — warna, font, logo, tagline, dan kontak footer:
+  unbranded → `DEFAULT_COMPANY_PROFILE`, branded → profil user. Tidak ada campuran.
+- **Slot footer & kontak.** Elemen `footer` di `template_config` mendeklarasikan `slots`
+  (mis. `instagram`, `whatsapp`, `website`); isinya diambil dari `company_profile.contact` yang diteruskan
+  sebagai prop `contact` ke `TemplateRenderer` (CSS) dan lewat `buildCanvasSpec({ contact })` (Fabric).
+  Nilai kosong → ikon saja tanpa teks; `contact` null seluruhnya → `DEFAULT_COMPANY_PROFILE.contact`.
+  Ikon di kedua renderer berasal dari peta `ICONS` yang sama (`components/template/SocialIcon.tsx`),
+  jadi preview dan PNG hasil export identik.
 - **Editor** — `components/editor/FabricCanvas.tsx` (Fabric.js 6) untuk edit & export PNG;
   `hooks/useAutoSave.ts` menyimpan snapshot thumbnail secara berkala.
 - **Editor element-based (`TemplateFabricCanvas.tsx` + `lib/editor/canvas-spec.ts`)** — merender
