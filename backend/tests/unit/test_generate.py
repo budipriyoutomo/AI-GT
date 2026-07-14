@@ -349,6 +349,71 @@ class TestRunGenerationTask:
         assert len(projects) == 1
         assert projects[0].user_id == verified_user.id
 
+    async def test_run_generation_task_reports_progress(
+        self,
+        db,
+        verified_user: User,
+        sample_template: Template,
+        company_profile: CompanyProfile,
+    ):
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.generate_session import GenerateSession
+        from app.services import ai_service, generate_service
+        from app.services.providers.ai_types import CopyResult, CopyVariant, ImageResult
+
+        session = GenerateSession(
+            id=uuid.uuid4(),
+            user_id=verified_user.id,
+            template_id=sample_template.id,
+            language_style="casual",
+            goal="promo",
+            platform="instagram_feed",
+            content_data={
+                "product_or_service": "Nasi Goreng",
+                "key_message": "Enak dan murah",
+                "image_source": "none",
+            },
+            status="processing",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db.add(session)
+        await db.commit()
+
+        assert session.progress == 0
+
+        mock_copy = CopyResult(variants=[
+            CopyVariant(1, {"headline": "H1", "body": "B", "cta": "C"}, {"headline_font": "Montserrat", "body_font": "Lato", "headline_size": 36, "body_size": 16, "letter_spacing": 0.5})
+        ])
+        mock_image = ImageResult(image_urls=[None])
+
+        captured = {}
+
+        async def fake_generate(*args, **kwargs):
+            # Sebelum AI call selesai, progress harus sudah > 0 dan < 100
+            captured["mid"] = session.progress
+            return (mock_copy, mock_image)
+
+        with patch.object(ai_service, "generate_content", new=fake_generate):
+            await generate_service._do_generate(db, session.id)
+
+        await db.refresh(session)
+        assert 0 < captured["mid"] < 100
+        assert session.progress == 100
+
+    async def test_get_session_response_includes_progress(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        completed_session: "tuple[GenerateSession, list]",
+    ):
+        session, _ = completed_session
+        res = await client.get(
+            f"/api/v1/generate/session/{session.id}", headers=auth_headers
+        )
+        assert res.status_code == 200
+        assert "progress" in res.json()["data"]
+
     async def test_run_generation_task_copy_failure(
         self,
         db,

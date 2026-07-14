@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { generateApi } from "@/api/generateApi";
 import type { GenerateSession } from "@/types/generate-session";
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 1200;
 
 interface UseGenerateSessionResult {
   session: GenerateSession | null;

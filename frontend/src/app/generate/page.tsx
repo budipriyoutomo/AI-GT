@@ -48,6 +48,7 @@ export default function GeneratePage() {
   const [elapsed, setElapsed]     = useState(0);
   const [tipIndex, setTipIndex]   = useState(0);
   const startTimeRef              = useRef<number | null>(null);
+  const targetRef                 = useRef(0);
 
   const isProcessing = session?.status === "processing" || (loading && !session);
 
@@ -58,22 +59,34 @@ export default function GeneratePage() {
     }
   }, [isProcessing]);
 
-  // Animate progress bar while processing
+  // Track backend-reported progress as the animation target (real, not simulated)
   useEffect(() => {
     if (session?.status === "completed") {
-      setProgress(100);
-      return;
+      targetRef.current = 100;
+    } else if (typeof session?.progress === "number") {
+      targetRef.current = session.progress;
     }
-    if (!isProcessing) return;
+  }, [session?.status, session?.progress]);
+
+  // Ease the bar toward the backend target so poll-step jumps glide smoothly.
+  // Between checkpoints (e.g. the long AI wait at 20%) allow a small creep so it
+  // never looks frozen — but capped below the target's next step, never faking 100%.
+  useEffect(() => {
+    if (!isProcessing && session?.status !== "completed") return;
 
     const tick = setInterval(() => {
       const start = startTimeRef.current ?? Date.now();
-      const t     = (Date.now() - start) / 1000;
-      setElapsed(Math.floor(t));
-      // Exponential approach — asymptote at 93%, slows naturally near ceiling
-      const sim = 93 * (1 - Math.exp(-t / 14));
-      setProgress(Math.min(sim, 93));
-    }, 150);
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+
+      setProgress((cur) => {
+        const done   = session?.status === "completed" || targetRef.current >= 100;
+        const target = done ? 100 : targetRef.current;
+        const ceil   = done ? 100 : Math.min(target + 15, 95);
+        if (cur >= ceil) return cur;
+        const step = Math.max(0.4, (ceil - cur) * 0.05); // ease-out toward ceiling
+        return Math.min(cur + step, ceil);
+      });
+    }, 100);
 
     return () => clearInterval(tick);
   }, [isProcessing, session?.status]);
@@ -85,10 +98,13 @@ export default function GeneratePage() {
     return () => clearInterval(tid);
   }, [isProcessing]);
 
-  // Auto-navigate when completed
+  // Auto-navigate when completed — brief hold so the bar visibly settles at 100%
   useEffect(() => {
     if (session?.status === "completed" && session.project_id) {
-      router.replace(`/editor?projectId=${session.project_id}`);
+      const t = setTimeout(() => {
+        router.replace(`/editor?projectId=${session.project_id}`);
+      }, 650);
+      return () => clearTimeout(t);
     }
   }, [session?.status, session?.project_id, router]);
 

@@ -139,7 +139,7 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-│   ├── alembic/versions/        → migrasi 0001…0011
+│   ├── alembic/versions/        → migrasi 0001…0012
 │   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
 │   └── tests/                   → conftest.py, unit/, integration/
 │
@@ -206,6 +206,7 @@ Merepresentasikan satu request generate. Kolom kunci:
 | content_data | JSON — field Quick Generate (product_or_service, key_message, image_source, …) |
 | campaign_data | JSON — **null = Quick Generate; non-null = Campaign (premium)** |
 | status | `processing` → `completed` \| `failed` |
+| progress | Integer 0-100, default 0. Diperbarui `generate_service._do_generate` di titik nyata (20 = brief tervalidasi & AI mulai dipanggil, 75 = AI selesai tinggal persist varian, 100 = `completed`) — progress asli, bukan simulasi waktu di frontend |
 | expires_at | not null — TTL **1 jam** (`_SESSION_TTL_HOURS`) |
 
 Property `project_id` di-derive dari relasi `project` (1:1).
@@ -317,7 +318,7 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 | Method | Path | Deskripsi |
 |---|---|---|
 | POST | `/session` | Buat session; memicu **background task** generate. Return `{id, status}` (201) |
-| GET | `/session/{session_id}` | Poll status + varian. 403 jika bukan milik user, 422 jika expired |
+| GET | `/session/{session_id}` | Poll status + varian, sertakan `progress` (0-100). 403 jika bukan milik user, 422 jika expired |
 | POST | `/image-suggestions` | 3 saran prompt gambar dari brief (503 jika gagal) |
 | POST | `/image` | Generate 1 gambar dari prompt; jika ada `project_id` → regenerate & update `final_config` |
 | POST | `/session/{session_id}/select` | Pilih varian → buat project |
@@ -567,7 +568,7 @@ tiap varian.
   authored. Pengukuran wrap selalu lewat `Textbox` Fabric sungguhan (bukan estimasi) supaya keputusan
   fit sama persis dengan yang digambar. Batas karakter input di editor (`charCapacity`) memakai
   formula yang sama dengan `copy_prompt._char_capacity` di backend (§9).
-- **`hooks/useGenerateSession.ts`** — mengelola polling status session sampai `completed`/`failed`.
+- **`hooks/useGenerateSession.ts`** — mengelola polling status session sampai `completed`/`failed`, meneruskan `progress` (0-100) dari server apa adanya — bukan simulasi waktu di client.
 
 ---
 
