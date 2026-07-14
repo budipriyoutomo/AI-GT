@@ -125,9 +125,6 @@ export default function HistoryPage() {
     <Shell
       active="history"
       title="Riwayat"
-      actions={
-        <Button size="sm" variant="outline" icon="download">Export semua</Button>
-      }
     >
       <PageHead
         title="Riwayat Generate"

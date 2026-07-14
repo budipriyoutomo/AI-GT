@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
   title: "Hubungi Kami",
@@ -67,6 +68,8 @@ export default function ContactPage() {
             </div>
           ))}
         </div>
+
+        <ContactForm />
       </div>
     </main>
   );
