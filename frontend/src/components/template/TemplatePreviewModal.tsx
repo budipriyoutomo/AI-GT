@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TemplateRenderer } from "./TemplateRenderer";
 import type { TemplateListItem } from "@/types/template";
+import type { CompanyContact } from "@/types/company-profile";
 
 // "instagram_post" → "Instagram post". Fallback ke nilai mentah bila kosong.
 function formatLabel(contentType?: string): string {
@@ -29,12 +30,14 @@ export function TemplatePreviewModal({
   template,
   brandColors,
   brandFont,
+  contact,
   buildHref,
   onClose,
 }: {
   template: TemplateListItem | null;
   brandColors: string[] | null; // dari company profile; null/empty → belum diisi
   brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
+  contact: CompanyContact | null; // kontak company profile untuk slot footer; null → placeholder
   // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
   // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
   buildHref: (brandPreview: boolean) => string;
@@ -130,6 +133,7 @@ export function TemplatePreviewModal({
                 backgroundUrl={template.background_url ?? ""}
                 brandColors={branded ? brandColors : null}
                 brandFont={branded ? brandFont : null}
+                contact={contact}
               />
             </div>
           </div>

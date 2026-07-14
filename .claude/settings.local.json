@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

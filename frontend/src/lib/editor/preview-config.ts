@@ -13,6 +13,8 @@ export interface EditorPreviewState {
   headlineFont: string;
   bodyFont: string;
   letterSpacing: number; // px ruang preview 800px
+  headlineScale: number; // faktor skala ukuran headline relatif template (1 = default template)
+  bodyScale: number;     // faktor skala ukuran body relatif template
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -46,6 +48,30 @@ function stripCtaElements(elements: TemplateElement[]): TemplateElement[] {
  * elemen statis (tanpa bind) harus mempertahankan letterSpacing template — kicker
  * ber-tracking lebar jangan ikut nilai slider editor.
  */
+/**
+ * Skala ukuran font slot ber-bind (headline/body) relatif ukuran template. Default 1
+ * (ukuran template). Auto-fit di canvas tetap membatasi ke budget layout, jadi menaikkan
+ * ukuran tak akan menabrak elemen bawah — hanya melar sampai batas ruangnya.
+ */
+function scaleBoundFontSize(
+  elements: TemplateElement[],
+  headlineScale: number,
+  bodyScale: number,
+): TemplateElement[] {
+  const scaleFor = (bind?: string) =>
+    bind === "headline" ? headlineScale : bind === "body" ? bodyScale : 1;
+  const walk = (els: TemplateElement[]): TemplateElement[] =>
+    els.map((el) => {
+      let next = el.children ? { ...el, children: walk(el.children) } : el;
+      const s = scaleFor(el.bind);
+      if (s !== 1 && next.style?.fontSize != null) {
+        next = { ...next, style: { ...next.style, fontSize: next.style.fontSize * s } };
+      }
+      return next;
+    });
+  return walk(elements);
+}
+
 function restoreStaticLetterSpacing(
   merged: TemplateElement[],
   original: TemplateElement[],
@@ -106,6 +132,7 @@ export function buildEditorPreviewConfig(
   }
 
   let elements = restoreStaticLetterSpacing(merged.elements, cfg.elements);
+  elements = scaleBoundFontSize(elements, state.headlineScale, state.bodyScale);
   if (!state.cta) elements = stripCtaElements(elements);
 
   return { ...merged, elements };

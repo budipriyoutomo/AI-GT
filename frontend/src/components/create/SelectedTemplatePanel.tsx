@@ -5,8 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { PosterThumb } from "@/components/poster-thumb";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
+import { BrandPreviewToggle } from "@/components/create/BrandPreviewToggle";
 import { resolveBrandColors, resolveBrandFont } from "@/lib/create/brand-preview";
 import type { Template } from "@/types/template";
+import type { CompanyContact } from "@/types/company-profile";
 
 const LOCKED_ELEMENTS = [
   { label: "Layout & komposisi", icon: "layout-grid" },
@@ -25,6 +27,9 @@ export function SelectedTemplatePanel({
   brandPreview,
   userBrandColors,
   userBrandFont,
+  contact,
+  hasBrand,
+  onToggleBrand,
   isCarousel,
   slideCount,
   onChangeTemplate,
@@ -33,6 +38,9 @@ export function SelectedTemplatePanel({
   brandPreview: boolean;
   userBrandColors: string[] | null;
   userBrandFont: string | null;
+  contact: CompanyContact | null;
+  hasBrand: boolean;
+  onToggleBrand: () => void;
   isCarousel: boolean;
   slideCount: number;
   onChangeTemplate: () => void;
@@ -75,6 +83,7 @@ export function SelectedTemplatePanel({
               backgroundUrl={template.background_url ?? ""}
               brandColors={brandColors}
               brandFont={brandFont}
+              contact={contact}
             />
           ) : (
             <PosterThumb title="Template" kicker="" cta={null} accent="--chart-1" ratio="4 / 5" />
@@ -90,6 +99,11 @@ export function SelectedTemplatePanel({
           {template?.industry && <Badge variant="secondary">{template.industry}</Badge>}
           {template?.theme && <Badge variant="info">{template.theme}</Badge>}
         </div>
+        {template && (
+          <div style={{ marginTop: 10 }}>
+            <BrandPreviewToggle active={brandPreview} hasBrand={hasBrand} onToggle={onToggleBrand} size="sm" />
+          </div>
+        )}
       </div>
 
       <div style={{ flexShrink: 0, marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>

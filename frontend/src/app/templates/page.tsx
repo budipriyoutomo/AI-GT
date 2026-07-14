@@ -18,6 +18,7 @@ import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
 import type { TemplateListItem } from "@/types/template";
+import type { CompanyContact } from "@/types/company-profile";
 
 const FORMATS = ["Semua", "Single", "Carousel"];
 const INDUSTRIES = [
@@ -32,11 +33,13 @@ const INDUSTRIES = [
 function TemplateCard({
   t,
   fav,
+  contact,
   onFav,
   onPreview,
 }: {
   t: TemplateListItem;
   fav: boolean;
+  contact: CompanyContact | null;
   onFav: () => void;
   onPreview: () => void;
 }) {
@@ -59,7 +62,7 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
-          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} backgroundUrl={t.background_url ?? ""} aspect="4:5" />
+          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} backgroundUrl={t.background_url ?? ""} contact={contact} aspect="4:5" />
 
           {t.is_premium && (
             <div style={{
@@ -143,6 +146,8 @@ export default function TemplatesPage() {
   const [preview, setPreview] = useState<TemplateListItem | null>(null);
   const [brandColors, setBrandColors] = useState<string[] | null>(null);
   const [brandFont, setBrandFont] = useState<string | null>(null);
+  // Kontak company profile → mengisi slot footer template (boleh sebagian).
+  const [contact, setContact] = useState<CompanyContact | null>(null);
 
   useEffect(() => {
     templatesApi.list()
@@ -151,8 +156,8 @@ export default function TemplatesPage() {
       .finally(() => setLoading(false));
     // Brand color & font untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); })
-      .catch(() => { setBrandColors(null); setBrandFont(null); });
+      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); setContact(p.contact ?? null); })
+      .catch(() => { setBrandColors(null); setBrandFont(null); setContact(null); });
   }, []);
 
   const list = useMemo(() => {
@@ -257,6 +262,7 @@ export default function TemplatesPage() {
               key={t.id}
               t={t}
               fav={!!favs[t.id]}
+              contact={contact}
               onFav={() => setFavs((f) => ({ ...f, [t.id]: !f[t.id] }))}
               onPreview={() => setPreview(t)}
             />
@@ -268,6 +274,7 @@ export default function TemplatesPage() {
         template={preview}
         brandColors={brandColors}
         brandFont={brandFont}
+        contact={contact}
         buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />

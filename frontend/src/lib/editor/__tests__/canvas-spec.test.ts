@@ -205,6 +205,61 @@ describe("buildCanvasSpec — elemen", () => {
     expect(specOf<TextSpec>(out.specs, "text").box).toBeUndefined();
   });
 
+  it("text: rotate/skew/italic diteruskan ke spec (paritas transform TemplateRenderer)", () => {
+    const el: TemplateElement = {
+      type: "text", x: 0.1, y: 0.2, width: 0.8,
+      value: "SALE", style: { fontSize: 220, rotate: -6, skew: -12, italic: true },
+    };
+    const out = build(makeCfg({ elements: [el] }));
+    const t = specOf<TextSpec>(out.specs, "text");
+    expect(t.angle).toBe(-6);
+    expect(t.skewX).toBe(-12);
+    expect(t.fontStyle).toBe("italic");
+  });
+
+  it("text: tanpa rotate/skew/italic → field transform undefined", () => {
+    const el: TemplateElement = { type: "text", x: 0, y: 0, width: 1, value: "Halo", style: { fontSize: 40 } };
+    const t = specOf<TextSpec>(build(makeCfg({ elements: [el] })).specs, "text");
+    expect(t.angle).toBeUndefined();
+    expect(t.skewX).toBeUndefined();
+    expect(t.fontStyle).toBeUndefined();
+  });
+
+  it("text: rotate/skew/italic juga berlaku untuk anak group", () => {
+    const el: TemplateElement = {
+      type: "group", x: 0.06, y: 0.9, width: 0.86, anchor: "bottom", gap: 20,
+      children: [
+        { type: "text", x: 0, y: 0, width: 1, value: "Big", style: { fontSize: 90, rotate: -5, skew: -12, italic: true } },
+      ],
+    };
+    const g = specOf<GroupSpec>(build(makeCfg({ elements: [el] })).specs, "group");
+    expect(g.children[0]).toMatchObject({ angle: -5, skewX: -12, fontStyle: "italic" });
+  });
+
+  it("tagline: isi dari input.tagline, styling & posisi seperti text", () => {
+    const el: TemplateElement = {
+      type: "tagline", x: 0.1, y: 0.12, width: 0.5,
+      value: "Placeholder", style: { fontSize: 30, color: "primary" },
+    };
+    const out = build(makeCfg({ elements: [el] }), { tagline: "Fast. Reliable. Secured" });
+    const t = specOf<TextSpec>(out.specs, "text");
+    expect(t).toMatchObject({
+      text: "Fast. Reliable. Secured",
+      templateText: "Fast. Reliable. Secured",
+      left: 0.1 * 1080, top: 0.12 * 1350, width: 0.5 * 1080,
+      fill: "#FFFFFF", fontSize: 30,
+    });
+    expect(t.bind).toBeUndefined();
+  });
+
+  it("tagline: tanpa input.tagline → fallback ke value template (placeholder)", () => {
+    const el: TemplateElement = {
+      type: "tagline", x: 0.1, y: 0.12, width: 0.5, value: "Placeholder Tagline", style: { fontSize: 30 },
+    };
+    const out = build(makeCfg({ elements: [el] })); // tagline default ""
+    expect(specOf<TextSpec>(out.specs, "text").text).toBe("Placeholder Tagline");
+  });
+
   it("rule: rect tipis dengan warna role, thickness & rotate", () => {
     const el: TemplateElement = {
       type: "rule", x: 0.6, y: 0.1, width: 0.34,
@@ -309,7 +364,7 @@ describe("buildCanvasSpec — elemen", () => {
     expect(g.children[0]).toMatchObject({ text: "Headline", left: 0.06 * 1080, width: 0.86 * 1080, fill: "#FFFFFF" });
   });
 
-  it("footer: slot di-resolve dari contact, slot tanpa nilai dilewati", () => {
+  it("footer: SEMUA slot dipertahankan (ikon selalu tampil); teks kontak null bila kosong", () => {
     const el: TemplateElement = {
       type: "footer", x: 0.04, y: 0.93, width: 0.92, height: 0.05,
       slots: ["website", "instagram", "hashtag"],
@@ -321,7 +376,29 @@ describe("buildCanvasSpec — elemen", () => {
       left: 0.04 * 1080, top: 0.93 * 1350, width: 0.92 * 1080, height: 0.05 * 1350,
       backgroundColor: "transparent", opacity: 1, color: "#FFFFFF", fontSize: 20,
     });
-    expect(f.items).toEqual(["www.toko.com", "@toko"]);
+    // hashtag tak ada di CONTACT → text null, tapi slot tetap ada supaya ikonnya digambar
+    expect(f.items).toEqual([
+      { slot: "website", text: "www.toko.com" },
+      { slot: "instagram", text: "@toko" },
+      { slot: "hashtag", text: null },
+    ]);
+  });
+
+  it("footer: kontak profil terisi SEBAGIAN — field kosong ('') jadi ikon saja (text null)", () => {
+    const el: TemplateElement = {
+      type: "footer", x: 0.04, y: 0.93, width: 0.92, height: 0.05,
+      slots: ["website", "instagram", "youtube"],
+      style: { color: "primary", fontSize: 20 },
+    };
+    // Profil bisnis: website & instagram diisi, youtube dikosongkan.
+    const contact = { website: "www.senja.com", instagram: "@kopisenja", youtube: "" };
+    const out = build(makeCfg({ elements: [el] }), { contact });
+    const f = specOf<FooterSpec>(out.specs, "footer");
+    expect(f.items).toEqual([
+      { slot: "website", text: "www.senja.com" },
+      { slot: "instagram", text: "@kopisenja" },
+      { slot: "youtube", text: null },
+    ]);
   });
 });
 

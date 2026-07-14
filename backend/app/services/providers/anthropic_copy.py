@@ -1,8 +1,11 @@
 import json
+import logging
 
 import anthropic
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 from app.services.providers.ai_types import CopyInput, CopyResult, CopyVariant
 from app.services.providers.copy_prompt import (
     COPY_PROMPT_TEMPLATE,
@@ -24,6 +27,11 @@ class AnthropicCopyProvider:
         else:
             prompt = self._build_single_prompt(input)
             max_tokens = 2048
+
+        logger.info(
+            "AI COPY PROMPT [provider=anthropic model=%s content_type=%s]:\n%s",
+            settings.ai_copy_model, input.content_type, prompt,
+        )
 
         message = await self._client.messages.create(
             model=settings.ai_copy_model,

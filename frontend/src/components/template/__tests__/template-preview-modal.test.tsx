@@ -45,6 +45,7 @@ describe("TemplatePreviewModal", () => {
         template={TEMPLATE}
         brandColors={["#111111"]}
         brandFont="Poppins"
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -60,6 +61,7 @@ describe("TemplatePreviewModal", () => {
         template={TEMPLATE}
         brandColors={["#111111"]}
         brandFont="Poppins"
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
@@ -80,6 +82,7 @@ describe("TemplatePreviewModal", () => {
         template={TEMPLATE}
         brandColors={["#111111"]}
         brandFont="Poppins"
+        contact={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -97,6 +100,7 @@ describe("TemplatePreviewModal", () => {
         template={TEMPLATE}
         brandColors={["#111111"]}
         brandFont="Poppins"
+        contact={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -114,6 +118,7 @@ describe("TemplatePreviewModal", () => {
         template={TEMPLATE}
         brandColors={null}
         brandFont={null}
+        contact={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,

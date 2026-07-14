@@ -14,6 +14,8 @@ function makeState(overrides: Partial<EditorPreviewState> = {}): EditorPreviewSt
     headlineFont: "syne",
     bodyFont: "inter",
     letterSpacing: 0,
+    headlineScale: 1,
+    bodyScale: 1,
     ...overrides,
   };
 }
@@ -198,5 +200,32 @@ describe("buildEditorPreviewConfig — integrity", () => {
     const out = buildEditorPreviewConfig(makeTemplate(), makeState());
     expect(out!.background).toEqual({ type: "color", value: "#1A1A1A" });
     expect(out!.color_scheme).toEqual({ accent: "#F2C200", primary: "#FFFFFF", secondary: "#2E6B34" });
+  });
+});
+
+// ── Skala ukuran slot (custom size, default template) ─────────────────────────
+
+describe("buildEditorPreviewConfig — skala ukuran", () => {
+  it("scale 1 → ukuran template dipertahankan", () => {
+    const out = buildEditorPreviewConfig(makeTemplate(), makeState())!;
+    expect(findByBind(out, "headline")!.style!.fontSize).toBe(142);
+    expect(findByBind(out, "body")!.style!.fontSize).toBe(34);
+  });
+
+  it("headlineScale/bodyScale mengalikan fontSize slot terkait", () => {
+    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ headlineScale: 1.5, bodyScale: 0.5 }))!;
+    expect(findByBind(out, "headline")!.style!.fontSize).toBeCloseTo(142 * 1.5);
+    expect(findByBind(out, "body")!.style!.fontSize).toBeCloseTo(34 * 0.5);
+  });
+
+  it("skala hanya kena slot ber-bind; elemen statis (eyebrow) tak berubah", () => {
+    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ headlineScale: 1.5, bodyScale: 1.5 }))!;
+    expect(findByRole(out, "eyebrow")!.style!.fontSize).toBe(32);
+  });
+
+  it("skala cta (anak group ber-bind cta) mengikuti bodyScale? tidak — cta tak diskala", () => {
+    // Hanya headline & body yang diekspos slider; cta tetap ukuran template.
+    const out = buildEditorPreviewConfig(makeTemplate(), makeState({ headlineScale: 1.5, bodyScale: 1.5 }))!;
+    expect(findByBind(out, "cta")!.style!.fontSize).toBe(30);
   });
 });

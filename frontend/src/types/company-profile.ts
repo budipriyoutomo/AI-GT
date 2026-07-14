@@ -5,6 +5,10 @@ export interface CompanyContact {
   tiktok: string;
   youtube: string;
   hashtag: string;
+  // Kolom `contact` di DB adalah JSON bebas, dan slot footer template bisa memakai
+  // key lain (whatsapp/facebook/location/booking — lihat SocialIcon). Index signature
+  // ini membuat contact dapat dibaca per-slot (contact[slot]) tanpa cast.
+  [key: string]: string;
 }
 
 export interface CompanyProfile {

@@ -4,6 +4,7 @@ import { CSSProperties, Fragment, ReactNode } from "react";
 import { SocialIcon } from "./SocialIcon";
 import { adaptScheme, adaptBackground, adaptScrimGradient } from "@/lib/brandAdapt";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import type { CompanyContact } from "@/types/company-profile";
 import type {
   TemplateConfig,
   TemplateElement,
@@ -200,9 +201,8 @@ function GroupElement({ el, scheme, brand }: { el: TemplateElement; scheme: Colo
   );
 }
 
-function FooterElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme }) {
+function FooterElement({ el, scheme, contact }: { el: TemplateElement; scheme: ColorScheme; contact: Record<string, string> }) {
   const s = el.style ?? {};
-  const contact = DEFAULT_COMPANY_PROFILE.contact as Record<string, string>;
   // Latar: gradient (menang) atau warna solid. Gradient default horizontal ("to right").
   const bgFill: CSSProperties = s.backgroundGradient
     ? { backgroundImage: `linear-gradient(${s.backgroundGradientDirection ?? "to right"}, ${s.backgroundGradient.map((c) => resolveColor(scheme, c)).join(", ")})` }
@@ -337,6 +337,7 @@ export function TemplateRenderer({
   backgroundUrl = "",
   brandColors,
   brandFont,
+  contact,
   aspect,
 }: {
   cfg: TemplateConfig;
@@ -344,8 +345,12 @@ export function TemplateRenderer({
   backgroundUrl?: string;        // foto latar full-bleed (source:"background"); kosong → pakai fallback warna
   brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
   brandFont?: string | null;     // diset → role di font_brand_roles pakai font ini
+  contact?: CompanyContact | null; // kontak footer dari company profile; kosong → placeholder default
   aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
 }) {
+  // Footer contact: pakai kontak profil bila ada (boleh sebagian — slot kosong jadi ikon saja);
+  // tak ada sama sekali → placeholder default supaya preview tak terlihat rusak.
+  const footerContact: Record<string, string> = contact ?? DEFAULT_COMPANY_PROFILE.contact;
   const brandTheme = cfg.brand_theme;
   const background = adaptBackground(cfg.background, brandColors, brandTheme);
   const scheme = adaptScheme(cfg.color_scheme ?? ({} as ColorScheme), brandColors, background, brandTheme);
@@ -391,7 +396,7 @@ export function TemplateRenderer({
           case "tagline":
             return <TaglineElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "footer":
-            return <FooterElement key={i} el={el} scheme={scheme} />;
+            return <FooterElement key={i} el={el} scheme={scheme} contact={footerContact} />;
           case "scrim":
             return <ScrimElement key={i} el={el} brandColors={brandColors} brandTheme={brandTheme} />;
           case "image":

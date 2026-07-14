@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -5,6 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+
+# App-module loggers (logging.getLogger(__name__)) propagate to root, which
+# defaults to WARNING under uvicorn — so logger.info() is silent. Force INFO so
+# the AI copy prompt (logged in the copy providers) shows in the server console.
+logging.basicConfig(level=logging.INFO)
 from app.routers import auth as auth_router
 from app.routers import company_profile as company_profile_router
 from app.routers import generate as generate_router

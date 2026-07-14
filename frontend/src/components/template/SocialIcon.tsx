@@ -5,7 +5,8 @@ import { SiInstagram, SiTiktok, SiWhatsapp, SiFacebook, SiYoutube } from "react-
 import { LuGlobe, LuMapPin, LuCalendar, LuHash, LuPhone } from "react-icons/lu";
 
 // Brand pakai Simple Icons (logo resmi), generic pakai set Lucide. Semua asset frontend.
-const ICONS: Record<string, IconType> = {
+// Di-export agar renderer Fabric (canvas editor / export PNG) memakai ikon yang sama persis.
+export const ICONS: Record<string, IconType> = {
   instagram: SiInstagram,
   tiktok: SiTiktok,
   whatsapp: SiWhatsapp,
