@@ -299,6 +299,8 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 | POST | `/register` | Registrasi → return `access_token` + `user` (201) |
 | POST | `/login` | Login → return `access_token` + `user` |
 | GET | `/me` | Data user terautentikasi |
+| POST | `/change-password` | Ganti password. 401 `AUTH_INVALID_CREDENTIALS` jika password saat ini salah |
+| DELETE | `/me` | **Hard-delete** akun + seluruh data terkait (projects, generate_sessions, generate_variants, company_profile), urutan FK-safe. Tidak bisa dibatalkan |
 
 ### Company Profile — `/api/v1/company-profile`
 | Method | Path | Deskripsi |

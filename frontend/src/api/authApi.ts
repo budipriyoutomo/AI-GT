@@ -32,5 +32,16 @@ export const authApi = {
 
   getMe: (): Promise<User> => api.get<User>("/api/v1/auth/me"),
 
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<null> =>
+    api.post<null>("/api/v1/auth/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+
+  deleteAccount: (): Promise<null> => api.delete<null>("/api/v1/auth/me"),
+
   logout: (): void => clearToken(),
 };

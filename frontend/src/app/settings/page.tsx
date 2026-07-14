@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 /* ── Tab: Profil ──────────────────────────────────────────── */
 
 function TabProfil() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword, deleteAccount } = useAuth();
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
   const [name, setName]                 = useState(user?.name ?? "");
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
@@ -89,6 +92,7 @@ function TabProfil() {
   const [newPw, setNewPw]         = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError]     = useState<string | null>(null);
+  const [savingPw, setSavingPw]   = useState(false);
 
   async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
@@ -104,14 +108,28 @@ function TabProfil() {
     }
   }
 
-  function handleChangePassword(e: FormEvent) {
+  async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
     setPwError(null);
     if (!currentPw || !newPw || !confirmPw) { setPwError("Semua kolom wajib diisi."); return; }
     if (newPw.length < 6) { setPwError("Password baru minimal 6 karakter."); return; }
     if (newPw !== confirmPw) { setPwError("Konfirmasi password tidak cocok."); return; }
+    setSavingPw(true);
+    const err = await changePassword(currentPw, newPw);
+    setSavingPw(false);
+    if (err) { setPwError(err); return; }
     setCurrentPw(""); setNewPw(""); setConfirmPw("");
     toast({ title: "Password berhasil diubah", variant: "success" });
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm("Hapus akun secara permanen? Semua data dan konten akan hilang dan tidak bisa dikembalikan.")) return;
+    setDeleting(true);
+    const err = await deleteAccount();
+    setDeleting(false);
+    if (err) { toast({ title: "Gagal menghapus akun", desc: err, variant: "error" }); return; }
+    toast({ title: "Akun dihapus", variant: "success" });
+    router.replace("/login");
   }
 
   return (
@@ -198,7 +216,9 @@ function TabProfil() {
             </div>
           )}
           <div>
-            <Button type="submit" size="sm" variant="outline">Ubah password</Button>
+            <Button type="submit" size="sm" variant="outline" disabled={savingPw}>
+              {savingPw ? "Menyimpan..." : "Ubah password"}
+            </Button>
           </div>
         </form>
       </Section>
@@ -346,9 +366,10 @@ function TabProfil() {
             size="sm"
             variant="destructive"
             icon="trash-2"
-            onClick={() => toast({ title: "Fitur ini belum tersedia", desc: "Hubungi support untuk menghapus akun.", variant: "warning" })}
+            disabled={deleting}
+            onClick={handleDeleteAccount}
           >
-            Hapus akun
+            {deleting ? "Menghapus..." : "Hapus akun"}
           </Button>
         </div>
       </Section>
