@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { PosterThumb } from "@/components/poster-thumb";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { BrandPreviewToggle } from "@/components/create/BrandPreviewToggle";
-import { resolveBrandColors, resolveBrandFont } from "@/lib/create/brand-preview";
+import { resolveBrandColors, resolveBrandFont, resolveLogoUrl } from "@/lib/create/brand-preview";
 import type { Template } from "@/types/template";
 import type { CompanyContact } from "@/types/company-profile";
 
@@ -30,6 +30,7 @@ export function SelectedTemplatePanel({
   contact,
   hasBrand,
   onToggleBrand,
+  userLogoUrl,
   isCarousel,
   slideCount,
   onChangeTemplate,
@@ -41,12 +42,14 @@ export function SelectedTemplatePanel({
   contact: CompanyContact | null;
   hasBrand: boolean;
   onToggleBrand: () => void;
+  userLogoUrl: string | null;
   isCarousel: boolean;
   slideCount: number;
   onChangeTemplate: () => void;
 }) {
   const brandColors = resolveBrandColors(userBrandColors, brandPreview);
   const brandFont = resolveBrandFont(userBrandFont, brandPreview);
+  const logoUrl = resolveLogoUrl(userLogoUrl, brandPreview);
   const [w, h] = (template?.template_config.canvas?.aspect ?? "4:5").split(":").map(Number);
 
   return (
@@ -84,6 +87,7 @@ export function SelectedTemplatePanel({
               brandColors={brandColors}
               brandFont={brandFont}
               contact={contact}
+              logoUrl={logoUrl}
             />
           ) : (
             <PosterThumb title="Template" kicker="" cta={null} accent="--chart-1" ratio="4 / 5" />

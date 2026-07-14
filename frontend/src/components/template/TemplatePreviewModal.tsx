@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TemplateRenderer } from "./TemplateRenderer";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { TemplateListItem } from "@/types/template";
 import type { CompanyContact } from "@/types/company-profile";
 
@@ -31,6 +32,7 @@ export function TemplatePreviewModal({
   brandColors,
   brandFont,
   contact,
+  logoUrl,
   buildHref,
   onClose,
 }: {
@@ -38,6 +40,7 @@ export function TemplatePreviewModal({
   brandColors: string[] | null; // dari company profile; null/empty → belum diisi
   brandFont: string | null;     // dari company profile; dipakai role di font_brand_roles
   contact: CompanyContact | null; // kontak company profile untuk slot footer; null → placeholder
+  logoUrl: string | null;       // dari company profile; null → slot logo hidden saat branded
   // Dipanggil dengan toggle state SAAT klik (bukan href statis) — supaya pilihan
   // "Preview dengan brand color" ikut terbawa sebagai query param ke /create.
   buildHref: (brandPreview: boolean) => string;
@@ -134,6 +137,7 @@ export function TemplatePreviewModal({
                 brandColors={branded ? brandColors : null}
                 brandFont={branded ? brandFont : null}
                 contact={contact}
+                logoUrl={branded ? logoUrl : DEFAULT_COMPANY_PROFILE.logo_url}
               />
             </div>
           </div>

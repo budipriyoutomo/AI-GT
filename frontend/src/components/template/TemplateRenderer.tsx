@@ -3,6 +3,7 @@
 import { CSSProperties, Fragment, ReactNode } from "react";
 import { SocialIcon } from "./SocialIcon";
 import { adaptScheme, adaptBackground, adaptScrimGradient } from "@/lib/brandAdapt";
+import { resolveAssetUrl } from "@/lib/assetUrl";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { CompanyContact } from "@/types/company-profile";
 import type {
@@ -313,12 +314,14 @@ function RuleElement({ el, scheme }: { el: TemplateElement; scheme: ColorScheme 
   );
 }
 
-function LogoElement({ el }: { el: TemplateElement }) {
+function LogoElement({ el, logoUrl }: { el: TemplateElement; logoUrl?: string | null }) {
+  const src = resolveAssetUrl(logoUrl);
+  if (!src) return null; // hidden, tanpa reflow, tanpa fallback teks — kontrak §4.7
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
-      src={DEFAULT_COMPANY_PROFILE.logo_url}
-      alt=""
+      src={src}
+      alt="Logo bisnis"
       style={{
         position: "absolute",
         left: pct(el.x),
@@ -338,6 +341,7 @@ export function TemplateRenderer({
   brandColors,
   brandFont,
   contact,
+  logoUrl,
   aspect,
 }: {
   cfg: TemplateConfig;
@@ -346,6 +350,7 @@ export function TemplateRenderer({
   brandColors?: string[] | null; // diset → preview brand-adapted; kosong → original
   brandFont?: string | null;     // diset → role di font_brand_roles pakai font ini
   contact?: CompanyContact | null; // kontak footer dari company profile; kosong → placeholder default
+  logoUrl?: string | null;       // dari company_profile.logo_url (live); null/undefined → slot logo hidden
   aspect?: string;               // override aspect (mis. galeri "4:5"); kosong → aspect asli
 }) {
   // Footer contact: pakai kontak profil bila ada (boleh sebagian — slot kosong jadi ikon saja);
@@ -390,7 +395,7 @@ export function TemplateRenderer({
       {(cfg.elements ?? []).map((el, i) => {
         switch (el.type) {
           case "logo":
-            return <LogoElement key={i} el={el} />;
+            return <LogoElement key={i} el={el} logoUrl={logoUrl} />;
           case "text":
             return <TextElement key={i} el={el} scheme={scheme} brand={brand} />;
           case "tagline":

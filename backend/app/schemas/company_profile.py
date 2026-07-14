@@ -36,6 +36,10 @@ class CompanyProfileUpdate(BaseModel):
     language_preference: str | None = None
 
 
+class LogoUploadData(BaseModel):
+    logo_url: str
+
+
 class CompanyProfileData(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID

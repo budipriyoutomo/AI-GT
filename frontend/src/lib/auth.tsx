@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { authApi } from "@/api/authApi";
 import { companyProfileApi } from "@/api/companyProfileApi";
 import type { CompanyProfileUpdate } from "@/api/companyProfileApi";
@@ -46,6 +46,8 @@ interface AuthContextValue {
   ) => Promise<string | null>;
   logout: () => void;
   updateProfile: (data: Partial<Omit<UserContext, "id" | "email">>) => Promise<void>;
+  /** Fetch fresh company_profile and merge it into the shared user state. */
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -70,6 +72,7 @@ async function loadUserContext(): Promise<UserContext | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserContext | null>(null);
   const [ready, setReady] = useState(false);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     loadUserContext()
@@ -117,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const payload: CompanyProfileUpdate = {};
     if (data.businessName !== undefined) payload.business_name = data.businessName;
     if (data.industry !== undefined) payload.industry = data.industry;
-    if (data.logoUrl !== undefined) payload.logo_url = data.logoUrl ?? undefined;
+    if (data.logoUrl !== undefined) payload.logo_url = data.logoUrl;
     if (data.brandColors !== undefined) payload.brand_colors = data.brandColors;
     if (data.brandFont !== undefined) payload.brand_font = data.brandFont;
     if (data.tagline !== undefined) payload.tagline = data.tagline;
@@ -147,10 +150,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  function refreshProfile(): Promise<void> {
+    if (!getToken()) return Promise.resolve();
+    // In-flight guard: kalau sudah ada request berjalan, kembalikan promise yang
+    // sama alih-alih menembak request kedua (mis. StrictMode double-invoke, atau
+    // bootstrap AuthProvider + /create mount yang kebetulan tumpang tindih).
+    if (refreshInFlight.current) return refreshInFlight.current;
+
+    const promise = (async () => {
+      try {
+        const fields = profileFields(await companyProfileApi.get());
+        setUser((prev) => (prev ? { ...prev, ...fields } : prev));
+      } catch (err) {
+        // Fail-soft (WAJIB): pertahankan state lama, jangan blokir caller.
+        console.error("refreshProfile failed, keeping cached company_profile", err);
+      } finally {
+        refreshInFlight.current = null;
+      }
+    })();
+
+    refreshInFlight.current = promise;
+    return promise;
+  }
+
   if (!ready) return null;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

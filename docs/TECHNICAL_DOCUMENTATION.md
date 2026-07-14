@@ -225,6 +225,12 @@ Terbentuk saat varian dipilih (atau otomatis pada Quick Generate):
 yang di-inject di top-level — `name`, `content_type`, `thumbnail_url` (lihat
 `generate_service._normalize_template_config`). Inilah payload yang di-render canvas editor.
 
+`final_config.typography` menyimpan hasil edit editor: `headline_font`, `body_font`, `headline_size`,
+`body_size`, `letter_spacing`, plus **`headline_scale` / `body_scale`** — faktor skala ukuran font
+**relatif ukuran yang di-authored template** (1 = ukuran template; slider editor 0,6–1,6). Skala di-apply
+di `lib/editor/preview-config.ts` ke elemen ber-`bind`, lalu auto-fit canvas tetap membatasi ke budget
+layout. Project lama tanpa kedua field ini → fallback `1`.
+
 ### Relasi (ringkas)
 
 ```
@@ -266,6 +272,7 @@ AUTH_INVALID_CREDENTIALS   AUTH_EMAIL_NOT_VERIFIED   AUTH_TOKEN_EXPIRED
 PROFILE_NOT_FOUND          TEMPLATE_NOT_FOUND        SESSION_NOT_FOUND
 SESSION_EXPIRED            VARIANT_NOT_SELECTED      AI_GENERATION_FAILED
 STORAGE_UPLOAD_FAILED      RATE_LIMIT_EXCEEDED       FEATURE_REQUIRES_PREMIUM
+INVALID_FILE_TYPE          FILE_TOO_LARGE
 ```
 
 **Konvensi HTTP status:** `200` ok · `201` created · `400` validasi input · `401` unauthorized ·
@@ -293,7 +300,8 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 |---|---|---|
 | GET | `` | Ambil profil user |
 | POST | `` | Buat profil (201) |
-| PATCH | `` | Update profil |
+| PATCH | `` | Update profil — **tri-state**: key absen → field tidak disentuh; `null` eksplisit → kolom di-set NULL (dipakai "Hapus logo"). Service memakai `model_dump(exclude_unset=True)`, **bukan** `exclude_none` |
+| POST | `/logo` | Upload + normalize logo ke R2 (multipart, field `file`). **Tidak menyentuh DB** — return `{logo_url}` (path + `?v=` cache-busting), penulisan ke profil tetap lewat POST/PATCH biasa |
 
 ### Templates — `/api/v1/templates`
 | Method | Path | Deskripsi |
@@ -393,9 +401,9 @@ di-hardcode.
 ai_service.py                  ← orkestrasi, seleksi provider, timeout, retry, gather
 providers/
 ├── ai_types.py                ← CopyInput (incl. copy_intent, copy_brief)/CopyResult/CopyVariant,
-│                                 CopyBrief (slot + batas kata + static_context), ImageInput/ImageResult,
-│                                 exceptions (CopyError, CopyTimeoutError, CopyInvalidJsonError,
-│                                 ImageError, ImageTimeoutError, ImageProviderError)
+│                                 CopyBrief (slot + batas kata + batas karakter + static_context),
+│                                 ImageInput/ImageResult, exceptions (CopyError, CopyTimeoutError,
+│                                 CopyInvalidJsonError, ImageError, ImageTimeoutError, ImageProviderError)
 ├── base_copy.py               ← Protocol: async generate_copy(CopyInput) -> CopyResult
 ├── base_image.py              ← Protocol image provider
 ├── anthropic_copy.py          ← implementasi Haiku
@@ -403,7 +411,8 @@ providers/
 ├── replicate_image.py         ← implementasi SDXL
 └── copy_prompt.py             ← scaffold prompt + personalisasi per template:
                                   intent_guidance/intent_lengths (arah & batas kata per copy_intent),
-                                  build_copy_brief/render_slot_spec (slot + maxWords + konteks statis)
+                                  build_copy_brief/render_slot_spec (slot + maxWords + maxChars +
+                                  konteks statis)
 ```
 
 > **Personalisasi copy per template** (bukan prompt disimpan per template): satu scaffold prompt di
@@ -411,6 +420,13 @@ providers/
 > compiler menyuntik slot mana yang harus diisi (+ suruh `null` slot yang tak ada) dan teks statis
 > template sebagai konteks. AI hanya menerima brief terkompilasi, BUKAN `template_config` mentah
 > (hemat token + Template Integrity). `template.copy_intent` null → fallback batas lama 12/35/5.
+>
+> **Batas karakter per slot** (`char_limits`, `_collect_char_limits`) — diturunkan dari geometri elemen
+> (lebar kolom ÷ `fontSize` × jumlah baris yang muat di budget vertikal, margin aman 10%), atau override
+> eksplisit lewat `maxChars` di template. Jumlah kata menjaga gaya; karakter menjaga copy **muat** di
+> layout. Formula (`_AVG_GLYPH_EM=0.5`, `_CHAR_MARGIN=0.9`) di-mirror di frontend
+> `lib/editor/fit-text.ts` (`charCapacity`) supaya batas yang dilihat editor sama dengan yang
+> diberikan ke AI.
 
 ### Seleksi provider (via env)
 `get_copy_provider()` → `anthropic` | `deepseek`. `get_image_provider()` → `replicate`.
@@ -437,6 +453,11 @@ Konstanta: `_COPY_TIMEOUT=30.0`, `_IMAGE_TIMEOUT=60.0`, `_COPY_MAX_RETRIES=2`.
 > (`NEXT_PUBLIC_CDN_URL`) saat render via `resolveAssetUrl` (`lib/assetUrl.ts`); URL absolut/data/blob
 > dilewatkan apa adanya. Leading slash juga diandalkan `cleanup_service` (`"/temp/" in url`) dan
 > `generate_service._resolve_thematic_image` (parsing `urlparse().path`).
+>
+> **Pengecualian: `company_profiles.logo_url`.** Field ini menyimpan path **+ query version**
+> (`/permanent/logos/{user_id}/logo.png?v={epoch}`), bukan path root-relative murni. Key R2-nya
+> deterministik (selalu overwrite, tanpa file orphan); `?v=` berubah setiap upload semata untuk
+> cache-busting CDN. `resolveAssetUrl` meneruskan query string apa adanya saat prepend base CDN.
 
 ### Struktur bucket
 ```
@@ -445,7 +466,8 @@ ai-gt-bucket/
 └── permanent/
     ├── thematic-images/{user_id}/{project_id}.png          ← saat pilih varian
     ├── thumbnails/{user_id}/{project_id}.png               ← snapshot editor per auto-save
-    └── exported/{user_id}/{project_id}/export.png          ← PNG final
+    ├── exported/{user_id}/{project_id}/export.png          ← PNG final
+    └── logos/{user_id}/logo.png                             ← selalu PNG (dinormalisasi Pillow), overwrite
 ```
 
 ### Lifecycle
@@ -454,7 +476,10 @@ ai-gt-bucket/
    Jika URL eksternal (bukan temp/permanent) → di-download & `upload_permanent_thematic()`.
 3. Regenerate gambar dari editor → `upload_permanent_thematic()` + update `final_config`.
 4. Export → `upload_exported()`.
-5. Kegagalan upload → `AppError(500, STORAGE_UPLOAD_FAILED)`.
+5. Logo → `POST /company-profile/logo` → `storage_service.upload_logo()`: validasi + normalisasi
+   (`app/utils/images.py`, PNG/JPEG/WEBP only, ≤2MB, sisi terpanjang ≤1024px, convert RGBA) →
+   upload ke key deterministik `permanent/logos/{user_id}/logo.png` → return path + `?v=`.
+6. Kegagalan upload → `AppError(500, STORAGE_UPLOAD_FAILED)`.
 
 ### Cleanup terjadwal
 `main.py` lifespan menjalankan `AsyncIOScheduler` yang memanggil
@@ -487,11 +512,42 @@ tiap varian.
   meng-handle token, dan meng-unwrap `{success, data}` (melempar `ApiClientError` bila `success=false`).
 - **`api/*.ts`** — wrapper per-domain: `authApi`, `companyProfileApi`, `templatesApi`, `generateApi`,
   `projectsApi`.
+- **State company profile — `lib/auth.tsx` (`AuthContext`).** Satu-satunya store global; dibaca lewat
+  `useAuth()` di `/create`, Settings, dan Dashboard (tidak ada store kedua). `refreshProfile()` adalah
+  satu-satunya titik re-fetch + merge: dipanggil saat `/create` **mount** (brand terbaru berlaku tanpa
+  logout/login) dan setelah `updateProfile()` sukses di Settings. Punya **in-flight guard** (request kedua
+  yang tumpang tindih mengembalikan promise yang sama — mencegah double-fetch dari StrictMode
+  double-invoke / bootstrap yang beririsan) dan **fail-soft**: fetch gagal → nilai lama di store
+  dipertahankan, wizard tidak diblokir. Strategi fetch-nya di
+  [`docs/render-template-logic.md`](render-template-logic.md).
 - **Template rendering** — `components/template/TemplateRenderer.tsx` me-render `template_config` +
   data hasil generate. Logika merge tiga sumber (`template_config` + `company_profile` +
   `generate_config`) di runtime dijelaskan di [`docs/render-template-logic.md`](render-template-logic.md).
+- **Galeri vs preview branded.** Kartu galeri (`app/templates/page.tsx`) dan preview modal dalam keadaan
+  **unbranded** (default) merender template apa adanya — warna & font asli template — dengan slot logo diisi
+  **logo default statis** (`DEFAULT_COMPANY_PROFILE.logo_url` di `lib/defaults.ts`), bukan logo brand user.
+  Brand user (warna, font, logo asli) baru dipakai saat toggle **"Preview dengan brand color"** di
+  `TemplatePreviewModal` diaktifkan, dan pilihan toggle itu terbawa ke `/create` lewat query `brandPreview`
+  (`lib/create/brand-preview.ts`). Di `/create` query itu hanya **seed** untuk state lokal: toggle yang sama
+  (`components/create/BrandPreviewToggle.tsx`) bisa dibalik in-page, dan mini template picker
+  (`MiniTemplateCard`) + `SelectedTemplatePanel` sama-sama membaca state itu.
+- **Slot footer & kontak.** Elemen `footer` di `template_config` mendeklarasikan `slots`
+  (mis. `instagram`, `whatsapp`, `website`); isinya diambil dari `company_profile.contact` yang diteruskan
+  sebagai prop `contact` ke `TemplateRenderer` (CSS) dan lewat `buildCanvasSpec({ contact })` (Fabric).
+  Nilai kosong → ikon saja tanpa teks; `contact` null seluruhnya → `DEFAULT_COMPANY_PROFILE.contact`.
+  Ikon di kedua renderer berasal dari peta `ICONS` yang sama (`components/template/SocialIcon.tsx`),
+  jadi preview dan PNG hasil export identik.
 - **Editor** — `components/editor/FabricCanvas.tsx` (Fabric.js 6) untuk edit & export PNG;
   `hooks/useAutoSave.ts` menyimpan snapshot thumbnail secara berkala.
+- **Editor element-based (`TemplateFabricCanvas.tsx` + `lib/editor/canvas-spec.ts`)** — merender
+  `template_config` di canvas Fabric, paralel dengan `TemplateRenderer.tsx` (CSS) untuk galeri/preview;
+  paritas antara keduanya wajib (lihat AGENTS.md §6). Auto-fit & reflow (`lib/editor/fit-text.ts`,
+  `canvas-spec.computeTextLayout`): teks top-level yang tidak muat setelah copy AI mengisi slot
+  **mengecil** (lantai 50% fontSize template, tak pernah membesar) berdasarkan budget vertikal ke
+  elemen terdekat di bawahnya yang beririsan sumbu X; teks di bawahnya ikut naik menjaga gap desain
+  authored. Pengukuran wrap selalu lewat `Textbox` Fabric sungguhan (bukan estimasi) supaya keputusan
+  fit sama persis dengan yang digambar. Batas karakter input di editor (`charCapacity`) memakai
+  formula yang sama dengan `copy_prompt._char_capacity` di backend (§9).
 - **`hooks/useGenerateSession.ts`** — mengelola polling status session sampai `completed`/`failed`.
 
 ---

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseBrandPreview, resolveBrandColors, resolveBrandFont } from "../brand-preview";
+import { parseBrandPreview, resolveBrandColors, resolveBrandFont, resolveLogoUrl } from "../brand-preview";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 
 describe("parseBrandPreview", () => {
@@ -58,5 +58,21 @@ describe("resolveBrandFont", () => {
     expect(resolveBrandFont("", true)).toBeNull();
     expect(resolveBrandFont(null, true)).toBeNull();
     expect(resolveBrandFont(undefined, true)).toBeNull();
+  });
+});
+
+describe("resolveLogoUrl", () => {
+  it("returns null when preview disabled, regardless of user logo", () => {
+    expect(resolveLogoUrl("/permanent/logos/u1/logo.png?v=1", false)).toBeNull();
+    expect(resolveLogoUrl(null, false)).toBeNull();
+  });
+
+  it("returns user's logo when enabled and present", () => {
+    expect(resolveLogoUrl("/permanent/logos/u1/logo.png?v=1", true)).toBe("/permanent/logos/u1/logo.png?v=1");
+  });
+
+  it("falls back to DEFAULT_COMPANY_PROFILE.logo_url when enabled but user has none", () => {
+    expect(resolveLogoUrl(null, true)).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
+    expect(resolveLogoUrl(undefined, true)).toBe(DEFAULT_COMPANY_PROFILE.logo_url);
   });
 });

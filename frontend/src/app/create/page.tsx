@@ -103,7 +103,13 @@ export default function CreatePage() {
   const templateId = searchParams.get("templateId");
   const goalParam  = searchParams.get("goal") as GoalEnum | null;
   const platParam  = searchParams.get("platform") as PlatformEnum | null;
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+
+  // company_profile bisa berubah kapan saja (mis. brand color diedit di Settings).
+  // Fetch fresh sekali di awal mount page ini — bukan pakai snapshot lama dari
+  // waktu login — supaya Step 1-4 di wizard ini konsisten pakai data terbaru.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshProfile(); }, []);
 
   // Brand-preview toggle — seeded from the query param carried over from the
   // gallery modal, but now flippable in-page (mini picker cards + the selected
@@ -495,6 +501,7 @@ export default function CreatePage() {
               contact={profileContact}
               hasBrand={hasBrand}
               onToggleBrand={handleToggleBrand}
+              userLogoUrl={user?.logoUrl ?? null}
               isCarousel={isCarousel}
               slideCount={slideCount}
               onChangeTemplate={() => setShowTemplatePicker(true)}

@@ -17,6 +17,7 @@ import { templatesApi } from "@/api/templatesApi";
 import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { TemplateListItem } from "@/types/template";
 import type { CompanyContact } from "@/types/company-profile";
 
@@ -35,7 +36,7 @@ function TemplateCard({
   fav,
   contact,
   onFav,
-  onPreview,
+  onPreview
 }: {
   t: TemplateListItem;
   fav: boolean;
@@ -62,7 +63,16 @@ function TemplateCard({
 
       <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ position: "relative" }}>
-          <TemplateRenderer cfg={t.template_config} thumbnailUrl={t.thumbnail_url} backgroundUrl={t.background_url ?? ""} contact={contact} aspect="4:5" />
+          {/* Galeri = generic/unbranded browsing: logo default statis (bukan logo brand user),
+              tanpa adaptasi warna/font — beda dari TemplatePreviewModal yang branded. */}
+          <TemplateRenderer
+            cfg={t.template_config}
+            thumbnailUrl={t.thumbnail_url}
+            backgroundUrl={t.background_url ?? ""}
+            contact={contact}
+            logoUrl={DEFAULT_COMPANY_PROFILE.logo_url}
+            aspect="4:5"
+          />
 
           {t.is_premium && (
             <div style={{
@@ -148,16 +158,17 @@ export default function TemplatesPage() {
   const [brandFont, setBrandFont] = useState<string | null>(null);
   // Kontak company profile → mengisi slot footer template (boleh sebagian).
   const [contact, setContact] = useState<CompanyContact | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     templatesApi.list()
       .then(setTemplates)
       .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
       .finally(() => setLoading(false));
-    // Brand color & font untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
+    // Brand color/font/logo untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
-      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); setContact(p.contact ?? null); })
-      .catch(() => { setBrandColors(null); setBrandFont(null); setContact(null); });
+      .then((p) => { setBrandColors(p.brand_colors ?? null); setBrandFont(p.brand_font ?? null); setContact(p.contact ?? null); setLogoUrl(p.logo_url ?? null); })
+      .catch(() => { setBrandColors(null); setBrandFont(null); setContact(null); setLogoUrl(null); });
   }, []);
 
   const list = useMemo(() => {
@@ -275,6 +286,7 @@ export default function TemplatesPage() {
         brandColors={brandColors}
         brandFont={brandFont}
         contact={contact}
+        logoUrl={logoUrl}
         buildHref={(brandPreview) => (preview ? templateLink(preview.id, brandPreview) : "/create")}
         onClose={() => setPreview(null)}
       />

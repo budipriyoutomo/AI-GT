@@ -202,12 +202,12 @@ export default function EditorPage() {
       ? buildCanvasSpec({
           cfg: previewCfg,
           thumbnailUrl: tplThumbnailUrl || null,
-          logoUrl: DEFAULT_COMPANY_PROFILE.logo_url,
+          logoUrl: resolveAssetUrl(user?.logoUrl) ?? null,
           contact: user?.contact ?? DEFAULT_COMPANY_PROFILE.contact,
           tagline: DEFAULT_COMPANY_PROFILE.tagline,
         })
       : null,
-    [previewCfg, tplThumbnailUrl, user?.contact],
+    [previewCfg, tplThumbnailUrl, user?.contact, user?.logoUrl],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
@@ -1506,6 +1506,7 @@ export default function EditorPage() {
                 <TemplateRenderer
                   cfg={previewCfg}
                   thumbnailUrl={tplThumbnailUrl}
+                  logoUrl={user?.logoUrl ?? null}
                 />
                 <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
                   Render HTML dari template_config + copy AI yang sudah diedit

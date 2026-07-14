@@ -339,6 +339,20 @@ describe("buildCanvasSpec — elemen", () => {
     });
   });
 
+  it("logo dengan logoUrl null → tidak menghasilkan spec, geometri elemen lain identik", () => {
+    const el: TemplateElement = { type: "logo", source: "brand", x: 0.38, y: 0.04, width: 0.24, height: 0.1 };
+    const sibling: TemplateElement = { type: "text", x: 0.06, y: 0.5, width: 0.88, value: "Headline" };
+
+    const withLogo = build(makeCfg({ elements: [el, sibling] }));
+    const withoutLogo = build(makeCfg({ elements: [el, sibling] }), { logoUrl: null });
+
+    expect(withoutLogo.specs.filter((s) => s.kind === "image" && s.url === "https://cdn/logo.png")).toHaveLength(0);
+
+    const siblingWith = specOf<TextSpec>(withLogo.specs, "text");
+    const siblingWithout = specOf<TextSpec>(withoutLogo.specs, "text");
+    expect(siblingWithout).toEqual(siblingWith);
+  });
+
   it("image thumbnail → image spec; tanpa thumbnailUrl → dilewati", () => {
     const el: TemplateElement = { type: "image", source: "thumbnail", x: 0.11, y: 0.51, width: 0.78, height: 0.3, fit: "contain" };
 

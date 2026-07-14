@@ -33,13 +33,15 @@ class TestAssetPath:
         mock_client = MagicMock()
         with patch.object(storage_service, "_get_client", return_value=mock_client):
             with patch.object(storage_service, "settings", _mock_settings()):
-                urls = [
-                    storage_service.upload_temp(b"d", "s1"),
-                    storage_service.move_to_permanent("temp/x.png", "u1", "p1"),
-                    storage_service.upload_permanent_thematic(b"d", "u1", "p1"),
-                    storage_service.upload_thumbnail(b"d", "u1", "p1"),
-                    storage_service.upload_exported(b"d", "u1", "p1"),
-                ]
+                with patch.object(storage_service.images, "normalize_logo_image", return_value=b"png-bytes"):
+                    urls = [
+                        storage_service.upload_temp(b"d", "s1"),
+                        storage_service.move_to_permanent("temp/x.png", "u1", "p1"),
+                        storage_service.upload_permanent_thematic(b"d", "u1", "p1"),
+                        storage_service.upload_thumbnail(b"d", "u1", "p1"),
+                        storage_service.upload_exported(b"d", "u1", "p1"),
+                        storage_service.upload_logo("u1", b"d"),
+                    ]
         for url in urls:
             assert url.startswith("/"), f"expected relative path, got {url!r}"
             assert "http" not in url
@@ -116,6 +118,51 @@ class TestUploadExported:
                     storage_service.upload_exported(b"data", "uid", "pid")
 
         assert exc_info.value.code == "STORAGE_UPLOAD_FAILED"
+
+
+class TestUploadLogo:
+    def test_upload_logo_success(self):
+        mock_client = MagicMock()
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                with patch.object(storage_service.images, "normalize_logo_image", return_value=b"normalized-png"):
+                    url = storage_service.upload_logo("user-1", b"raw-file-bytes")
+
+        mock_client.put_object.assert_called_once()
+        call_kwargs = mock_client.put_object.call_args.kwargs
+        assert call_kwargs["Bucket"] == _BUCKET
+        assert call_kwargs["Key"] == "permanent/logos/user-1/logo.png"
+        assert call_kwargs["ContentType"] == "image/png"
+        assert call_kwargs["Body"] == b"normalized-png"
+        assert url.startswith("/permanent/logos/user-1/logo.png")
+        assert "?v=" in url
+
+    def test_upload_logo_twice_same_key_different_version(self):
+        mock_client = MagicMock()
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                with patch.object(storage_service.images, "normalize_logo_image", return_value=b"normalized-png"):
+                    with patch.object(storage_service.time, "time", side_effect=[100.0, 200.0]):
+                        url1 = storage_service.upload_logo("user-1", b"raw-file-bytes")
+                        url2 = storage_service.upload_logo("user-1", b"raw-file-bytes")
+
+        keys = [c.kwargs["Key"] for c in mock_client.put_object.call_args_list]
+        assert keys[0] == keys[1] == "permanent/logos/user-1/logo.png"
+        assert url1 != url2
+        assert "?v=100" in url1
+        assert "?v=200" in url2
+
+    def test_upload_logo_raises_on_storage_failure(self):
+        mock_client = MagicMock()
+        mock_client.put_object.side_effect = Exception("R2 unreachable")
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                with patch.object(storage_service.images, "normalize_logo_image", return_value=b"normalized-png"):
+                    with pytest.raises(AppError) as exc_info:
+                        storage_service.upload_logo("user-1", b"raw-file-bytes")
+
+        assert exc_info.value.code == "STORAGE_UPLOAD_FAILED"
+        assert exc_info.value.status_code == 500
 
 
 class TestDeleteFile:

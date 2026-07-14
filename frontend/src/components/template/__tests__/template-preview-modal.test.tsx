@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TemplatePreviewModal } from "../TemplatePreviewModal";
+import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import type { TemplateListItem } from "@/types/template";
 
 const push = vi.fn();
@@ -46,15 +47,20 @@ describe("TemplatePreviewModal", () => {
         brandColors={["#111111"]}
         brandFont="Poppins"
         contact={null}
+        logoUrl="/permanent/logos/u1/logo.png?v=1"
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
     );
     expect(screen.getByTestId("template-renderer-mock")).toBeInTheDocument();
-    expect(renderSpy).toHaveBeenCalledWith(expect.objectContaining({ brandColors: null }));
+    // Unbranded by default: original colors, but the static default logo still shows
+    // (matches the gallery grid) — not the user's real logo, and not hidden.
+    expect(renderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ brandColors: null, logoUrl: DEFAULT_COMPANY_PROFILE.logo_url }),
+    );
   });
 
-  it("toggle 'Preview dengan brand color' switches TemplateRenderer to branded colors, and back", async () => {
+  it("toggle 'Preview dengan brand color' switches TemplateRenderer to branded colors/logo, and back", async () => {
     const user = userEvent.setup();
     render(
       <TemplatePreviewModal
@@ -62,16 +68,21 @@ describe("TemplatePreviewModal", () => {
         brandColors={["#111111"]}
         brandFont="Poppins"
         contact={null}
+        logoUrl="/permanent/logos/u1/logo.png?v=1"
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,
     );
 
     await user.click(screen.getByText("Preview dengan brand color"));
-    expect(renderSpy).toHaveBeenLastCalledWith(expect.objectContaining({ brandColors: ["#111111"], brandFont: "Poppins" }));
+    expect(renderSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ brandColors: ["#111111"], brandFont: "Poppins", logoUrl: "/permanent/logos/u1/logo.png?v=1" }),
+    );
 
     await user.click(screen.getByText("Kembali ke original"));
-    expect(renderSpy).toHaveBeenLastCalledWith(expect.objectContaining({ brandColors: null, brandFont: null }));
+    expect(renderSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ brandColors: null, brandFont: null, logoUrl: DEFAULT_COMPANY_PROFILE.logo_url }),
+    );
   });
 
   it("'Pakai template ini' calls buildHref with the CURRENT toggle state (false by default)", async () => {
@@ -83,6 +94,7 @@ describe("TemplatePreviewModal", () => {
         brandColors={["#111111"]}
         brandFont="Poppins"
         contact={null}
+        logoUrl={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -101,6 +113,7 @@ describe("TemplatePreviewModal", () => {
         brandColors={["#111111"]}
         brandFont="Poppins"
         contact={null}
+        logoUrl={null}
         buildHref={buildHref}
         onClose={() => {}}
       />,
@@ -119,6 +132,7 @@ describe("TemplatePreviewModal", () => {
         brandColors={null}
         brandFont={null}
         contact={null}
+        logoUrl={null}
         buildHref={() => "/create?templateId=tpl-1"}
         onClose={() => {}}
       />,

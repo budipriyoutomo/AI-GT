@@ -5,7 +5,7 @@ AI-GT · Product Requirements Document · MVP 1.0 — **disinkronkan dengan impl
 > ***"Konten marketing profesional, tanpa desainer."***
 >
 > Dokumen ini adalah PRD awal yang sudah **disesuaikan dengan kode yang benar-benar ada di repo** per
-> 2026-07-09. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
+> 2026-07-14. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
 > Lihat juga §12 (Changelog) untuk ringkasan delta.
 
 ---
@@ -61,7 +61,7 @@ generate, dan bisa diedit kapanpun via Settings.
 | :---- | :---- | :---- |
 | `business_name` | string | Wajib |
 | `industry` | string | Wajib (F&B, Fashion & Retail, Jasa & Layanan, Kesehatan & Kecantikan, Toko Kelontong, Edukasi, Lainnya) |
-| `logo_url` | string \| null | Upload logo |
+| `logo_url` | string \| null | **[CHANGED]** Upload logo **nyata** (bukan lagi mock UI): file di-upload ke storage, dinormalisasi server-side ke **PNG** (terima PNG/JPEG/WEBP, maks **2 MB**, sisi terpanjang ≤1024px; **SVG ditolak**). Bisa dihapus kembali (`null`) |
 | `brand_colors` | **string[]** \| null | **[CHANGED]** Dari "brand color (tunggal, opsional)" → **array warna** (primer + sekunder, dst) |
 | `brand_font` | string \| null | **[NEW]** Font brand default (Google Fonts) |
 | `tagline` | string \| null | **[NEW]** |
@@ -71,6 +71,10 @@ generate, dan bisa diedit kapanpun via Settings.
 > Onboarding UI saat ini berbentuk wizard multi-step (identitas → logo & tagline → brand color & font →
 > preferensi bahasa/tone/platform). Beberapa field UI (kota, deskripsi, target audiens, platform default)
 > masih tampil di onboarding tapi **belum semuanya dipersist** ke model company profile — lihat §11 (Known Gaps).
+
+> **[NEW] Perubahan profil langsung berlaku tanpa logout/login.** Brand (warna/font/logo) yang diubah di
+> Settings otomatis terpakai saat user kembali ke `/create` — profil di-fetch ulang setiap halaman `/create`
+> dibuka, bukan sekali saat login. Konten yang sudah ter-generate dengan brand lama **tidak** diubah surut.
 
 ### 4.2 Template System
 
@@ -92,10 +96,23 @@ Library template terkategori. Setiap template sudah include layout, background, 
 - **[NEW] Kolom `platform`** ada di model `Template` (nullable) untuk menandai template spesifik platform.
   **[GAP]** Kolom ini **belum di-expose** di schema list (`TemplateListData`) sehingga filter template per-platform
   di galeri belum aktif — lihat §11.
-- **[NEW] Personalisasi brand saat render.** Galeri & preview me-render template yang **diadaptasi ke brand
-  user** — warna dari `brand_colors`, font dari `brand_font` — via kontrak `brand_theme` per-template
+- **[NEW] Personalisasi brand saat render.** Template dapat di-render **diadaptasi ke brand user** — warna
+  dari `brand_colors`, font dari `brand_font`, logo dari `logo_url` — via kontrak `brand_theme` per-template
   (mode `tint` / `derive`). Tetap **read-only** terhadap `template_config`: background & layout terkunci.
   Detail mekanisme di `docs/render-template-logic.md`.
+- **[CHANGED] Brand di galeri bersifat opt-in, bukan default.** Kartu galeri (dan preview saat dibuka
+  pertama kali) menampilkan template **apa adanya** — warna & font asli desain template — dengan slot logo
+  diisi **logo default generik** supaya komposisi tetap terbaca utuh. Brand user baru diterapkan saat user
+  menekan toggle **"Preview dengan brand color"** di modal preview, dan pilihan itu terbawa ke flow generate.
+  (Sebelumnya PRD ini menyatakan galeri selalu brand-adapted — tidak sesuai implementasi.)
+- **[NEW] Toggle brand bisa dibalik di halaman Create.** Pilihan brand dari galeri hanya jadi **nilai awal**;
+  di `/create` user bisa menyalakan/mematikan brand preview kapan saja — kartu mini template picker dan panel
+  "Template dipilih" ikut berubah seketika. User yang belum punya brand color diarahkan ke Settings
+  (perilaku sama dengan modal galeri).
+- **[NEW] Kontak bisnis tampil di slot footer template.** Template yang punya elemen `footer` diisi dari
+  `company_profile.contact` (boleh **sebagian** — slot tanpa nilai tampil ikonnya saja); profil yang belum
+  mengisi kontak sama sekali tetap memakai placeholder default supaya preview tidak terlihat rusak. Berlaku
+  konsisten di galeri, modal preview, panel `/create`, canvas editor, dan PNG hasil export.
 - AI suggest template relevan berdasarkan company profile.
 - Premium: `is_premium` flag ada; fitur "generate background AI" masih roadmap.
 
@@ -188,6 +205,12 @@ AI generate typography otomatis berdasarkan **industri** (dari company profile) 
 Output: font pairing (headline + body), sizing hierarchy, letter spacing. Semua bisa di-override di editor.
 Field varian: `headline_font`, `body_font`, `headline_size`, `body_size`, `letter_spacing`.
 
+> **[NEW] Ukuran teks di editor diatur sebagai skala relatif template**, bukan angka piksel absolut.
+> Slider headline/body menggeser ukuran **relatif terhadap ukuran yang didesain template** (1 = ukuran
+> template, rentang 0,6–1,6), sehingga hasil edit tetap proporsional dengan komposisi template dan tidak
+> pernah menabrak elemen lain (auto-fit tetap membatasi ke ruang yang tersedia). Disimpan di
+> `final_config.typography` sebagai `headline_scale` / `body_scale`.
+
 #### [NEW] AI Copy — diarahkan per template
 
 Copy (`headline`, `body`, `cta`) tidak lagi digenerate "buta" dengan aturan seragam. Saat generate, sistem
@@ -198,6 +221,9 @@ kotak template**:
   (promo = punchy + CTA mendesak; story = naratif + ajakan lembut; brand = tagline aspiratif).
 - **Batas kata per slot menurut intent** — promo paling pendek, story paling lapang, brand tagline; boleh
   di-override per slot lewat `maxWords` di template. Template tanpa `copy_intent` → batas lama (fallback).
+- **[NEW] Batas karakter per slot dari geometri template** — selain batas kata (gaya), sistem menurunkan
+  batas **karakter** langsung dari lebar & tinggi kotak elemen di template (boleh di-override lewat
+  `maxChars`), supaya copy yang dihasilkan AI benar-benar **muat** di layout, bukan cuma pendek secara kata.
 - **Sadar slot** — AI hanya mengisi slot yang **benar-benar ada** di layout; slot yang tak ada (mis. CTA)
   disuruh di-`null` (tidak ada copy mubazir).
 - **Konteks statis** — teks yang sudah tercetak di template (eyebrow/tanggal/S&K) diberikan sebagai konteks
@@ -205,6 +231,11 @@ kotak template**:
 
 > AI hanya menerima **brief terkompilasi**, bukan `template_config` mentah — hemat token & tetap patuh
 > Template Integrity (AI tak pernah melihat/menyentuh layout & warna).
+
+> **[NEW] Auto-fit & reflow di editor** — sebagai jaring pengaman terakhir (batas karakter di atas
+> sudah menyaring sebagian besar kasus), copy yang tetap melebihi kotaknya di canvas editor dibuat
+> mengecil otomatis (tidak pernah menabrak elemen lain), dan elemen teks di bawahnya ikut menyesuaikan
+> posisi agar jarak antar elemen tetap rapi.
 
 ### 4.4 [CHANGED] Goal & Platform (sebelumnya "Generate by Campaign")
 
@@ -314,3 +345,10 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
 | 11 | Template brand | **[NEW]** Personalisasi brand saat render (`brand_theme` tint/derive) — read-only ke `template_config`. |
 | 12 | Goal/Platform | Fallback default (`awareness`/`instagram_feed`) saat entry langsung tanpa Step 1. |
 | 13 | AI Copy | **[NEW]** `copy_intent` per template (promotion/story/brand) mengarahkan copy: nada + kekuatan CTA + batas kata per slot (`maxWords` override), sadar-slot (null slot yang tak ada), + konteks teks statis. |
+| 14 | AI Copy / Editor | **[NEW]** Batas karakter per slot diturunkan dari geometri template (`maxChars` override); editor canvas auto-fit (mengecilkan font) + reflow (menjaga gap desain) sebagai jaring pengaman terakhir saat copy tetap melebihi kotaknya. |
+| 15 | Company profile | **[CHANGED]** Upload logo jadi **nyata** (sebelumnya mock UI): normalisasi server-side ke PNG (PNG/JPEG/WEBP, maks 2 MB, ≤1024px; SVG ditolak), logo bisa dihapus kembali, dan logo asli ikut ter-render di preview & editor + ikut ter-export ke PNG final. |
+| 16 | Company profile | **[NEW]** Perubahan brand di Settings langsung berlaku di `/create` **tanpa logout/login** (profil di-fetch ulang tiap `/create` dibuka). Konten lama tidak diubah surut. |
+| 17 | Template galeri | **[CHANGED]** Brand di galeri jadi **opt-in**: kartu galeri & preview awal tampil dengan warna/font asli template + **logo default generik**; brand user baru dipakai saat toggle "Preview dengan brand color" ditekan. |
+| 18 | Create flow | **[NEW]** Toggle brand preview bisa dibalik langsung di `/create` (bukan lagi terkunci dari pilihan di galeri) — mini template picker & panel "Template dipilih" ikut berubah seketika. |
+| 19 | Template footer | **[NEW]** Slot `footer` template diisi kontak asli dari `company_profile.contact` (boleh sebagian; slot kosong tampil ikon saja, profil tanpa kontak tetap pakai placeholder) — konsisten di galeri, preview, `/create`, editor, dan export PNG. |
+| 20 | Editor typography | **[CHANGED]** Ukuran headline/body di editor jadi **skala relatif template** (`headline_scale`/`body_scale` di `final_config.typography`, 1 = ukuran template) menggantikan ukuran piksel absolut — hasil edit tetap proporsional dengan komposisi template. |
