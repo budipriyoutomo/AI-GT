@@ -221,11 +221,14 @@ export default function TemplatesPage() {
         <div style={{ width: 260 }}>
           <Input icon="search" placeholder="Cari template…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Tabs
-          value={fmt}
-          onChange={setFmt}
-          tabs={FORMATS.map((f) => ({ value: f, label: f === "Semua" ? "Semua format" : f }))}
-        />
+        {/* Format filter (Semua/Single/Carousel) hidden temporarily */}
+        {false && (
+          <Tabs
+            value={fmt}
+            onChange={setFmt}
+            tabs={FORMATS.map((f) => ({ value: f, label: f === "Semua" ? "Semua format" : f }))}
+          />
+        )}
         <div style={{ marginLeft: "auto", width: 200 }}>
           <Select
             value={industry}

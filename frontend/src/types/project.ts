@@ -74,7 +74,11 @@ export interface Project {
   final_config: ProjectFinalConfig;
   exported_image_url: string | null;
   thumbnail_url: string | null;
-  is_exported: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Project dianggap sudah di-export jika punya exported_image_url. */
+export function isProjectExported(p: Pick<Project, "exported_image_url">): boolean {
+  return !!p.exported_image_url;
 }

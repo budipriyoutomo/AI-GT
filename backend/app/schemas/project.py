@@ -13,7 +13,6 @@ class ProjectData(BaseModel):
     final_config: dict
     exported_image_url: str | None
     thumbnail_url: str | None
-    is_exported: bool
     created_at: datetime
     updated_at: datetime
 

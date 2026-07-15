@@ -5,19 +5,17 @@ import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Tabs } from "@/components/ui/tabs";
-import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { PosterThumb } from "@/components/poster-thumb";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { projectsApi } from "@/api/projectsApi";
 import { resolveAssetUrl } from "@/lib/assetUrl";
-import type { Project } from "@/types/project";
+import { isProjectExported, type Project } from "@/types/project";
 
 const ACCENT_POOL = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
 
@@ -56,7 +54,7 @@ function ProjectCard({
   }
 
   return (
-    <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
+    <Card variant="elevated" padding={12} hover className="group" style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative" }}>
         {(project.thumbnail_url || project.exported_image_url) ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -81,7 +79,7 @@ function ProjectCard({
           style={{ position: "absolute", inset: "10px 10px auto 10px" }}
         >
           <Link href={`/editor?projectId=${project.id}`} style={{ display: "block" }}>
-            <Button icon="pencil" style={{ width: "100%" }} size="sm">Edit</Button>
+            <Button icon="pencil" style={{ width: "100%" }} size="sm">Edit di Canvas</Button>
           </Link>
         </div>
       </div>
@@ -93,26 +91,14 @@ function ProjectCard({
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-        <Badge variant={project.is_exported ? "success" : "warning"} dot>
-          {project.is_exported ? "Exported" : "Draft"}
-        </Badge>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>
             {formatDate(project.created_at)}
           </span>
-          <DropdownMenu
-            trigger={
-              <button className="aigt-iconbtn" style={{ width: 26, height: 26 }}>
-                <Icon name="more-horizontal" size={15} />
-              </button>
-            }
-            items={[
-              { label: "Edit di Canvas", icon: "pencil", onClick: () => window.location.href = `/editor?projectId=${project.id}` },
-              { divider: true },
-              { label: "Hapus", icon: "trash-2", danger: true, onClick: handleDelete },
-            ]}
-          />
+          <button className="aigt-iconbtn" style={{ width: 26, height: 26, color: "var(--destructive)" }} onClick={handleDelete}>
+            <Icon name="trash-2" size={14} />
+          </button>
         </div>
       </div>
     </Card>
@@ -136,15 +122,14 @@ export default function DashboardPage() {
 
   /* Derived stats */
   const totalGenerated = projects.length;
-  const totalExported  = projects.filter((p) => p.is_exported).length;
 
   /* Recent 8, filtered */
   const recent = useMemo(() => {
     const sorted = [...projects].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
-    if (filter === "Exported") return sorted.filter((p) => p.is_exported).slice(0, 8);
-    if (filter === "Draft")    return sorted.filter((p) => !p.is_exported).slice(0, 8);
+    if (filter === "Exported") return sorted.filter((p) => isProjectExported(p)).slice(0, 8);
+    if (filter === "Draft")    return sorted.filter((p) => !isProjectExported(p)).slice(0, 8);
     return sorted.slice(0, 8);
   }, [projects, filter]);
 
@@ -191,29 +176,12 @@ export default function DashboardPage() {
  
 
       {/* KPI stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 28 }}>
         <StatCard
           title="Konten digenerate"
           value={loading ? "—" : String(totalGenerated)}
           icon="sparkles"
           variant="primary"
-        />
-        <StatCard
-          title="Exported"
-          value={loading ? "—" : String(totalExported)}
-          icon="download"
-          variant="success"
-          trend={totalGenerated > 0 ? {
-            value: `${Math.round((totalExported / totalGenerated) * 100)}% export rate`,
-            positive: true,
-          } : undefined}
-        />
-        <StatCard
-          title="Draft"
-          value={loading ? "—" : String(totalGenerated - totalExported)}
-          icon="file-pen"
-          variant="warning"
-          subtitle="Belum diexport"
         />
         {/* Quota — static until billing module */}
         <div style={{
@@ -245,7 +213,10 @@ export default function DashboardPage() {
             {loading ? "Memuat…" : `${recent.length} dari ${totalGenerated} konten`}
           </p>
         </div>
-        <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Exported", "Draft"]} />
+        {/* Status filter (Semua/Exported/Draft) hidden temporarily */}
+        {false && (
+          <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Exported", "Draft"]} />
+        )}
         <Link href="/history">
           <Button size="sm" variant="ghost" icon="arrow-right" iconRight="arrow-right">Lihat semua</Button>
         </Link>
@@ -270,7 +241,7 @@ export default function DashboardPage() {
           )}
         </Card>
       ) : (
-        <div className="group" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {recent.map((p) => (
             <ProjectCard key={p.id} project={p} onDelete={() => handleDelete(p.id)} />
           ))}

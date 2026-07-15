@@ -542,9 +542,6 @@ export default function EditorPage() {
               </button>
             )}
 
-            {project.is_exported && (
-              <Badge variant="success" dot>Exported</Badge>
-            )}
           </div>
         </div>
 
@@ -1313,12 +1310,6 @@ export default function EditorPage() {
                   #{project.id.slice(0, 8).toUpperCase()}
                 </div>
               </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-              <Badge variant={project.is_exported ? "success" : "warning"} dot>
-                {project.is_exported ? "Exported" : "Draft"}
-              </Badge>
             </div>
           </div>
 
