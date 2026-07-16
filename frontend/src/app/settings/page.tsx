@@ -421,7 +421,7 @@ function TabProfilBisnis() {
               options={["F&B / Kuliner", "Fashion & Retail", "Jasa & Layanan", "Kesehatan & Kecantikan", "Toko Kelontong", "Edukasi", "Lainnya"]}
             />
             <Input
-              label="Kota"
+              label="Alamat"
               icon="map-pin"
               value={city}
               onChange={(e) => setCity(e.target.value)}

@@ -118,10 +118,10 @@ function TemplateCard({
           <div className="aigt-caption" style={{ marginTop: 3 }}>{t.industry}</div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+        {/* <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           <Badge variant="secondary">{t.content_type}</Badge>
           {t.theme && <Badge variant="info">{t.theme}</Badge>}
-        </div>
+        </div> */}
       </Card>
     </div>
   );
