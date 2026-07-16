@@ -12,6 +12,8 @@ class ContactInfo(BaseModel):
     tiktok: str = ""
     youtube: str = ""
     hashtag: str = ""
+    whatsapp: str = ""
+    facebook: str = ""
 
 
 class CompanyProfileCreate(BaseModel):
@@ -21,6 +23,7 @@ class CompanyProfileCreate(BaseModel):
     brand_colors: list[str] | None = None
     brand_font: str | None = None
     tagline: str | None = None
+    address: str | None = None
     contact: ContactInfo | None = None
     language_preference: str = "id"
 
@@ -32,6 +35,7 @@ class CompanyProfileUpdate(BaseModel):
     brand_colors: list[str] | None = None
     brand_font: str | None = None
     tagline: str | None = None
+    address: str | None = None
     contact: ContactInfo | None = None
     language_preference: str | None = None
 
@@ -49,6 +53,7 @@ class CompanyProfileData(BaseModel):
     brand_colors: list[str] | None
     brand_font: str | None
     tagline: str | None
+    address: str | None
     contact: dict[str, Any] | None
     language_preference: str
     created_at: datetime

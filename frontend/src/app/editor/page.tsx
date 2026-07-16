@@ -16,6 +16,7 @@ import { buildEditorPreviewConfig } from "@/lib/editor/preview-config";
 import { buildCanvasSpec } from "@/lib/editor/canvas-spec";
 import { charCapacity } from "@/lib/editor/fit-text";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import { buildFooterContact } from "@/lib/template/footer-contact";
 import { useAuth } from "@/lib/auth";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { projectsApi } from "@/api/projectsApi";
@@ -200,10 +201,11 @@ export default function EditorPage() {
           // Kontak mengikuti brand_applied, sama seperti logo & tagline yang sudah diresolve
           // resolver — unbranded → placeholder default, branded → kontak profil user.
           // logoUrl & tagline TIDAK dikirim: sudah final di previewCfg (cfg.logoUrl / value elemen).
-          contact: (branded ? user?.contact : null) ?? DEFAULT_COMPANY_PROFILE.contact,
+          contact: (branded ? buildFooterContact({ contact: user?.contact, address: user?.address }) : null)
+            ?? DEFAULT_COMPANY_PROFILE.contact,
         })
       : null,
-    [previewCfg, tplThumbnailUrl, branded, user?.contact],
+    [previewCfg, tplThumbnailUrl, branded, user?.contact, user?.address],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan

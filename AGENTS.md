@@ -214,6 +214,11 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
   editor: `final_config.brand_applied`) menentukan SEMUA data profil sekaligus — warna, font, logo, tagline,
   dan kontak footer. Unbranded → `DEFAULT_COMPANY_PROFILE` (placeholder generik), branded → profil user.
   Jangan campur (mis. kontak asli user tapi logo default) — itu bikin preview tak konsisten.
+- **`address` → slot footer `location` HANYA di `lib/template/footer-contact.ts`.** `address` adalah kolom
+  tersendiri (bukan key di `contact`), sementara kedua renderer sama-sama membaca `contact[slot]` — jadi
+  `buildFooterContact()` wajib dipanggil **sebelum** resolver, sama seperti larangan jalur brand-adapt kedua.
+  Renderer dilarang memetakan `address` sendiri. Sebaliknya, **jangan suntikkan `address` ke `contact` di form
+  Settings**: `contact` disimpan apa adanya, jadi `location` akan ikut terpersist sebagai data profil.
 - **Fabric adalah sumber kebenaran soal pembungkusan teks.** Jangan pernah menulis word-wrap atau pengukur
   teks tandingan; ukur lewat Fabric (`Textbox.calcTextWidth()` + `textLines.length`). Estimasi sendiri meleset
   di ambang kolom → auto-fit salah putusan → teks bertabrakan.

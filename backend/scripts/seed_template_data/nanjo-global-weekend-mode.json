@@ -112,7 +112,7 @@
       {
         "type": "footer",
         "x": 0.06, "y": 0.90, "width": 0.88, "height": 0.055,
-        "slots": ["phone", "location", "facebook"],
+        "slots": ["phone", "location"],
         "style": { "color": "#FFFFFF", "backgroundGradient": ["accent", "primary"], "backgroundGradientDirection": "to right", "opacity": 1, "fontSize": 20 }
       }
     ]

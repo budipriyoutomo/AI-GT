@@ -5,7 +5,7 @@ AI-GT · Product Requirements Document · MVP 1.0 — **disinkronkan dengan impl
 > ***"Konten marketing profesional, tanpa desainer."***
 >
 > Dokumen ini adalah PRD awal yang sudah **disesuaikan dengan kode yang benar-benar ada di repo** per
-> 2026-07-14. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
+> 2026-07-16. Bagian yang bergeser dari PRD awal ditandai dengan **[CHANGED]**, **[NEW]**, atau **[DROPPED]**.
 > Lihat juga §12 (Changelog) untuk ringkasan delta.
 
 ---
@@ -65,7 +65,8 @@ generate, dan bisa diedit kapanpun via Settings.
 | `brand_colors` | **string[]** \| null | **[CHANGED]** Dari "brand color (tunggal, opsional)" → **array warna** (primer + sekunder, dst) |
 | `brand_font` | string \| null | **[NEW]** Font brand default (Google Fonts) |
 | `tagline` | string \| null | **[NEW]** |
-| `contact` | object \| null | **[NEW]** `{ website, phone, instagram, tiktok, youtube, hashtag }` — dipakai elemen `footer` template |
+| `address` | string \| null | **[NEW]** Alamat bisnis — **kolom tersendiri**, bukan key di dalam `contact`. Mengisi slot footer `location` saat template dirender branded. Menggantikan field "Kota" di Settings yang sebelumnya tidak pernah tersimpan |
+| `contact` | object \| null | **[NEW]** `{ website, phone, instagram, tiktok, youtube, whatsapp, facebook, hashtag }` — dipakai elemen `footer` template. **[CHANGED]** `whatsapp` & `facebook` ditambahkan (sebelumnya slot footer bisa memintanya tapi user tak punya tempat mengisinya) |
 | `language_preference` | string | Default `"id"` |
 
 > Onboarding UI saat ini berbentuk wizard multi-step (identitas → logo & tagline → brand color & font →
@@ -109,10 +110,18 @@ Library template terkategori. Setiap template sudah include layout, background, 
   di `/create` user bisa menyalakan/mematikan brand preview kapan saja — kartu mini template picker dan panel
   "Template dipilih" ikut berubah seketika. User yang belum punya brand color diarahkan ke Settings
   (perilaku sama dengan modal galeri).
+- **[NEW] Pilihan brand ikut tersimpan ke konten yang di-generate.** Keadaan toggle saat menekan Generate
+  disimpan bersama project (`brand_applied`), sehingga editor dan PNG hasil export menampilkan brand yang
+  **sama persis** dengan yang dilihat user saat preview — bukan menghitung ulang dari profil terkini.
+  Yang disimpan hanya **niat** user (boolean), bukan salinan warna/font/logo; project lama tanpa field ini
+  tetap tampil unbranded seperti sebelumnya.
 - **[NEW] Kontak bisnis tampil di slot footer template.** Template yang punya elemen `footer` diisi dari
   `company_profile.contact` (boleh **sebagian** — slot tanpa nilai tampil ikonnya saja); profil yang belum
   mengisi kontak sama sekali tetap memakai placeholder default supaya preview tidak terlihat rusak. Berlaku
   konsisten di galeri, modal preview, panel `/create`, canvas editor, dan PNG hasil export.
+  **[CHANGED] Slot `location` diisi dari `address`**, bukan dari `contact` — alamat adalah kolom tersendiri,
+  dan pemetaan `address` → slot `location` terjadi di satu tempat sebelum render, sehingga preview dan PNG
+  hasil export tidak bisa berbeda. **[NEW]** Slot `whatsapp` & `facebook` kini punya field isian di Settings.
 - AI suggest template relevan berdasarkan company profile.
 - Premium: `is_premium` flag ada; fitur "generate background AI" masih roadmap.
 
@@ -321,6 +330,10 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
    Saat ini filter platform di halaman galeri sudah dihapus (no-op).
 2. **Field onboarding belum semua dipersist.** UI onboarding menampilkan "Kota", "Deskripsi singkat",
    "Target audiens", dan "Platform default", tapi field-field ini belum ada di model `CompanyProfile`.
+   **[SEBAGIAN TERTUTUP]** Di **Settings**, "Kota" sudah diganti "Alamat" dan tersimpan nyata ke kolom
+   `address` (mengisi slot footer `location`). Yang tersisa: onboarding masih memakai input "Kota" yang
+   belum ter-wire ke `address`, dan "Deskripsi singkat"/"Target audiens"/"Platform default" masih belum
+   punya kolom sama sekali.
 3. **`brand_colors` pernah bolak-balik** antara `brand_color` (tunggal) ↔ `brand_colors` (array) di migrasi
    (`0003`, `0004`). Sumber kebenaran final: **`brand_colors: string[]`**.
 4. **Segmen lokasi (Lokal/Nasional)** dari PRD belum diimplementasikan.
@@ -352,3 +365,6 @@ Hal-hal yang **belum konsisten** antara UI, model, dan schema — kandidat untuk
 | 18 | Create flow | **[NEW]** Toggle brand preview bisa dibalik langsung di `/create` (bukan lagi terkunci dari pilihan di galeri) — mini template picker & panel "Template dipilih" ikut berubah seketika. |
 | 19 | Template footer | **[NEW]** Slot `footer` template diisi kontak asli dari `company_profile.contact` (boleh sebagian; slot kosong tampil ikon saja, profil tanpa kontak tetap pakai placeholder) — konsisten di galeri, preview, `/create`, editor, dan export PNG. |
 | 20 | Editor typography | **[CHANGED]** Ukuran headline/body di editor jadi **skala relatif template** (`headline_scale`/`body_scale` di `final_config.typography`, 1 = ukuran template) menggantikan ukuran piksel absolut — hasil edit tetap proporsional dengan komposisi template. |
+| 21 | Company profile | **[NEW]** Kolom `address` (migrasi `0010`) — alamat bisnis sebagai kolom tersendiri, mengisi slot footer `location`. Menggantikan field "Kota" di Settings yang sebelumnya tidak pernah tersimpan (menutup sebagian §11 gap #2). |
+| 22 | Company profile | **[CHANGED]** `contact` bertambah `whatsapp` & `facebook` — slot footer sudah lama bisa memintanya, tapi user tak punya tempat mengisinya di Settings. |
+| 23 | Brand di konten | **[NEW]** Pilihan toggle brand saat Generate dipersist ke project (`brand_applied`) — editor & PNG export menampilkan brand yang sama dengan preview. Hanya niat (boolean) yang disimpan, bukan salinan brand; project lama tetap unbranded. |

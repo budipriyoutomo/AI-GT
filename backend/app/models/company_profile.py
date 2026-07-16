@@ -21,6 +21,7 @@ class CompanyProfile(Base):
     brand_colors: Mapped[list | None] = mapped_column(JSON, nullable=True)
     brand_font: Mapped[str | None] = mapped_column(String, nullable=True)
     tagline: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     language_preference: Mapped[str] = mapped_column(String(10), default="id")
     created_at: Mapped[datetime] = mapped_column(

@@ -19,6 +19,10 @@ export interface UserContext {
   brandColors?: string[];
   brandFont?: string;
   tagline?: string;
+  /** Alamat bisnis — terpisah dari `contact` (kolom sendiri di DB). Gabungkan ke slot
+   *  footer `location` lewat buildFooterContact(), jangan disuntikkan ke `contact`:
+   *  form Settings menyimpan `contact` apa adanya, jadi `location` akan ikut tersimpan. */
+  address?: string;
   contact?: CompanyContact;
 }
 
@@ -31,6 +35,7 @@ function profileFields(profile: CompanyProfile): Partial<UserContext> {
     brandColors: profile.brand_colors ?? undefined,
     brandFont: profile.brand_font ?? undefined,
     tagline: profile.tagline ?? undefined,
+    address: profile.address ?? undefined,
     contact: profile.contact ?? undefined,
   };
 }
@@ -124,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.brandColors !== undefined) payload.brand_colors = data.brandColors;
     if (data.brandFont !== undefined) payload.brand_font = data.brandFont;
     if (data.tagline !== undefined) payload.tagline = data.tagline;
+    if (data.address !== undefined) payload.address = data.address;
     if (data.contact !== undefined) payload.contact = data.contact;
 
     try {
@@ -138,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           brand_colors: data.brandColors,
           brand_font: data.brandFont,
           tagline: data.tagline,
+          address: data.address,
           contact: data.contact,
         });
       }

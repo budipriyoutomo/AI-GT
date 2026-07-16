@@ -139,7 +139,7 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-│   ├── alembic/versions/        → migrasi 0001…0009
+│   ├── alembic/versions/        → migrasi 0001…0010
 │   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
 │   └── tests/                   → conftest.py, unit/, integration/
 │
@@ -176,8 +176,18 @@ Relasi: `company_profile` (1:1), `generate_sessions` (1:N), `projects` (1:N).
 
 ### `company_profiles`
 1:1 dengan user (`user_id` unique). Menyimpan `business_name`, `industry`, `logo_url`,
-`brand_colors` (JSON list), `brand_font`, `tagline`, `contact` (JSON), `language_preference`
-(default `"id"`). Company profile **wajib ada** sebelum generate (kalau tidak → `PROFILE_NOT_FOUND`).
+`brand_colors` (JSON list), `brand_font`, `tagline`, `address` (Text nullable), `contact` (JSON),
+`language_preference` (default `"id"`). Company profile **wajib ada** sebelum generate (kalau tidak →
+`PROFILE_NOT_FOUND`).
+
+`address` adalah **kolom tersendiri, bukan key di dalam JSON `contact`** — form Settings menyimpan
+`contact` apa adanya, jadi menyuntikkan alamat ke sana akan ikut mempersist slot render (`location`)
+sebagai data profil. Pemetaan `address` → slot footer `location` dilakukan saat render di frontend
+(`lib/template/footer-contact.ts`), bukan di DB.
+
+`contact` adalah JSON bebas; schema `ContactInfo` mengisi `website`, `phone`, `instagram`, `tiktok`,
+`youtube`, `whatsapp`, `facebook`, `hashtag` (semua default `""`). Slot footer template boleh memakai
+key lain (mis. `location`, `booking`) — lihat `SocialIcon`.
 
 ### `templates`
 Anchor visual. Kolom penting:
@@ -241,12 +251,14 @@ User ──1:N── Project ──1:1── GenerateSession
 Template ──1:N── GenerateSession
 ```
 
-Migrasi dikelola Alembic (`0001_initial_schema` … `0009_add_copy_intent_to_templates`).
+Migrasi dikelola Alembic (`0001_initial_schema` … `0010_add_address_to_company_profiles`).
 
 > `0008` adalah **guard idempoten** (`ADD COLUMN IF NOT EXISTS thumbnail_url`) untuk memperbaiki DB yang
 > revisi `0004`-nya sempat ter-skip akibat tabrakan revision id antar-branch — lihat pola serupa di `0007`.
 > `0009` menambah kolom `templates.copy_intent` (nullable, idempoten) — `seed_templates.py` juga
 > menambahnya via `SCHEMA_FALLBACKS` agar seed jalan sebelum migrasi di-apply.
+> `0010` menambah kolom `company_profiles.address` (Text nullable, idempoten — cek `inspect()` dulu,
+> pola yang sama dengan `0007`/`0008`).
 
 ---
 
@@ -547,6 +559,14 @@ tiap varian.
   Nilai kosong → ikon saja tanpa teks; `contact` null seluruhnya → `DEFAULT_COMPANY_PROFILE.contact`.
   Ikon di kedua renderer berasal dari peta `ICONS` yang sama (`components/template/SocialIcon.tsx`),
   jadi preview dan PNG hasil export identik.
+- **`address` → slot `location` (`lib/template/footer-contact.ts`).** `address` adalah kolom tersendiri,
+  bukan bagian dari `contact`, sementara kedua renderer sama-sama membaca `contact[slot]`.
+  `buildFooterContact({ contact, address })` adalah **satu-satunya** tempat pemetaan itu terjadi, dan
+  dipanggil **sebelum** resolver di tiap pemanggil (`app/create`, `app/editor`, `app/templates`) — kalau
+  tiap renderer memetakan sendiri, preview dan PNG export bisa berbeda diam-diam. `address` kosong sengaja
+  **tidak** menimpa slot (dirender ikon tanpa teks, bukan string kosong). Fungsi ini **hanya untuk render** —
+  form Settings tetap memperlakukan `contact` dan `address` sebagai dua field terpisah sesuai bentuk DB-nya,
+  sebab `contact` disimpan apa adanya dan `location` akan ikut terpersist kalau disuntikkan.
 - **Editor** — `components/editor/FabricCanvas.tsx` (Fabric.js 6) untuk edit & export PNG;
   `hooks/useAutoSave.ts` menyimpan snapshot thumbnail secara berkala.
 - **Editor element-based (`TemplateFabricCanvas.tsx` + `lib/editor/canvas-spec.ts`)** — merender

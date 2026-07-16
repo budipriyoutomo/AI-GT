@@ -113,7 +113,7 @@
         "type": "footer",
         "x": 0, "y": 0.93, "width": 1, "height": 0.07,
         "align": "center",
-        "slots": ["phone", "facebook", "instagram", "tiktok"],
+        "slots": ["phone", "instagram", "tiktok"],
         "style": { "color": "#FFFFFF", "backgroundColor": "accent", "opacity": 1, "fontSize": 20, "radius": 0 }
       }
     ]

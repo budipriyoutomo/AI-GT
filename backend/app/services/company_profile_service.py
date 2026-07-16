@@ -35,6 +35,7 @@ async def create_profile(
         brand_colors=data.brand_colors,
         brand_font=data.brand_font,
         tagline=data.tagline,
+        address=data.address,
         contact=data.contact.model_dump() if data.contact else None,
         language_preference=data.language_preference,
     )

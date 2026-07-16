@@ -8,6 +8,7 @@ export interface CompanyProfileCreate {
   brand_colors?: string[];
   brand_font?: string;
   tagline?: string;
+  address?: string;
   contact?: CompanyContact;
   language_preference?: string;
 }
@@ -19,6 +20,7 @@ export interface CompanyProfileUpdate {
   brand_colors?: string[];
   brand_font?: string;
   tagline?: string;
+  address?: string;
   contact?: CompanyContact;
   language_preference?: string;
 }

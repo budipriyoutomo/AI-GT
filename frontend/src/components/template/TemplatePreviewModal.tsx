@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TemplateRenderer } from "./TemplateRenderer";
-import { SocialIcon } from "./SocialIcon";
 import { resolveTemplateConfig } from "@/lib/template/resolve";
 import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
@@ -19,43 +17,13 @@ function formatLabel(contentType?: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const metaLabelStyle: CSSProperties = {
-  fontSize: 10,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  color: "var(--muted-foreground)",
-};
-
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={metaLabelStyle}>{label}</span>
+      <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted-foreground)" }}>
+        {label}
+      </span>
       <span style={{ fontSize: "var(--text-sm)", color: "var(--foreground)" }}>{value}</span>
-    </div>
-  );
-}
-
-// Urut tampil di sidebar. Terbatas pada key yang punya ikon di SocialIcon — paritas
-// dengan slot footer template, jadi ikon di sidebar sama dengan yang tergambar di preview.
-const SOCIAL_SLOTS = ["instagram", "tiktok", "youtube", "facebook", "whatsapp", "website", "phone", "hashtag"];
-
-function SocialList({ contact }: { contact: CompanyContact }) {
-  const slots = SOCIAL_SLOTS.filter((slot) => contact[slot]?.trim());
-  if (slots.length === 0) return null;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <span style={metaLabelStyle}>Sosial media</span>
-      {slots.map((slot) => (
-        <span
-          key={slot}
-          style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-sm)", color: "var(--foreground)" }}
-        >
-          <span style={{ display: "inline-flex", flexShrink: 0, fontSize: 14, color: "var(--muted-foreground)" }}>
-            <SocialIcon slot={slot} />
-          </span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contact[slot]}</span>
-        </span>
-      ))}
     </div>
   );
 }
@@ -194,9 +162,6 @@ export function TemplatePreviewModal({
                 value={`${template.content_type === "carousel" ? "Carousel" : "Single"} · ${formatLabel(template.content_type)}`}
               />
               {template.theme && <MetaRow label="Tema" value={template.theme} />}
-              {/* Ikut `branded` seperti data profil lain (warna/font/logo/kontak footer):
-                  mode original menampilkan template apa adanya, tanpa identitas user. */}
-              {branded && contact && <SocialList contact={contact} />}
             </div>
 
             <div style={{ marginTop: "auto" }}>
