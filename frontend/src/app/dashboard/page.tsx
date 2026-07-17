@@ -16,6 +16,7 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { projectsApi } from "@/api/projectsApi";
+import { billingApi, type Subscription } from "@/api/billingApi";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { Project } from "@/types/project";
 
@@ -122,6 +123,7 @@ function ProjectCard({
 export default function DashboardPage() {
   const { user } = useAuth();
   const [projects,  setProjects]  = useState<Project[]>([]);
+  const [sub,       setSub]       = useState<Subscription | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [filter,    setFilter]    = useState("Semua");
 
@@ -132,6 +134,7 @@ export default function DashboardPage() {
       .then(setProjects)
       .catch(() => toast({ title: "Gagal memuat data", variant: "error" }))
       .finally(() => setLoading(false));
+    billingApi.subscription().then(setSub).catch(() => { /* kartu kuota fallback */ });
   }, []);
 
   /* Derived stats */
@@ -215,24 +218,29 @@ export default function DashboardPage() {
           variant="warning"
           subtitle="Belum diexport"
         />
-        {/* Quota — static until billing module */}
+        {/* Quota — kuota generate bulan berjalan dari billing API */}
         <div style={{
           borderRadius: "var(--radius-xl)", border: "1px solid var(--border)",
           background: "var(--card)", boxShadow: "var(--shadow-sm)",
           padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 100,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--muted-foreground)" }}>Kuota paket Pro</p>
+            <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--muted-foreground)" }}>
+              Kuota paket {sub?.plan_name ?? "—"}
+            </p>
             <span style={{ width: 32, height: 32, borderRadius: "var(--radius-md)", background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
               <Icon name="gauge" size={16} />
             </span>
           </div>
           <p style={{ margin: "6px 0 0", fontSize: "var(--text-2xl)", fontWeight: 700, lineHeight: 1 }}>
-            {loading ? "—" : totalGenerated}
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", fontWeight: 500 }}> / 80</span>
+            {sub ? sub.usage.generate_used : "—"}
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", fontWeight: 500 }}> / {sub ? sub.usage.generate_limit : "—"}</span>
           </p>
           <div style={{ marginTop: 12 }}>
-            <ProgressBar value={loading ? 0 : Math.min((totalGenerated / 80) * 100, 100)} color="primary" height={6} />
+            <ProgressBar
+              value={sub && sub.usage.generate_limit > 0 ? Math.min((sub.usage.generate_used / sub.usage.generate_limit) * 100, 100) : 0}
+              color="primary" height={6}
+            />
           </div>
         </div>
       </div>

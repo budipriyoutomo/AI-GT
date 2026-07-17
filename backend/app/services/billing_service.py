@@ -10,6 +10,7 @@ from app.models.generate_session import GenerateSession
 from app.models.payment_order import PaymentOrder
 from app.models.project import Project
 from app.models.subscription import Subscription
+from app.models.user import User
 from app.schemas.billing import OrderCreate
 from app.services import billing_plans, storage_service
 from app.utils.exceptions import AppError, ErrorCode
@@ -32,6 +33,92 @@ async def get_subscription(db: AsyncSession, user_id: uuid.UUID) -> Subscription
         status="active",
         current_period_end=None,
     )
+
+
+async def backfill_missing_subscriptions(db: AsyncSession) -> int:
+    """Buat row Subscription Starter untuk semua user yang belum punya.
+
+    Idempoten: user yang sudah punya row dilewati. Return jumlah row yang dibuat.
+    """
+    user_ids = set((await db.scalars(select(User.id))).all())
+    existing = set((await db.scalars(select(Subscription.user_id))).all())
+    missing = user_ids - existing
+
+    for uid in missing:
+        db.add(
+            Subscription(
+                user_id=uid,
+                plan_id=billing_plans.DEFAULT_PLAN_ID,
+                status="active",
+            )
+        )
+    if missing:
+        await db.commit()
+    return len(missing)
+
+
+async def assert_generate_quota(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Tegakkan kuota generate bulan berjalan. Raise RATE_LIMIT_EXCEEDED bila habis."""
+    sub = await get_subscription(db, user_id)
+    plan = billing_plans.get_plan(sub.plan_id) or billing_plans.get_plan(billing_plans.DEFAULT_PLAN_ID)
+    limit = plan["generate_limit"]
+    if limit < 0:  # -1 = tidak terbatas (future-proof; belum dipakai)
+        return
+    usage = await compute_usage(db, user_id)
+    if usage["generate_used"] >= limit:
+        raise AppError(
+            429,
+            ErrorCode.RATE_LIMIT_EXCEEDED,
+            "Kuota generate bulan ini sudah habis. Upgrade paket untuk menambah kuota.",
+        )
+
+
+async def expire_stale_orders(db: AsyncSession, user_id: uuid.UUID | None = None) -> int:
+    """Tandai order 'pending' yang lewat expires_at menjadi 'expired'.
+    Order 'awaiting_verification' TIDAK di-expire (user sudah bayar, menunggu admin)."""
+    now = datetime.now(timezone.utc)
+    stmt = select(PaymentOrder).where(
+        PaymentOrder.status == "pending",
+        PaymentOrder.expires_at.is_not(None),
+        PaymentOrder.expires_at < now,
+    )
+    if user_id is not None:
+        stmt = stmt.where(PaymentOrder.user_id == user_id)
+    rows = list(await db.scalars(stmt))
+    for order in rows:
+        order.status = "expired"
+    if rows:
+        await db.commit()
+    return len(rows)
+
+
+async def downgrade_expired_subscriptions(db: AsyncSession, user_id: uuid.UUID | None = None) -> int:
+    """Kembalikan langganan berbayar yang periodenya habis ke Starter (reset add-on)."""
+    now = datetime.now(timezone.utc)
+    stmt = select(Subscription).where(
+        Subscription.plan_id != billing_plans.DEFAULT_PLAN_ID,
+        Subscription.current_period_end.is_not(None),
+        Subscription.current_period_end < now,
+    )
+    if user_id is not None:
+        stmt = stmt.where(Subscription.user_id == user_id)
+    rows = list(await db.scalars(stmt))
+    for sub in rows:
+        sub.plan_id = billing_plans.DEFAULT_PLAN_ID
+        sub.storage_addon_id = None
+        sub.current_period_end = None
+    if rows:
+        await db.commit()
+    return len(rows)
+
+
+async def run_billing_maintenance() -> None:
+    """Entry point cron — buat DB session sendiri, expire order & downgrade langganan."""
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        await expire_stale_orders(db)
+        await downgrade_expired_subscriptions(db)
 
 
 async def compute_usage(db: AsyncSession, user_id: uuid.UUID) -> dict:
@@ -108,6 +195,12 @@ async def attach_proof(
     content_type: str,
 ) -> PaymentOrder:
     order = await get_order(db, order_id, user_id)
+    if order.status not in ("pending", "awaiting_verification"):
+        raise AppError(
+            400,
+            ErrorCode.VARIANT_NOT_SELECTED,
+            "Order ini tidak menunggu pembayaran, bukti transfer tidak diperlukan.",
+        )
     url = storage_service.upload_payment_proof(file_data, str(user_id), str(order_id), ext, content_type)
     order.proof_url = url
     order.status = "awaiting_verification"

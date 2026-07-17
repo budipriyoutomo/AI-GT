@@ -57,3 +57,13 @@ def get_plan(plan_id: str) -> dict | None:
 
 def get_addon(addon_id: str) -> dict | None:
     return _ADDONS_BY_ID.get(addon_id)
+
+
+def effective_history_limit(plan: dict, addon_id: str | None) -> int:
+    """history_limit efektif = limit paket + extra_slots add-on aktif.
+    Paket unlimited (-1) tetap unlimited, add-on tidak berpengaruh."""
+    base = plan["history_limit"]
+    if base == -1:
+        return -1
+    addon = get_addon(addon_id) if addon_id else None
+    return base + (addon["extra_slots"] if addon else 0)

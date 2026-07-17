@@ -2,9 +2,14 @@
 🔴 RED phase — semua test ini harus FAILING sebelum implementasi router.
 Jalankan: pytest tests/unit/test_auth.py -v
 """
+import uuid
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.subscription import Subscription
 from app.models.user import User
 
 
@@ -47,6 +52,24 @@ class TestRegister:
             "password": "secret123",
         })
         assert res.status_code == 422
+
+    async def test_register_creates_starter_subscription(
+        self, client: AsyncClient, db: AsyncSession
+    ):
+        res = await client.post("/api/v1/auth/register", json={
+            "name": "Budi",
+            "email": "starter@example.com",
+            "password": "secret123",
+        })
+        assert res.status_code == 201
+        user_id = uuid.UUID(res.json()["data"]["user"]["id"])
+
+        sub = await db.scalar(
+            select(Subscription).where(Subscription.user_id == user_id)
+        )
+        assert sub is not None
+        assert sub.plan_id == "starter"
+        assert sub.status == "active"
 
 
 class TestLogin:
@@ -183,6 +206,27 @@ class TestDeleteAccount:
         res = await client.request("DELETE", "/api/v1/auth/me", headers=auth_headers)
         assert res.status_code == 200
         assert res.json()["success"] is True
+
+    async def test_delete_account_removes_subscription(
+        self, client: AsyncClient, auth_headers: dict, verified_user: User, db: AsyncSession
+    ):
+        # user punya subscription + payment order → delete harus bersih tanpa error FK
+        from app.models.payment_order import PaymentOrder
+
+        db.add(Subscription(user_id=verified_user.id, plan_id="pro", status="active"))
+        db.add(PaymentOrder(
+            user_id=verified_user.id, kind="plan", item_id="pro",
+            amount=99000, unique_code=1, total_amount=99001, status="paid",
+        ))
+        await db.commit()
+
+        res = await client.request("DELETE", "/api/v1/auth/me", headers=auth_headers)
+        assert res.status_code == 200
+
+        remaining = await db.scalar(
+            select(Subscription).where(Subscription.user_id == verified_user.id)
+        )
+        assert remaining is None
 
     async def test_delete_account_no_auth(self, client: AsyncClient):
         res = await client.request("DELETE", "/api/v1/auth/me")

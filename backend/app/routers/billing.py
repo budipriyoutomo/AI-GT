@@ -22,6 +22,7 @@ from app.utils.exceptions import AppError, ErrorCode
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 
 _ALLOWED_PROOF_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+_MAX_PROOF_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB — selaras dengan validasi frontend
 
 
 def _bank() -> BankInstruction:
@@ -66,6 +67,8 @@ async def get_subscription(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Self-healing: turunkan langganan yang periodenya sudah habis sebelum dibaca.
+    await billing_service.downgrade_expired_subscriptions(db, current_user.id)
     sub = await billing_service.get_subscription(db, current_user.id)
     plan = billing_plans.get_plan(sub.plan_id) or billing_plans.get_plan(billing_plans.DEFAULT_PLAN_ID)
     usage = await billing_service.compute_usage(db, current_user.id)
@@ -79,7 +82,7 @@ async def get_subscription(
             generate_used=usage["generate_used"],
             generate_limit=plan["generate_limit"],
             history_used=usage["history_used"],
-            history_limit=plan["history_limit"],
+            history_limit=billing_plans.effective_history_limit(plan, sub.storage_addon_id),
         ),
     )
     return {"success": True, "data": data.model_dump()}
@@ -100,6 +103,8 @@ async def list_orders(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Self-healing: tandai order pending yang kadaluarsa sebelum ditampilkan.
+    await billing_service.expire_stale_orders(db, current_user.id)
     orders = await billing_service.list_orders(db, current_user.id)
     return {"success": True, "data": [_order_data(o) for o in orders]}
 
@@ -110,6 +115,7 @@ async def get_order(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await billing_service.expire_stale_orders(db, current_user.id)
     order = await billing_service.get_order(db, order_id, current_user.id)
     return {"success": True, "data": _order_data(order)}
 
@@ -125,6 +131,8 @@ async def upload_proof(
     if ext is None:
         raise AppError(400, ErrorCode.STORAGE_UPLOAD_FAILED, "Bukti transfer harus PNG, JPG, atau WEBP.")
     file_data = await file.read()
+    if len(file_data) > _MAX_PROOF_SIZE_BYTES:
+        raise AppError(400, ErrorCode.FILE_TOO_LARGE, "Ukuran bukti transfer maksimum 5 MB.")
     order = await billing_service.attach_proof(
         db, order_id, current_user.id, file_data, ext, file.content_type
     )
