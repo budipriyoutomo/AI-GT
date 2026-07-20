@@ -12,6 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { toast } from "@/components/ui/toast";
 import { billingApi, type Plan, type Addon, type Subscription } from "@/api/billingApi";
+import { fmtPrice as fmt, formatPlanDate as formatDate, planFeatures } from "@/lib/billing";
 
 /* ── Presentasi per paket (warna saja — harga/limit dari API) ── */
 const PLAN_STYLE: Record<string, { color: string; tint: string; border: string; badge?: string }> = {
@@ -19,26 +20,6 @@ const PLAN_STYLE: Record<string, { color: string; tint: string; border: string; 
   pro:      { color: "var(--primary)", tint: "var(--tint-primary)", border: "color-mix(in oklch, var(--primary) 40%, transparent)" },
   business: { color: "var(--chart-4)", tint: "color-mix(in oklch, var(--chart-4) 10%, var(--card))", border: "color-mix(in oklch, var(--chart-4) 35%, transparent)" },
 };
-
-function fmt(n: number): string {
-  return n <= 0 ? "Gratis" : "Rp " + n.toLocaleString("id-ID");
-}
-
-function planFeatures(p: Plan): { label: string; ok: boolean }[] {
-  return [
-    { label: `${p.generate_limit} generate / bulan`, ok: true },
-    { label: p.history_limit === -1 ? "Riwayat tidak terbatas" : `${p.history_limit} slot riwayat`, ok: true },
-    { label: `${p.profile_limit} profil bisnis`, ok: true },
-    { label: "Thematic image AI", ok: p.thematic_image },
-    { label: "Export tanpa watermark", ok: p.watermark_free },
-    { label: "Priority support", ok: p.priority_support },
-  ];
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-}
 
 export default function SubscriptionPage() {
   const router = useRouter();

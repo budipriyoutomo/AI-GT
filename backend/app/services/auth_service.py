@@ -4,7 +4,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models.subscription import Subscription
 from app.models.user import User
+from app.services import billing_plans
 from app.services.providers.auth.base_auth import AuthProvider
 from app.services.providers.auth.jwt_auth import JwtAuthProvider
 from app.services.providers.auth.supabase_auth import SupabaseAuthProvider
@@ -39,6 +41,13 @@ async def register_user(
         is_verified=False,
     )
     db.add(user)
+    db.add(
+        Subscription(
+            user_id=user.id,
+            plan_id=billing_plans.DEFAULT_PLAN_ID,
+            status="active",
+        )
+    )
     await db.commit()
     await db.refresh(user)
     return user
@@ -84,6 +93,7 @@ async def delete_account(db: AsyncSession, user: User) -> None:
     from app.models.company_profile import CompanyProfile
     from app.models.generate_session import GenerateSession
     from app.models.generate_variant import GenerateVariant
+    from app.models.payment_order import PaymentOrder
     from app.models.project import Project
 
     uid = user.id
@@ -98,6 +108,8 @@ async def delete_account(db: AsyncSession, user: User) -> None:
         )
     await db.execute(delete(GenerateSession).where(GenerateSession.user_id == uid))
     await db.execute(delete(CompanyProfile).where(CompanyProfile.user_id == uid))
+    await db.execute(delete(Subscription).where(Subscription.user_id == uid))
+    await db.execute(delete(PaymentOrder).where(PaymentOrder.user_id == uid))
     await db.execute(delete(User).where(User.id == uid))
     await db.commit()
 

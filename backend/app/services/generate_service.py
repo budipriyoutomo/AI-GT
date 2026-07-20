@@ -19,7 +19,7 @@ from app.models.generate_variant import GenerateVariant
 from app.models.project import Project
 from app.models.template import Template
 from app.schemas.generate import CreateSessionRequest
-from app.services import ai_service, storage_service
+from app.services import ai_service, billing_service, storage_service
 from app.services.providers.ai_types import CopyError, CopyInput, ImageInput
 from app.services.providers.copy_prompt import build_copy_brief
 from app.utils.exceptions import AppError, ErrorCode
@@ -54,6 +54,9 @@ async def create_session(
             ErrorCode.FEATURE_REQUIRES_PREMIUM,
             "Fitur Campaign membutuhkan akun premium.",
         )
+
+    # Tegakkan kuota generate bulan berjalan sesuai paket aktif.
+    await billing_service.assert_generate_quota(db, user_id)
 
     # Validate image source mutual exclusivity
     if data.image_source == "generated" and not data.thematic_image_theme:

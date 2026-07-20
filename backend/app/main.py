@@ -18,6 +18,7 @@ from app.routers import contact as contact_router
 from app.routers import generate as generate_router
 from app.routers import projects as projects_router
 from app.routers import templates as templates_router
+from app.services.billing_service import run_billing_maintenance
 from app.services.cleanup_service import cleanup_expired_temp_files
 from app.utils.exceptions import AppError, app_error_handler
 
@@ -26,6 +27,7 @@ from app.utils.exceptions import AppError, app_error_handler
 async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler()
     scheduler.add_job(cleanup_expired_temp_files, "interval", minutes=30)
+    scheduler.add_job(run_billing_maintenance, "interval", minutes=30)
     scheduler.start()
     yield
     scheduler.shutdown()
