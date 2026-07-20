@@ -10,7 +10,8 @@
       "Bash(npx eslint *)",
       "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
       "Bash(npx tsc *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(python -m pytest tests/unit/test_company_profile.py::TestCreateProfile::test_create_profile_with_address -x -q)"
     ]
   }
 }

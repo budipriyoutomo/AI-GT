@@ -99,7 +99,7 @@
       {
         "type": "footer",
         "x": 0.04, "y": 0.93, "width": 0.92, "height": 0.05,
-        "slots": ["website", "whatsapp", "instagram", "facebook"],
+        "slots": ["website", "phone", "instagram"],
         "style": { "color": "primary", "backgroundColor": "transparent", "opacity": 1, "fontSize": 20 }
       }
     ]

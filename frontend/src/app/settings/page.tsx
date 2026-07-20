@@ -16,8 +16,12 @@ import { LogoUploadField } from "@/components/ui/logo-upload-field";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
+<<<<<<< HEAD
 import { billingApi, type Plan, type Subscription } from "@/api/billingApi";
 import { formatPlanDate, planFeatures } from "@/lib/billing";
+=======
+import { EMPTY_CONTACT } from "@/lib/template/footer-contact";
+>>>>>>> 6ce03094d04747fa12a1c7aefcabb097c93c9916
 import type { CompanyContact } from "@/types/company-profile";
 
 const FEATURE_ICON: Record<string, string> = {
@@ -39,10 +43,6 @@ function featureIcon(label: string): string {
 const BRAND_COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
 
 const FONT_OPTIONS = ["Inter", "Poppins", "Montserrat", "Plus Jakarta Sans", "Nunito", "Lato", "Roboto", "Open Sans", "Playfair Display"];
-
-const EMPTY_CONTACT: CompanyContact = {
-  website: "", phone: "", instagram: "", tiktok: "", youtube: "", hashtag: "",
-};
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -438,14 +438,16 @@ function TabProfilBisnis() {
 
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
   const [industry, setIndustry]         = useState(user?.industry ?? "F&B / Kuliner");
-  const [city, setCity]                 = useState("");
+  const [address, setAddress]           = useState(user?.address ?? "");
   const [desc, setDesc]                 = useState("");
   const [logoUrl, setLogoUrl]           = useState<string | null>(user?.logoUrl ?? null);
   const [tagline, setTagline]           = useState(user?.tagline ?? "");
   const [primary, setPrimary]           = useState(user?.brandColors?.[0] ?? "#2F6BFF");
   const [secondary, setSecondary]       = useState(user?.brandColors?.[1] ?? "#7C3AED");
   const [font, setFont]                 = useState(user?.brandFont ?? "Inter");
-  const [contact, setContact]           = useState<CompanyContact>(user?.contact ?? EMPTY_CONTACT);
+  // Spread di atas EMPTY_CONTACT: profil yang disimpan sebelum sebuah field ada (mis.
+  // whatsapp/facebook) tidak punya key-nya → input jadi uncontrolled saat user mengetik.
+  const [contact, setContact]           = useState<CompanyContact>({ ...EMPTY_CONTACT, ...(user?.contact ?? {}) });
   const [saving, setSaving]             = useState(false);
 
   function setContactField(field: keyof CompanyContact, value: string) {
@@ -460,6 +462,7 @@ function TabProfilBisnis() {
         businessName: businessName.trim(),
         industry,
         tagline: tagline.trim(),
+        address: address.trim(),
         brandColors: [primary, secondary],
         brandFont: font,
         contact,
@@ -495,11 +498,11 @@ function TabProfilBisnis() {
               options={["F&B / Kuliner", "Fashion & Retail", "Jasa & Layanan", "Kesehatan & Kecantikan", "Toko Kelontong", "Edukasi", "Lainnya"]}
             />
             <Input
-              label="Kota"
+              label="Alamat"
               icon="map-pin"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="mis. Bandung"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="mis. Jl. Merdeka No. 12, Bandung"
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -573,6 +576,8 @@ function TabProfilBisnis() {
           <Input label="Instagram" icon="instagram" value={contact.instagram} onChange={(e) => setContactField("instagram", e.target.value)} placeholder="@usernamekamu" />
           <Input label="TikTok"    icon="music"    value={contact.tiktok}    onChange={(e) => setContactField("tiktok", e.target.value)}    placeholder="@usernamekamu" />
           <Input label="YouTube"   icon="youtube"  value={contact.youtube}   onChange={(e) => setContactField("youtube", e.target.value)}   placeholder="Channel kamu" />
+          <Input label="WhatsApp"  icon="phone"    value={contact.whatsapp}  onChange={(e) => setContactField("whatsapp", e.target.value)}  placeholder="08xxxxxxxxxx" />
+          <Input label="Facebook"  icon="facebook" value={contact.facebook}  onChange={(e) => setContactField("facebook", e.target.value)}  placeholder="namahalamankamu" />
           <Input label="Hashtag"   icon="hash"     value={contact.hashtag}   onChange={(e) => setContactField("hashtag", e.target.value)}   placeholder="#brandkamu" />
         </div>
       </Section>

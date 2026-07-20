@@ -34,6 +34,7 @@ function makeProfile(overrides: Partial<CompanyProfile> = {}): CompanyProfile {
     brand_colors: ["#111111"],
     brand_font: "Poppins",
     tagline: null,
+    address: null,
     contact: null,
     language_preference: "id",
     created_at: "2026-01-01T00:00:00Z",

@@ -18,6 +18,7 @@ import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
 import { TemplatePreviewModal } from "@/components/template/TemplatePreviewModal";
 import { resolveTemplateConfig } from "@/lib/template/resolve";
+import { buildFooterContact } from "@/lib/template/footer-contact";
 import type { BrandSource } from "@/lib/template/resolve";
 import type { TemplateListItem } from "@/types/template";
 import type { CompanyContact } from "@/types/company-profile";
@@ -118,10 +119,10 @@ function TemplateCard({
           <div className="aigt-caption" style={{ marginTop: 3 }}>{t.industry}</div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+        {/* <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           <Badge variant="secondary">{t.content_type}</Badge>
           {t.theme && <Badge variant="info">{t.theme}</Badge>}
-        </div>
+        </div> */}
       </Card>
     </div>
   );
@@ -165,7 +166,7 @@ export default function TemplatesPage() {
     companyProfileApi.get()
       .then((p) => {
         setProfile({ brand_colors: p.brand_colors ?? null, brand_font: p.brand_font ?? null, logo_url: p.logo_url ?? null });
-        setContact(p.contact ?? null);
+        setContact(buildFooterContact(p));
       })
       .catch(() => { setProfile(null); setContact(null); });
   }, []);

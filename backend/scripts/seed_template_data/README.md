@@ -93,6 +93,11 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
   `{ "gradient": { "direction", "stops":[{ "color", "alpha", "position" }] } }`.
 - **`footer`** — bar kontak. `{ "slots":[...], "align":"center", "style":{...} }`. Slot brand (instagram/tiktok/whatsapp/facebook/youtube)
   dan generic (website/location/booking/hashtag/phone) → icon via komponen `SocialIcon` (asset frontend).
+  **Isi slot datang dari company profile**, bukan dari template: tiap slot dibaca dari `contact[slot]` —
+  **kecuali `location`, yang diisi kolom `company_profile.address`** (kolom tersendiri, dipetakan ke slot
+  lewat `frontend/src/lib/template/footer-contact.ts`). Slot yang user-nya belum mengisi → **ikon saja tanpa
+  teks**, jadi pilih slot yang komposisinya tetap enak dilihat walau teksnya kosong. Slot yang belum punya
+  field isian di Settings akan **selalu** kosong untuk semua user — cek dulu sebelum memakainya.
   Default = **pill** (sudut bulat 999px), konten rata kiri. **Full-bleed nempel dasar:** set `x:0, width:1`,
   `y` sampai `y+height=1`, `style.radius:0` (sudut siku edge-to-edge) + `align:"center"` (konten di-tengah).
   `style.backgroundGradient` (hex/role, `backgroundGradientDirection` default `to right`) atau `backgroundColor`.

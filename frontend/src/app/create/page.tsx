@@ -25,6 +25,7 @@ import { getBriefCompletion } from "@/lib/create/brief-completion";
 import { contentBriefSchema } from "@/lib/create/brief-schema";
 import { parseBrandPreview } from "@/lib/create/brand-preview";
 import type { BrandSource } from "@/lib/template/resolve";
+import { buildFooterContact } from "@/lib/template/footer-contact";
 import type { ContentBrief } from "@/types/content-brief";
 import { useAuth } from "@/lib/auth";
 
@@ -287,7 +288,7 @@ export default function CreatePage() {
     tagline: user?.tagline ?? null,
   };
   // Footer contact from business profile — filled into template footer slots (all or partial).
-  const profileContact = user?.contact ?? null;
+  const profileContact = buildFooterContact({ contact: user?.contact, address: user?.address });
 
   function handleToggleBrand() {
     if (!hasBrand) {
