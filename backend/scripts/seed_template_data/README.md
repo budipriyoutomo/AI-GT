@@ -89,6 +89,10 @@ Tiap element punya posisi **ternormalisasi 0–1** (`x`,`y` dari kiri-atas; `wid
   Bisa ikut `rotate` agar paralel dengan teks miring (mis. garis atas/bawah subtitle poster).
 - **`image`** — foto foreground dari `templates.thumbnail_url`. `{ "source":"thumbnail", "fit":"cover|contain", "radius":n }`.
   `contain` (produk transparan) otomatis dapat drop-shadow. (Untuk background full-bleed pakai `background.type:"image"`, bukan element ini.)
+  Element `image` yang **bukan** `source:"brand"` juga jadi **slot foto konten user** (`image_source: "upload"`):
+  `frontend/src/lib/template/image-slot.ts` membaca config untuk memilih slot — foreground menang atas
+  background; kalau template tak punya slot sama sekali, foto ditaruh sebagai layer bebas di
+  `USER_IMAGE_OVERLAY_RECT`. Foto user **tidak pernah** ditulis balik ke `template_config` (Template Integrity).
 - **`scrim`** — overlay gradient untuk keterbacaan teks di atas foto.
   `{ "gradient": { "direction", "stops":[{ "color", "alpha", "position" }] } }`.
 - **`footer`** — bar kontak. `{ "slots":[...], "align":"center", "style":{...} }`. Slot brand (instagram/tiktok/whatsapp/facebook/youtube)

@@ -118,15 +118,20 @@ ai-gt/
 │   │   ├── config.py            → Settings (pydantic-settings, baca .env)
 │   │   ├── database.py          → async engine, AsyncSessionLocal, get_db, Base
 │   │   ├── models/              → SQLAlchemy ORM (user, company_profile, template,
-│   │   │                          generate_session, generate_variant, project)
+│   │   │                          generate_session, generate_variant, project,
+│   │   │                          subscription, payment_order, contact_message)
 │   │   ├── schemas/             → Pydantic request/response
-│   │   ├── routers/             → auth, company_profile, templates, generate, projects
+│   │   ├── routers/             → auth, company_profile, templates, generate, projects,
+│   │   │                          billing, contact, assets (proxy R2 ber-CORS)
 │   │   ├── services/
 │   │   │   ├── ai_service.py            → orkestrator AI (entry point wajib)
 │   │   │   ├── generate_service.py      → session lifecycle + background task
 │   │   │   ├── storage_service.py       → Cloudflare R2 (temp/permanent/exported)
 │   │   │   ├── cleanup_service.py       → hapus temp file expired
 │   │   │   ├── auth_service.py          → register/login/verify token
+│   │   │   ├── billing_plans.py         → katalog paket & add-on (konstanta, bukan DB)
+│   │   │   ├── billing_service.py       → langganan, order, kuota, maintenance
+│   │   │   ├── contact_service.py
 │   │   │   ├── company_profile_service.py
 │   │   │   ├── project_service.py
 │   │   │   └── providers/
@@ -139,12 +144,9 @@ ai-gt/
 │   │   └── utils/
 │   │       ├── auth.py          → get_current_user dependency (HTTPBearer)
 │   │       └── exceptions.py    → AppError, handler, ErrorCode constants
-<<<<<<< HEAD
-│   ├── alembic/versions/        → migrasi 0001…0012
-=======
-│   ├── alembic/versions/        → migrasi 0001…0010
->>>>>>> 6ce03094d04747fa12a1c7aefcabb097c93c9916
-│   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py
+│   ├── alembic/versions/        → migrasi 0001…0014
+│   ├── scripts/                 → seed_templates.py, design_system.py, reconcile_schema.py,
+│   │                              backfill_subscriptions.py, confirm_payment.py (verifikasi manual)
 │   └── tests/                   → conftest.py, unit/, integration/
 │
 └── frontend/
@@ -233,7 +235,10 @@ Hasil per varian dari satu session:
 ### `projects`
 Terbentuk saat varian dipilih (atau otomatis pada Quick Generate):
 `session_id`, `variant_id`, `title`, `final_config` (JSON — snapshot lengkap untuk editor),
-`exported_image_url`, `thumbnail_url`, `is_exported`.
+`exported_image_url`, `thumbnail_url`.
+
+> Kolom `is_exported` **sudah dihapus** (migrasi `0013`). Status export diturunkan dari
+> `exported_image_url` (terisi = sudah export, `null` = draft) — jangan tambahkan flag duplikat.
 
 `final_config` menggabungkan `copy`, `typography`, `thematic_image_url`, `image_source`,
 `image_prompt`, dan **seluruh `template_config`** (disalin apa adanya, read-only) plus field runtime
@@ -250,17 +255,57 @@ layout. Project lama tanpa kedua field ini → fallback `1`.
 Pesan kontak/support dari form publik (endpoint tanpa auth, tidak terkait `user_id`):
 `id`, `name`, `email`, `category` (nullable), `message`, `is_handled` (default `false`), `created_at`.
 
+### `subscriptions`
+Langganan aktif user — **1:1 dengan user** (`user_id` unique):
+`plan_id` (default `starter`), `status` (default `active`), `storage_addon_id` (nullable),
+`current_period_end` (nullable — `null` pada Starter), `created_at`, `updated_at`.
+
+Katalog paket & add-on **bukan** tabel DB, melainkan konstanta di
+`app/services/billing_plans.py` (sumber tunggal harga/limit; jangan hardcode di router):
+
+| Paket | Harga/bln | generate_limit | history_limit | profile_limit | thematic_image | watermark_free |
+|---|---|---|---|---|---|---|
+| `starter` | 0 | 20 | 20 | 1 | ❌ | ❌ |
+| `pro` | 99.000 | 80 | 50 | 3 | ✅ | ✅ |
+| `business` | 249.000 | 300 | −1 (unlimited) | 10 | ✅ | ✅ |
+
+Add-on storage: `s50` (+50 slot, 15.000), `s200` (+200, 45.000), `s500` (+500, 90.000).
+`effective_history_limit()` = limit paket + `extra_slots` add-on aktif; paket unlimited (`-1`) tetap `-1`.
+
+### `payment_orders`
+Order pembayaran **transfer manual** (tanpa payment gateway):
+`user_id`, `kind` (`plan` \| `addon`), `item_id`, `amount`, `unique_code`, `total_amount`,
+`status`, `proof_url` (nullable), `created_at`, `expires_at`, `paid_at`.
+
+- `unique_code` = integer acak 1–999; `total_amount = amount + unique_code` — pembeda transfer antar-order.
+- Lifecycle status: `pending` → (`attach_proof`) `awaiting_verification` → (`confirm_order`) `paid`;
+  `pending` yang lewat `expires_at` → `expired`. **`awaiting_verification` tidak pernah di-expire**
+  (user sudah bayar, tinggal menunggu admin).
+- Konfirmasi dilakukan manual lewat `backend/scripts/confirm_payment.py` → `billing_service.confirm_order()`:
+  set `paid`, lalu aktifkan paket (`current_period_end = now + PERIOD_DAYS`) atau pasang `storage_addon_id`.
+- Maintenance (`run_billing_maintenance`, cron 30 menit) + **self-healing saat dibaca**: endpoint
+  `GET /subscription` memanggil `downgrade_expired_subscriptions`, `GET /orders*` memanggil
+  `expire_stale_orders` — jadi data tidak pernah basi walau cron tak jalan.
+
+**Penegakan kuota:** `generate_service.create_session` memanggil
+`billing_service.assert_generate_quota` → `429 RATE_LIMIT_EXCEEDED` jika kuota bulan berjalan habis.
+`compute_usage`: `generate_used` = jumlah `generate_sessions` sejak awal bulan kalender (UTC),
+`history_used` = jumlah `projects` user.
+
 ### Relasi (ringkas)
 
 ```
 User ──1:1── CompanyProfile
+User ──1:1── Subscription
+User ──1:N── PaymentOrder
 User ──1:N── GenerateSession ──1:N── GenerateVariant
 User ──1:N── Project ──1:1── GenerateSession
                     └──1:1── GenerateVariant
 Template ──1:N── GenerateSession
+ContactMessage — berdiri sendiri (tanpa relasi user)
 ```
 
-Migrasi dikelola Alembic (`0001_initial_schema` … `0010_add_address_to_company_profiles`).
+Migrasi dikelola Alembic (`0001_initial_schema` … `0014_add_contact_messages`).
 
 > `0008` adalah **guard idempoten** (`ADD COLUMN IF NOT EXISTS thumbnail_url`) untuk memperbaiki DB yang
 > revisi `0004`-nya sempat ter-skip akibat tabrakan revision id antar-branch — lihat pola serupa di `0007`.
@@ -268,6 +313,12 @@ Migrasi dikelola Alembic (`0001_initial_schema` … `0010_add_address_to_company
 > menambahnya via `SCHEMA_FALLBACKS` agar seed jalan sebelum migrasi di-apply.
 > `0010` menambah kolom `company_profiles.address` (Text nullable, idempoten — cek `inspect()` dulu,
 > pola yang sama dengan `0007`/`0008`).
+> `0011` membuat tabel `subscriptions` + `payment_orders`; jalankan
+> `backend/scripts/backfill_subscriptions.py` (atau `billing_service.backfill_missing_subscriptions`)
+> agar user lama punya baris Starter — tanpa itu `GET /billing/subscription` membuatnya on-demand.
+> `0012` menambah `generate_sessions.progress` (Integer, default 0).
+> `0013` **menghapus** `projects.is_exported` (idempoten, cek `inspect()`).
+> `0014` membuat tabel `contact_messages`.
 
 ---
 
@@ -335,7 +386,8 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 ### Generate — `/api/v1/generate`
 | Method | Path | Deskripsi |
 |---|---|---|
-| POST | `/session` | Buat session; memicu **background task** generate. Return `{id, status}` (201) |
+| POST | `/upload-image` | Upload gambar konten user (multipart) → `{image_url}`. **Tidak menyentuh DB** — URL dikirim balik ke client lalu ikut sebagai `uploaded_image_url` saat create session |
+| POST | `/session` | Buat session; memicu **background task** generate. Return `{id, status}` (201). Kuota paket ditegakkan di sini → `429 RATE_LIMIT_EXCEEDED` |
 | GET | `/session/{session_id}` | Poll status + varian, sertakan `progress` (0-100). 403 jika bukan milik user, 422 jika expired |
 | POST | `/image-suggestions` | 3 saran prompt gambar dari brief (503 jika gagal) |
 | POST | `/image` | Generate 1 gambar dari prompt; jika ada `project_id` → regenerate & update `final_config` |
@@ -355,6 +407,29 @@ Semua endpoint di-prefix `/api/v1`. Kecuali auth register/login, semua memerluka
 | Method | Path | Deskripsi |
 |---|---|---|
 | POST | `` | Kirim pesan kontak/support (201). **Publik — tanpa auth.** Body `{name, email, category?, message}`; `email` divalidasi `EmailStr`, `name`/`message` tak boleh kosong. Disimpan ke `contact_messages` (`is_handled=false`) |
+
+### Billing — `/api/v1/billing`
+| Method | Path | Deskripsi |
+|---|---|---|
+| GET | `/plans` | Katalog paket + add-on storage dari `billing_plans` (publik, tanpa auth) |
+| GET | `/subscription` | Langganan aktif + `usage` (`generate_used`/`generate_limit`, `history_used`/`history_limit`). Menurunkan langganan kedaluwarsa lebih dulu |
+| POST | `/orders` | Buat order (201). Body `{plan_id}` **atau** `{addon_id}`. Paket gratis → 400; item tak dikenal → 404 |
+| GET | `/orders` | List order user (terbaru dulu); expire order `pending` yang lewat `expires_at` lebih dulu |
+| GET | `/orders/{order_id}` | Detail order. 403 jika milik user lain, 404 jika tak ada |
+| POST | `/orders/{order_id}/proof` | Upload bukti transfer (multipart). PNG/JPG/WEBP, **≤5 MB** → status jadi `awaiting_verification` |
+
+Setiap respons order menyertakan `bank` (nama bank, no. rekening, atas nama) yang dibaca dari
+env `BILLING_BANK_*` — bukan hardcode.
+
+### Assets — `/api/v1/assets/{key}`
+Proxy baca-saja objek R2 lewat origin backend. **Publik (tanpa auth)** karena dipanggil `<img>`/`Image()`
+yang tak bisa mengirim header `Authorization`; key-nya sendiri berisi UUID yang tidak bisa ditebak.
+Dibatasi prefix `permanent/` dan `temp/` serta menolak `..` (selain itu → 404). Respons memasang
+`Cache-Control: public, max-age=31536000, immutable`.
+
+> **Kenapa ada:** CDN publik tidak mengirim header CORS, sedangkan canvas Fabric memuat gambar dengan
+> `crossOrigin="anonymous"`. Tanpa `Access-Control-Allow-Origin` canvas jadi *tainted* dan gambar
+> hilang dari PNG hasil export — proxy ini melewatkan gambar melalui `CORSMiddleware` backend.
 
 ### Lain-lain
 - `GET /health` → `{ "success": true, "data": { "status": "ok" } }`
@@ -495,8 +570,13 @@ ai-gt-bucket/
     ├── thematic-images/{user_id}/{project_id}.png          ← saat pilih varian
     ├── thumbnails/{user_id}/{project_id}.png               ← snapshot editor per auto-save
     ├── exported/{user_id}/{project_id}/export.png          ← PNG final
-    └── logos/{user_id}/logo.png                             ← selalu PNG (dinormalisasi Pillow), overwrite
+    ├── logos/{user_id}/logo.png                             ← selalu PNG (dinormalisasi Pillow), overwrite
+    ├── uploads/{user_id}/{uuid}.png                         ← gambar konten upload user
+    └── payment-proofs/{user_id}/{order_id}.{ext}            ← bukti transfer (png/jpg/webp)
 ```
+
+> `uploads/` memakai key **acak (UUID)**, bukan deterministik seperti logo: satu user bisa punya banyak
+> gambar konten sekaligus, jadi upload baru tidak boleh menimpa yang sedang dipakai project lain.
 
 ### Lifecycle
 1. Generate → `upload_temp()` ke `temp/`.
@@ -507,13 +587,24 @@ ai-gt-bucket/
 5. Logo → `POST /company-profile/logo` → `storage_service.upload_logo()`: validasi + normalisasi
    (`app/utils/images.py`, PNG/JPEG/WEBP only, ≤2MB, sisi terpanjang ≤1024px, convert RGBA) →
    upload ke key deterministik `permanent/logos/{user_id}/logo.png` → return path + `?v=`.
-6. Kegagalan upload → `AppError(500, STORAGE_UPLOAD_FAILED)`.
+6. Gambar konten upload user → `POST /generate/upload-image` → `storage_service.upload_content_image()`:
+   normalisasi (`app/utils/images.py`) → `permanent/uploads/{user_id}/{uuid}.png`.
+   **Sudah permanen sejak diupload** — tidak lewat `temp/` dan **tidak** di-move ke folder project saat
+   varian dipilih, karena satu URL bisa dipakai beberapa project sekaligus. Percabangan ini ada di satu
+   tempat: `generate_service._resolve_project_image()` (dipakai auto-select Quick Generate **dan**
+   endpoint `/select` — jangan duplikasi, perbedaan di antara keduanya pernah bikin gambar upload hilang).
+7. Bukti transfer → `POST /billing/orders/{id}/proof` → `storage_service.upload_payment_proof()`.
+8. Kegagalan upload → `AppError(500, STORAGE_UPLOAD_FAILED)`.
+
+> **Validasi `uploaded_image_url`:** field ini berisi key R2 yang nanti dirender apa adanya, jadi
+> `create_session` menolak nilai yang tidak berawalan `/permanent/uploads/{user_id}/`
+> (`400 INVALID_FILE_TYPE`) — supaya client tak bisa menunjuk objek lain di bucket.
 
 ### Cleanup terjadwal
-`main.py` lifespan menjalankan `AsyncIOScheduler` yang memanggil
-`cleanup_service.cleanup_expired_temp_files` **setiap 30 menit**. Cleanup memindai
-`generate_sessions` dengan `expires_at < now`, lalu menghapus file `temp/` dari `thematic_image_url`
-tiap varian.
+`main.py` lifespan menjalankan `AsyncIOScheduler` dengan **dua** job, masing-masing **setiap 30 menit**:
+- `cleanup_service.cleanup_expired_temp_files` — memindai `generate_sessions` dengan `expires_at < now`,
+  lalu menghapus file `temp/` dari `thematic_image_url` tiap varian.
+- `billing_service.run_billing_maintenance` — `expire_stale_orders` + `downgrade_expired_subscriptions`.
 
 ---
 
@@ -539,7 +630,22 @@ tiap varian.
 - **`lib/apiClient.ts`** — satu-satunya jalur fetch ke backend. Membaca `NEXT_PUBLIC_API_URL`,
   meng-handle token, dan meng-unwrap `{success, data}` (melempar `ApiClientError` bila `success=false`).
 - **`api/*.ts`** — wrapper per-domain: `authApi`, `companyProfileApi`, `templatesApi`, `generateApi`,
-  `projectsApi`.
+  `projectsApi`, `billingApi`, `contactApi`.
+- **`lib/assetUrl.ts` — dua fungsi, jangan tertukar.** `resolveAssetUrl()` untuk `<img>` biasa
+  (prepend `NEXT_PUBLIC_CDN_URL`); **`corsSafeAssetUrl()` untuk apa pun yang digambar ke canvas Fabric** —
+  mengalihkan aset milik kita ke proxy `GET /api/v1/assets/{key}` supaya lolos CORS dan tidak men-taint
+  canvas saat export. Host pihak ketiga & `data:`/`blob:` dibiarkan apa adanya.
+- **`lib/fonts.ts` — satu sumber daftar font** untuk Settings (font brand) dan editor (tab Tipografi).
+  Font di `BRAND_FONT_OPTIONS` **wajib** punya entri `FONT_CSS_VAR` **dan** benar-benar dimuat `next/font`
+  di `app/layout.tsx`; kalau tidak, Fabric jatuh ke fallback sans-serif — preview terlihat benar tapi PNG
+  hasil export beda font dan auto-fit meleset karena metrik hurufnya lain.
+- **`lib/template/image-slot.ts`** — menentukan di mana foto konten user (`image_source: "upload"`) muncul:
+  membaca `template_config` (element `image` non-`brand` menang atas `background.type:"image"`), atau layer
+  bebas di `USER_IMAGE_OVERLAY_RECT` bila template tak punya slot. Konstanta rect-nya **dipakai bersama**
+  CSS renderer & Fabric supaya preview dan export tidak diam-diam berbeda. Foto user tidak pernah ditulis
+  balik ke `template_config`.
+- **`lib/billing.ts`** — formatter harga/tanggal + daftar fitur per paket untuk halaman
+  `/subscription`, `/billing`, dan `/payment`.
 - **State company profile — `lib/auth.tsx` (`AuthContext`).** Satu-satunya store global; dibaca lewat
   `useAuth()` di `/create`, Settings, dan Dashboard (tidak ada store kedua). `refreshProfile()` adalah
   satu-satunya titik re-fetch + merge: dipanggil saat `/create` **mount** (brand terbaru berlaku tanpa
@@ -628,6 +734,12 @@ CLOUDFLARE_R2_ACCOUNT_ID=...
 CLOUDFLARE_R2_ACCESS_KEY=...
 CLOUDFLARE_R2_SECRET_KEY=...
 CLOUDFLARE_R2_BUCKET_NAME=ai-gt-bucket
+
+# Billing — transfer manual (tanpa payment gateway)
+BILLING_BANK_NAME=BCA
+BILLING_BANK_ACCOUNT=1234567890
+BILLING_BANK_HOLDER=PT AI-GT Indonesia
+BILLING_ORDER_EXPIRE_HOURS=24
 
 # CORS
 CORS_ORIGINS=http://localhost:3000

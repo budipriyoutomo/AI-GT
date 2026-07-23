@@ -239,8 +239,18 @@ ai-gt-bucket/
     ├── thematic-images/{user_id}/{project_id}.png      ← Dipindah saat pilih varian
     ├── exported/{user_id}/{project_id}/export.png      ← Final PNG setelah export
     ├── logos/{user_id}/logo.png                        ← Logo company profile (selalu dinormalisasi ke PNG)
+    ├── uploads/{user_id}/{uuid}.png                    ← Gambar konten upload user (key acak, bukan overwrite)
+    ├── payment-proofs/{user_id}/{order_id}.{ext}       ← Bukti transfer billing
     └── templates/thumbnails/{template_id}.png          ← Thumbnail template
 ```
+
+> ⚠️ **Gambar upload user (`uploads/`) permanen sejak diupload** — tidak lewat `temp/` dan **tidak** di-move
+> saat varian dipilih (satu URL bisa dipakai beberapa project). Percabangan ini hanya boleh ada di
+> `generate_service._resolve_project_image()`, dipakai auto-select Quick Generate **dan** endpoint `/select`.
+> Menduplikasi logikanya pernah bikin gambar upload hilang di alur UI.
+
+> ⚠️ **Aset yang digambar ke canvas Fabric wajib lewat proxy `/api/v1/assets/{key}`**, bukan URL CDN langsung.
+> CDN publik tak mengirim header CORS → canvas ter-taint → gambar dibuang dari PNG hasil export.
 
 ### Lifecycle image:
 1. Generate → upload ke `temp/` dengan TTL 1 jam
