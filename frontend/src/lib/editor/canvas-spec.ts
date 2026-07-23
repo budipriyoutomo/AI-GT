@@ -3,6 +3,7 @@ import type {
   TemplateElement,
 } from "@/types/template";
 import type { ResolvedConfig } from "@/lib/template/resolve";
+import type { ResolvedUserImage } from "@/lib/template/image-slot";
 import { blockHeight, fitFontSize, type MeasureBlock } from "./fit-text";
 
 /**
@@ -39,6 +40,8 @@ export interface ImageSpec {
   height: number;
   fit: "cover" | "contain";
   radius?: number; // px
+  /** true = layer bebas gambar user: boleh digeser/resize di editor. Slot template tidak. */
+  interactive?: boolean;
 }
 
 export interface TextSpec {
@@ -342,6 +345,10 @@ interface Ctx {
   contact: Record<string, string>;
   tagline: string;
   siblings: TemplateElement[]; // elemen top-level — sumber budget auto-fit & anchor
+  /** Gambar konten user, sudah ditempatkan resolver (slot template / layer bebas). */
+  userImage: ResolvedUserImage;
+  /** Elemen yang jadi slot gambar user — dibanding by-reference saat menggambar. */
+  userImageEl: TemplateElement | null;
 }
 
 function textSpec(el: TemplateElement, ctx: Ctx, overrides: Partial<TextSpec> = {}): TextSpec {
@@ -460,11 +467,14 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
     }
 
     case "image": {
+      // Gambar user (jika elemen ini slotnya) menang atas thumbnail template.
+      const isUserSlot = ctx.userImageEl === el;
+      const url = isUserSlot ? ctx.userImage.url : el.source === "thumbnail" ? ctx.thumbnailUrl : null;
       // Foto foreground dari templates.thumbnail_url — kosong → jangan render
-      if (el.source !== "thumbnail" || !ctx.thumbnailUrl) return [];
+      if (!url) return [];
       return [{
         kind: "image",
-        url: ctx.thumbnailUrl,
+        url,
         left: el.x * ctx.w,
         top: el.y * ctx.h,
         width: el.width * ctx.w,
@@ -566,8 +576,10 @@ function backgroundSpecs(cfg: ResolvedConfig, ctx: Ctx): CanvasSpec[] {
 
   if (bg.type === "image") {
     const specs: CanvasSpec[] = [{ kind: "rect", ...full, fill: bg.fallback ?? "#111111" }];
-    if (ctx.thumbnailUrl) {
-      specs.push({ kind: "image", url: ctx.thumbnailUrl, ...full, fit: "cover" });
+    const url =
+      ctx.userImage.slot?.kind === "background" ? ctx.userImage.url : ctx.thumbnailUrl;
+    if (url) {
+      specs.push({ kind: "image", url, ...full, fit: "cover" });
     }
     return specs;
   }
@@ -577,8 +589,21 @@ function backgroundSpecs(cfg: ResolvedConfig, ctx: Ctx): CanvasSpec[] {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
+/** Telusuri path slot (index per level, menembus `group`) ke elemen konkret. */
+function elementAtPath(elements: TemplateElement[], path: number[]): TemplateElement | null {
+  let current: TemplateElement | undefined;
+  let level = elements;
+  for (const i of path) {
+    current = level[i];
+    if (!current) return null;
+    level = current.children ?? [];
+  }
+  return current ?? null;
+}
+
 export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
   const { cfg } = input;
+  const userImage: ResolvedUserImage = cfg.userImage ?? { url: null, slot: null, overlay: null };
 
   const dims = cfg.canvas?.dimensions;
   const [aw, ah] = (cfg.canvas?.aspect ?? DEFAULT_ASPECT).split(":").map(Number);
@@ -596,12 +621,33 @@ export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
     contact: input.contact ?? {},
     tagline: input.tagline ?? "",
     siblings: cfg.elements ?? [],
+    userImage,
+    userImageEl:
+      userImage.slot?.kind === "element"
+        ? elementAtPath(cfg.elements ?? [], userImage.slot.path)
+        : null,
   };
 
   const specs: CanvasSpec[] = [
     ...backgroundSpecs(cfg, ctx),
     ...(cfg.elements ?? []).flatMap((el, i) => elementSpecs(el, ctx, i)),
   ];
+
+  // Fallback layer bebas: template tak punya slot gambar → gambar user ditaruh
+  // di atas semua elemen, pada rect bersama dengan TemplateRenderer.
+  if (userImage.url && userImage.overlay) {
+    const r = userImage.overlay;
+    specs.push({
+      kind: "image",
+      url: userImage.url,
+      left: r.x * width,
+      top: r.y * height,
+      width: r.width * width,
+      height: r.height * height,
+      fit: "contain",
+      interactive: true,
+    });
+  }
 
   return { width, height, specs };
 }

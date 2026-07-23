@@ -12,6 +12,7 @@ function makeCfg(overrides: Partial<ResolvedConfig> = {}): ResolvedConfig {
       { type: "text", x: 0.06, y: 0.5, width: 0.88, value: "Headline" },
     ],
     logoUrl: null,
+    userImage: { url: null, slot: null, overlay: null },
     warnings: [],
     ...overrides,
   };

@@ -11,6 +11,7 @@ from app.config import settings
 # defaults to WARNING under uvicorn — so logger.info() is silent. Force INFO so
 # the AI copy prompt (logged in the copy providers) shows in the server console.
 logging.basicConfig(level=logging.INFO)
+from app.routers import assets as assets_router
 from app.routers import auth as auth_router
 from app.routers import billing as billing_router
 from app.routers import company_profile as company_profile_router
@@ -49,6 +50,7 @@ app.add_middleware(
 
 app.add_exception_handler(AppError, app_error_handler)
 
+app.include_router(assets_router.router)
 app.include_router(auth_router.router)
 app.include_router(billing_router.router)
 app.include_router(company_profile_router.router)

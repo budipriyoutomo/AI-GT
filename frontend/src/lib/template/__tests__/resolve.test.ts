@@ -328,3 +328,104 @@ describe("resolveTemplateConfig — kemurnian", () => {
     expect(copy).toEqual(copySnapshot);
   });
 });
+
+// ── Gambar konten user (image_source = "upload") ──────────────────────────────
+
+describe("resolveTemplateConfig — userImageUrl", () => {
+  const USER_IMAGE = "/permanent/uploads/u1/foto.png";
+
+  function templateWithImageSlot(): TemplateConfig {
+    const tpl = makeTemplate();
+    return {
+      ...tpl,
+      elements: [
+        ...tpl.elements,
+        { type: "image", source: "thumbnail", x: 0.1, y: 0.5, width: 0.8, height: 0.3 },
+      ],
+    };
+  }
+
+  it("tanpa userImageUrl, userImage kosong", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: templateWithImageSlot(), profile: PROFILE, branded: true,
+    });
+    expect(out.userImage).toEqual({ url: null, slot: null, overlay: null });
+  });
+
+  it("mengikat gambar user ke slot image milik template", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: templateWithImageSlot(), profile: PROFILE, branded: true,
+      userImageUrl: USER_IMAGE,
+    });
+    expect(out.userImage.slot).toEqual({ kind: "element", path: [templateWithImageSlot().elements.length - 1] });
+    expect(out.userImage.overlay).toBeNull();
+  });
+
+  it("template tanpa slot gambar → layer bebas", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true,
+      userImageUrl: USER_IMAGE,
+    });
+    expect(out.userImage.slot).toBeNull();
+    expect(out.userImage.overlay).not.toBeNull();
+  });
+
+  it("tidak memodifikasi template_config saat menempatkan gambar user", () => {
+    const tpl = templateWithImageSlot();
+    const snapshot = JSON.parse(JSON.stringify(tpl));
+    resolveTemplateConfig({ templateConfig: tpl, profile: PROFILE, branded: true, userImageUrl: USER_IMAGE });
+    expect(tpl).toEqual(snapshot);
+  });
+});
+
+// ── Rank 1: pilihan font manual user di editor ────────────────────────────────
+
+describe("resolveTemplateConfig — fontOverrides (pilihan manual editor)", () => {
+  it("tanpa override, brand_font tetap menang untuk role di font_brand_roles (perilaku lama)", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true, copy: makeCopy(),
+    });
+    expect(findByBind(out.elements, "body")?.style?.fontFamily).toBe("Poppins");
+  });
+
+  it("override body menang atas brand_font — kalau tidak, kontrol Font Body mati di project branded", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true, copy: makeCopy(),
+      fontOverrides: { body: "Playfair Display" },
+    });
+    expect(findByBind(out.elements, "body")?.style?.fontFamily).toBe("Playfair Display");
+  });
+
+  it("override headline berlaku walau headline tidak di font_brand_roles", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true, copy: makeCopy(),
+      fontOverrides: { headline: "Nunito" },
+    });
+    expect(findByBind(out.elements, "headline")?.style?.fontFamily).toBe("Nunito");
+  });
+
+  it("override satu slot tidak menyentuh slot lain", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true, copy: makeCopy(),
+      fontOverrides: { body: "Nunito" },
+    });
+    expect(findByBind(out.elements, "body")?.style?.fontFamily).toBe("Nunito");
+    expect(findByBind(out.elements, "headline")?.style?.fontFamily).not.toBe("Nunito");
+  });
+
+  it("override kosong/null diabaikan — jatuh kembali ke brand_font", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: true, copy: makeCopy(),
+      fontOverrides: { body: null, headline: "" },
+    });
+    expect(findByBind(out.elements, "body")?.style?.fontFamily).toBe("Poppins");
+  });
+
+  it("override tetap berlaku saat unbranded", () => {
+    const out = resolveTemplateConfig({
+      templateConfig: makeTemplate(), profile: PROFILE, branded: false, copy: makeCopy(),
+      fontOverrides: { body: "Lato" },
+    });
+    expect(findByBind(out.elements, "body")?.style?.fontFamily).toBe("Lato");
+  });
+});

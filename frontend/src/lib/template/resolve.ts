@@ -2,6 +2,8 @@ import { adaptBackground, adaptScheme, adaptScrimGradient } from "@/lib/brandAda
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 import { mergeCopyIntoTemplate } from "@/lib/editor/merge";
+import { resolveUserImage } from "@/lib/template/image-slot";
+import type { OverlayRect, ResolvedUserImage } from "@/lib/template/image-slot";
 import type { CopyResult, MergeWarning } from "@/lib/editor/merge";
 import type {
   BrandTheme,
@@ -36,6 +38,8 @@ export interface ResolvedConfig {
   font?: TemplateConfig["font"];
   elements: TemplateElement[];
   logoUrl: string | null;
+  /** Gambar konten user + tempatnya (slot template, atau layer bebas). */
+  userImage: ResolvedUserImage;
   warnings: MergeWarning[];
 }
 
@@ -47,6 +51,18 @@ export interface ResolveTemplateConfigInput {
   branded: boolean;
   /** undefined = fase pre-generate (belum ada copy AI) — slot tetap placeholder template. */
   copy?: CopyResult;
+  /** Gambar upload user (final_config.thematic_image_url saat image_source = "upload"). */
+  userImageUrl?: string | null;
+  /** Posisi layer bebas hasil geser user (final_config.user_image_rect). */
+  userImageRect?: OverlayRect | null;
+  /**
+   * Rank 1 — font yang DIPILIH SENDIRI user di editor, per slot `bind`.
+   * Menang atas brand_font: tanpa ini, kontrol "Font Body" mati diam-diam pada
+   * template yang menaruh `body` di `font_brand_roles` saat project branded.
+   * Hanya diisi kalau user benar-benar memilih; kalau tidak, brand_font tetap
+   * menempel supaya perubahan brand di Settings ikut ter-thread ke project.
+   */
+  fontOverrides?: { headline?: string | null; body?: string | null };
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -96,8 +112,12 @@ export function resolveTemplateConfig(input: ResolveTemplateConfigInput): Resolv
     brandTheme,
     brandFont,
     fontBrandRoles,
+    fontOverrides: input.fontOverrides ?? {},
     tagline,
   });
+
+  // §6 Template Integrity: slot dibaca dari template_config, tidak pernah ditulis balik.
+  const userImage = resolveUserImage(templateConfig, input.userImageUrl, input.userImageRect);
 
   return {
     canvas: templateConfig.canvas,
@@ -106,6 +126,7 @@ export function resolveTemplateConfig(input: ResolveTemplateConfigInput): Resolv
     font: templateConfig.font,
     elements,
     logoUrl,
+    userImage,
     warnings,
   };
 }
@@ -117,6 +138,7 @@ interface ResolveCtx {
   brandTheme?: BrandTheme;
   brandFont: string | null;
   fontBrandRoles: Set<string>;
+  fontOverrides: { headline?: string | null; body?: string | null };
   tagline: string | null;
 }
 
@@ -160,6 +182,16 @@ function resolveElements(
     // statis yang sengaja di-flag template (mis. "terms"/"footnote" pada beberapa template).
     if (ctx.brandFont && el.role && ctx.fontBrandRoles.has(el.role)) {
       style.fontFamily = ctx.brandFont;
+      changed = true;
+    }
+
+    // Rank 1: pilihan manual user di editor menang atas semuanya, termasuk brand_font.
+    // Dipetakan lewat `bind` (bukan `role`) karena kontrol editornya memang per slot
+    // copy: "Font Headline" → bind headline, "Font Body" → bind body.
+    const manualFont =
+      el.bind === "headline" || el.bind === "body" ? ctx.fontOverrides[el.bind] : null;
+    if (manualFont) {
+      style.fontFamily = manualFont;
       changed = true;
     }
 

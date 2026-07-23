@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FontSelect } from "@/components/ui/font-select";
+import { BRAND_FONT_OPTIONS } from "@/lib/fonts";
 import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
@@ -16,12 +17,9 @@ import { LogoUploadField } from "@/components/ui/logo-upload-field";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
-<<<<<<< HEAD
 import { billingApi, type Plan, type Subscription } from "@/api/billingApi";
 import { formatPlanDate, planFeatures } from "@/lib/billing";
-=======
 import { EMPTY_CONTACT } from "@/lib/template/footer-contact";
->>>>>>> 6ce03094d04747fa12a1c7aefcabb097c93c9916
 import type { CompanyContact } from "@/types/company-profile";
 
 const FEATURE_ICON: Record<string, string> = {
@@ -42,7 +40,7 @@ function featureIcon(label: string): string {
 
 const BRAND_COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
 
-const FONT_OPTIONS = ["Inter", "Poppins", "Montserrat", "Plus Jakarta Sans", "Nunito", "Lato", "Roboto", "Open Sans", "Playfair Display"];
+
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -564,7 +562,7 @@ function TabProfilBisnis() {
           label="Font utama"
           value={font}
           onChange={setFont}
-          options={FONT_OPTIONS}
+          options={[...BRAND_FONT_OPTIONS]}
         />
       </Section>
 

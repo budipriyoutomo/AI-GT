@@ -55,8 +55,15 @@ export interface ProjectFinalConfig {
     // Faktor skala relatif ukuran template (mode template). 1 = ikut template. Opsional (proyek lama → 1).
     headline_scale?: number;
     body_scale?: number;
+    // true = font dipilih sendiri user di editor (bukan warisan saran AI). Menang atas
+    // brand_font; absen/false = brand_font tetap menempel sesuai kontrak brand_theme.
+    headline_font_manual?: boolean;
+    body_font_manual?: boolean;
   };
   thematic_image_url: string | null;
+  // Posisi layer bebas gambar user (fraksional 0..1). Hanya terpakai saat template
+  // TIDAK punya slot image; absen = pakai posisi default.
+  user_image_rect?: { x: number; y: number; width: number; height: number } | null;
   image_source: "upload" | "generated" | "none";
   image_prompt: string;
   template_config?: ProjectTemplateConfig;

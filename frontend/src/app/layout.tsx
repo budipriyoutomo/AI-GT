@@ -1,5 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, Poppins, Montserrat, Anton, Archivo_Black } from "next/font/google";
+import {
+  Inter,
+  Geist_Mono,
+  Poppins,
+  Montserrat,
+  Anton,
+  Archivo_Black,
+  Plus_Jakarta_Sans,
+  Nunito,
+  Lato,
+  Roboto,
+  Open_Sans,
+  Playfair_Display,
+} from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
@@ -47,6 +60,51 @@ const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
 });
 
+// Font brand yang bisa dipilih user (Settings & editor tab Tipografi).
+// Daftar familynya ada di lib/fonts.ts — keduanya harus tetap sinkron, kalau tidak
+// pilihan font akan digambar Fabric dengan fallback sans-serif.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-plus-jakarta-sans",
+});
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-nunito",
+});
+
+const lato = Lato({
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
+  display: "swap",
+  variable: "--font-lato",
+});
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "900"],
+  display: "swap",
+  variable: "--font-roboto",
+});
+
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-open-sans",
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-playfair-display",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://aigt.id"),
   title: {
@@ -70,7 +128,16 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={`${inter.variable} ${geistMono.variable} ${poppins.variable} ${montserrat.variable} ${anton.variable} ${archivoBlack.variable}`} suppressHydrationWarning>
+    <html
+      lang="id"
+      className={[
+        inter.variable, geistMono.variable, poppins.variable, montserrat.variable,
+        anton.variable, archivoBlack.variable,
+        plusJakartaSans.variable, nunito.variable, lato.variable,
+        roboto.variable, openSans.variable, playfairDisplay.variable,
+      ].join(" ")}
+      suppressHydrationWarning
+    >
       <body>
         <ThemeProvider>
           <AuthProvider>

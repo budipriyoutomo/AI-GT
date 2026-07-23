@@ -63,7 +63,6 @@ const DEFAULT_PLATFORM: PlatformEnum = "instagram_feed";
 
 const IMAGE_SOURCES: { id: ImageSourceEnum; label: string; icon: string; desc: string }[] = [
   { id: "upload",    label: "Upload gambar",    icon: "upload",   desc: "Gunakan foto atau aset brand milikmu sendiri"           },
-  { id: "generated", label: "AI generate",      icon: "wand",     desc: "AI buat gambar tematik yang relevan dengan kontenmu"   },
   { id: "none",      label: "Tanpa gambar",     icon: "ban",      desc: "Hanya copy dan typography, tanpa elemen visual tambahan" },
 ];
 
@@ -130,8 +129,6 @@ export default function CreatePage() {
   const [additionalNotes, setAdditionalNotes]   = useState("");
   const [gaya, setGaya]                         = useState<LanguageStyleEnum | null>(DEFAULT_LANGUAGE_STYLE);
   const [imageSrc, setImageSrc]                 = useState<ImageSourceEnum | null>(null);
-  const [thematicTheme, setThematicTheme]       = useState("");
-  const [selectedPrompt, setSelectedPrompt]     = useState<string | null>(null);
   const [uploadedFile, setUploadedFile]         = useState<File | null>(null);
   const [generating, setGenerating]             = useState(false);
 
@@ -331,6 +328,11 @@ export default function CreatePage() {
       return;
     }
 
+    if (imageSrc === "upload" && !uploadedFile) {
+      toast({ title: "Gambar belum dipilih", desc: "Upload gambar dulu, atau pilih 'Tanpa gambar'.", variant: "error" });
+      return;
+    }
+
     setGenerating(true);
     try {
       const carouselData: CarouselSettings | null = (isCarousel && storyFlow)
@@ -342,6 +344,13 @@ export default function CreatePage() {
           }
         : null;
 
+      // Gambar diupload lebih dulu supaya session dibuat dengan URL-nya sudah pasti —
+      // kalau upload gagal, generate tidak jalan sama sekali (tak ada session setengah jadi).
+      let uploadedImageUrl: string | null = null;
+      if (imageSrc === "upload" && uploadedFile) {
+        uploadedImageUrl = (await generateApi.uploadImage(uploadedFile)).image_url;
+      }
+
       const session = await generateApi.createSession({
         template_id: templateId,
         goal: goal ?? DEFAULT_GOAL,
@@ -352,8 +361,9 @@ export default function CreatePage() {
         promo_detail: parsed.data.promoDetail?.trim() || null,
         additional_notes: parsed.data.additionalNotes?.trim() || null,
         image_source: imageSrc ?? undefined,
-        thematic_image_theme: imageSrc === "generated" ? thematicTheme.trim() || null : null,
-        selected_image_prompt: imageSrc === "generated" ? selectedPrompt || null : null,
+        uploaded_image_url: uploadedImageUrl,
+        thematic_image_theme: null,
+        selected_image_prompt: null,
         campaign_data: carouselData,
         brand_applied: brandPreview,
       });
@@ -782,7 +792,7 @@ export default function CreatePage() {
               <Badge variant="secondary" style={{ flexShrink: 0 }}>Opsional</Badge>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
               {IMAGE_SOURCES.map((src) => {
                 const isSelected = imageSrc === src.id;
                 return (
@@ -792,11 +802,9 @@ export default function CreatePage() {
                       if (isSelected) {
                         setImageSrc(null);
                         setUploadedFile(null);
-                        setSelectedPrompt(null);
                       } else {
                         setImageSrc(src.id);
                         setUploadedFile(null);
-                        setSelectedPrompt(null);
                       }
                     }}
                     style={{
@@ -834,37 +842,6 @@ export default function CreatePage() {
               </div>
             )}
 
-            {/* Generated image — tema */}
-            {imageSrc === "generated" && (
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                    Tema Gambar <Badge variant="warning" style={{ padding: "1px 6px", fontSize: 10 }}>Wajib</Badge>
-                  </label>
-                  <input
-                    type="text"
-                    value={thematicTheme}
-                    onChange={(e) => setThematicTheme(e.target.value)}
-                    placeholder="Contoh: lebaran, harbolnas, grand-opening, promo"
-                    style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: "var(--radius-md)", border: `1px solid ${!thematicTheme.trim() ? "var(--warning)" : "var(--border)"}`, background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-sm)", fontFamily: "var(--font-sans)", outline: "none" }}
-                  />
-                </div>
-                {thematicTheme.trim() && (
-                  <div>
-                    <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                      Prompt Gambar <Badge variant="secondary" style={{ padding: "1px 6px", fontSize: 10 }}>Opsional</Badge>
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedPrompt ?? ""}
-                      onChange={(e) => setSelectedPrompt(e.target.value || null)}
-                      placeholder="Contoh: Ketupat dan lentera di latar belakang warm golden"
-                      style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-sm)", fontFamily: "var(--font-sans)", outline: "none" }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
           </Card>
 
         </div>

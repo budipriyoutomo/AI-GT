@@ -4,6 +4,7 @@ import { CSSProperties, Fragment, ReactNode } from "react";
 import { SocialIcon } from "./SocialIcon";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
+import { fontStackFor } from "@/lib/fonts";
 import type { ResolvedConfig } from "@/lib/template/resolve";
 import type { CompanyContact } from "@/types/company-profile";
 import type {
@@ -16,15 +17,8 @@ import type {
 const pct = (n: number) => `${n * 100}%`;
 
 // Map nama font template → CSS variable yang di-load di layout (next/font)
-const FONT_STACK: Record<string, string> = {
-  Poppins: "var(--font-poppins)",
-  Montserrat: "var(--font-montserrat)",
-  Inter: "var(--font-inter)",
-  Anton: "var(--font-anton)",
-  "Archivo Black": "var(--font-archivo-black)",
-};
-const fontStack = (family?: string) =>
-  `${(family && FONT_STACK[family]) || `"${family ?? "Inter"}"`}, var(--font-inter), sans-serif`;
+// Peta family → CSS var ada di lib/fonts.ts (dipakai bareng canvas Fabric & Settings).
+const fontStack = fontStackFor;
 
 // fontSize ruang 1080px → cqw agar skala ikut lebar container (kartu kecil / canvas besar)
 const cqw = (px?: number) => (px != null ? `${((px / 1080) * 100).toFixed(3)}cqw` : undefined);
@@ -254,14 +248,19 @@ function ImageElement({
   el,
   thumbnailUrl,
   backgroundUrl,
+  userImageUrl,
 }: {
   el: TemplateElement;
   thumbnailUrl: string;
   backgroundUrl: string;
+  /** Non-null bila elemen ini adalah slot gambar user — menang atas sumber template. */
+  userImageUrl?: string | null;
 }) {
   // Foreground dari thumbnail_url ("thumbnail") atau foto latar dari background_url ("background").
   // Sumber lain / URL kosong → jangan render (hindari img rusak).
-  const src = el.source === "background" ? backgroundUrl : el.source === "thumbnail" ? thumbnailUrl : "";
+  const templateSrc =
+    el.source === "background" ? backgroundUrl : el.source === "thumbnail" ? thumbnailUrl : "";
+  const src = userImageUrl || templateSrc;
   if (!src) return null;
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
@@ -343,8 +342,17 @@ export function TemplateRenderer({
   const background = cfg.background;
   const scheme = cfg.color_scheme;
   const isImageBg = background?.type === "image";
+  // Gambar konten user sudah ditempatkan resolver — renderer hanya menggambar.
+  const userImage = cfg.userImage ?? { url: null, slot: null, overlay: null };
+  const userImageSlotIndex =
+    userImage.slot?.kind === "element" ? userImage.slot.path[0] : -1;
   // "background" → background_url; selain itu (termasuk legacy tanpa source) → thumbnail_url.
-  const bgImageSrc = background?.source === "background" ? backgroundUrl : thumbnailUrl;
+  const bgImageSrc =
+    userImage.slot?.kind === "background"
+      ? userImage.url
+      : background?.source === "background"
+        ? backgroundUrl
+        : thumbnailUrl;
 
   return (
     <div
@@ -381,7 +389,15 @@ export function TemplateRenderer({
           case "scrim":
             return <ScrimElement key={i} el={el} />;
           case "image":
-            return <ImageElement key={i} el={el} thumbnailUrl={thumbnailUrl} backgroundUrl={backgroundUrl} />;
+            return (
+              <ImageElement
+                key={i}
+                el={el}
+                thumbnailUrl={thumbnailUrl}
+                backgroundUrl={backgroundUrl}
+                userImageUrl={i === userImageSlotIndex ? userImage.url : null}
+              />
+            );
           case "group":
             return <GroupElement key={i} el={el} scheme={scheme} />;
           case "rule":
@@ -390,6 +406,32 @@ export function TemplateRenderer({
             return <Fragment key={i} />;
         }
       })}
+
+      {/* Fallback layer bebas: template tak punya slot gambar. Rect-nya konstanta
+          bersama dengan canvas-spec supaya preview dan export PNG identik. */}
+      {userImage.url && userImage.overlay && (
+        <div
+          style={{
+            position: "absolute",
+            left: pct(userImage.overlay.x),
+            top: pct(userImage.overlay.y),
+            width: pct(userImage.overlay.width),
+            height: pct(userImage.overlay.height),
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={userImage.url}
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.32))",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

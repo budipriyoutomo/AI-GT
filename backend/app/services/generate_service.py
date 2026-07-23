@@ -63,6 +63,16 @@ async def create_session(
         raise AppError(400, ErrorCode.AI_GENERATION_FAILED, "thematic_image_theme wajib diisi jika image_source = 'generated'.")
     if data.image_source == "none" and (data.thematic_image_theme or data.selected_image_prompt):
         raise AppError(400, ErrorCode.AI_GENERATION_FAILED, "thematic_image_theme dan selected_image_prompt harus kosong jika image_source = 'none'.")
+    if data.image_source == "upload" and not data.uploaded_image_url:
+        raise AppError(400, ErrorCode.AI_GENERATION_FAILED, "uploaded_image_url wajib diisi jika image_source = 'upload'.")
+    if data.image_source != "upload" and data.uploaded_image_url:
+        raise AppError(400, ErrorCode.AI_GENERATION_FAILED, "uploaded_image_url hanya boleh diisi jika image_source = 'upload'.")
+    # Field ini berisi key R2 yang nanti dirender apa adanya — batasi ke prefix hasil
+    # upload endpoint supaya client tak bisa menunjuk objek lain di bucket.
+    if data.uploaded_image_url and not data.uploaded_image_url.startswith(
+        f"/permanent/uploads/{user_id}/"
+    ):
+        raise AppError(400, ErrorCode.INVALID_FILE_TYPE, "uploaded_image_url bukan hasil upload yang sah.")
 
     template = await db.scalar(
         select(Template).where(Template.id == data.template_id, Template.is_active == True)  # noqa: E712
@@ -88,6 +98,8 @@ async def create_session(
         content_data["additional_notes"] = data.additional_notes
     if data.selected_image_prompt:
         content_data["selected_image_prompt"] = data.selected_image_prompt
+    if data.uploaded_image_url:
+        content_data["uploaded_image_url"] = data.uploaded_image_url
 
     session = GenerateSession(
         id=uuid.uuid4(),
@@ -146,11 +158,14 @@ async def select_variant(
     variant.is_selected = True
     project_id = uuid.uuid4()
 
-    thematic_url = await _resolve_thematic_image(variant.thematic_image_url, str(user_id), str(project_id))
-
     content = session.content_data or {}
     campaign = session.campaign_data or {}
     image_source = content.get("image_source") or campaign.get("image_source", "none")
+
+    thematic_url = await _resolve_project_image(
+        content, image_source, variant.thematic_image_url, str(user_id), str(project_id)
+    )
+
     image_prompt = content.get("selected_image_prompt") or campaign.get("image_prompt", "")
 
     template = await db.get(Template, session.template_id)
@@ -181,6 +196,26 @@ async def select_variant(
     await db.commit()
     await db.refresh(project)
     return project
+
+
+async def _resolve_project_image(
+    content: dict,
+    image_source: str,
+    variant_thematic_url: str | None,
+    user_id: str,
+    project_id: str,
+) -> str | None:
+    """Gambar untuk final_config project. SATU jalur untuk kedua cara project dibuat
+    (auto-select Quick Generate dan endpoint /select) — jangan duplikasi logikanya,
+    perbedaan di antara keduanya pernah bikin gambar upload hilang di alur UI.
+
+    Source "upload": gambar sudah permanen milik user sejak diupload — tidak lewat
+    temp/ dan tidak boleh di-move ke folder project (URL yang sama bisa dipakai
+    beberapa project sekaligus).
+    """
+    if image_source == "upload":
+        return content.get("uploaded_image_url")
+    return await _resolve_thematic_image(variant_thematic_url, user_id, project_id)
 
 
 async def _resolve_thematic_image(thematic_url: str | None, user_id: str, project_id: str) -> str | None:
@@ -382,11 +417,12 @@ async def _auto_select_first_variant(db: AsyncSession, session: GenerateSession)
     variant.is_selected = True
     project_id = uuid.uuid4()
 
-    thematic_url = await _resolve_thematic_image(
-        variant.thematic_image_url, str(session.user_id), str(project_id)
-    )
-
     content = session.content_data or {}
+    image_source = content.get("image_source", "none")
+
+    thematic_url = await _resolve_project_image(
+        content, image_source, variant.thematic_image_url, str(session.user_id), str(project_id)
+    )
 
     template = await db.get(Template, session.template_id)
     template_cfg = template.template_config if template else {}
@@ -398,7 +434,7 @@ async def _auto_select_first_variant(db: AsyncSession, session: GenerateSession)
         "copy": variant.copy_data,
         "typography": variant.typography_data,
         "thematic_image_url": thematic_url,
-        "image_source": content.get("image_source", "none"),
+        "image_source": image_source,
         "image_prompt": content.get("selected_image_prompt", ""),
         "template_config": _normalize_template_config(template, template_cfg),
         "brand_applied": bool(content.get("brand_applied", False)),

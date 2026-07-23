@@ -17,6 +17,8 @@ class CreateSessionRequest(BaseModel):
     platform: PLATFORM_ENUM
     language_style: LANGUAGE_STYLE_ENUM
     image_source: IMAGE_SOURCE_ENUM = "none"
+    # Hasil POST /generate/upload-image — wajib jika image_source = "upload".
+    uploaded_image_url: str | None = None
     thematic_image_theme: str | None = None
     selected_image_prompt: str | None = None
     product_or_service: str
