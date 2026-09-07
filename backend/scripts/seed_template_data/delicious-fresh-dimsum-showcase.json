@@ -1,0 +1,171 @@
+{
+  "_meta": {
+    "source_ref": "Delicious Fresh Dim Sum Isolated White Background",
+    "catatan": "Template F&B premium dengan slot foto produk dim sum di tengah, typography Montserrat & Inter yang bersih, serta aksen brand adaptif.",
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body", "cta"],
+      "dipakai_template_ini": [
+        "headline -> ARTISAN DIM SUM SELECTION",
+        "body -> Crafted daily with fresh ingredients & authentic Oriental recipe",
+        "cta -> EXPLORE MENU"
+      ]
+    }
+  },
+  "name": "Artisan Dim Sum Premium Showcase",
+  "industry": "fnb",
+  "theme": "brand",
+  "content_type": "instagram_post",
+  "copy_intent": "brand",
+  "thumbnail_url": "https://img.magnific.com/premium-photo/delicious-fresh-dim-sum-beautiful-serving-isolated-white-background-staged-professional-photo_935074-30321.jpg?semt=ais_hybrid&w=740&q=80",
+  "is_premium": false,
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": {
+        "width": 1080,
+        "height": 1350
+      }
+    },
+    "background": {
+      "type": "color",
+      "value": "#FAF9F6"
+    },
+    "color_scheme": {
+      "accent": "#C8102E",
+      "primary": "#1A1A1A",
+      "secondary": "#8B0000"
+    },
+    "font": {
+      "family": "Montserrat"
+    },
+    "brand_theme": {
+      "color_slots": {
+        "accent": 0
+      },
+      "font_brand_roles": ["body", "cta", "terms"]
+    },
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.40,
+        "y": 0.04,
+        "width": 0.20,
+        "height": 0.06
+      },
+      {
+        "type": "text",
+        "role": "eyebrow",
+        "x": 0.10,
+        "y": 0.11,
+        "width": 0.80,
+        "align": "center",
+        "value": "• PREMIUM ORIENTAL DELICACY •",
+        "style": {
+          "fontSize": 22,
+          "weight": "600",
+          "color": "#666666",
+          "letterSpacing": 3
+        }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "maxWords": 4,
+        "x": 0.08,
+        "y": 0.14,
+        "width": 0.84,
+        "align": "center",
+        "value": "ARTISAN DIM SUM\nSELECTION",
+        "style": {
+          "fontSize": 86,
+          "weight": "800",
+          "color": "primary",
+          "lineHeight": 1.05
+        }
+      },
+      {
+        "type": "rule",
+        "x": 0.42,
+        "y": 0.27,
+        "width": 0.16,
+        "style": {
+          "color": "accent",
+          "thickness": 4
+        }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.10,
+        "y": 0.30,
+        "width": 0.80,
+        "align": "center",
+        "value": "Crafted daily with fresh ingredients & authentic Oriental recipe",
+        "style": {
+          "fontSize": 26,
+          "weight": "500",
+          "color": "#555555",
+          "lineHeight": 1.4,
+          "fontFamily": "Inter"
+        }
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "x": 0.10,
+        "y": 0.39,
+        "width": 0.80,
+        "height": 0.43,
+        "fit": "contain"
+      },
+      {
+        "type": "text",
+        "role": "cta",
+        "bind": "cta",
+        "x": 0.25,
+        "y": 0.84,
+        "width": 0.50,
+        "align": "center",
+        "value": "EXPLORE MENU",
+        "style": {
+          "fontSize": 24,
+          "weight": "700",
+          "color": "#FFFFFF",
+          "background": "accent",
+          "radius": 24,
+          "padding": "0.6em 1.6em"
+        }
+      },
+      {
+        "type": "text",
+        "role": "terms",
+        "x": 0.10,
+        "y": 0.90,
+        "width": 0.80,
+        "align": "center",
+        "value": "Available for Dine-in & Takeaway",
+        "style": {
+          "fontSize": 20,
+          "weight": "500",
+          "color": "#888888",
+          "fontFamily": "Inter"
+        }
+      },
+      {
+        "type": "footer",
+        "x": 0.05,
+        "y": 0.94,
+        "width": 0.90,
+        "slots": ["instagram", "whatsapp", "location"],
+        "align": "center",
+        "style": {
+          "color": "#444444",
+          "fontSize": 20
+        }
+      }
+    ]
+  }
+}

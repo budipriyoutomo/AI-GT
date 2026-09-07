@@ -240,6 +240,23 @@ function makeImage(f: FabricNS, spec: ImageSpec, { el, cors }: LoadedImage) {
     // produk transparan → drop shadow biar "float" (paritas dengan TemplateRenderer)
     img.set("shadow", new f.Shadow({ offsetX: 0, offsetY: 8, blur: 16, color: "rgba(0,0,0,0.32)" }));
   }
+  
+  const rotated = spec.angle != null || spec.skewX != null;
+  if (rotated) {
+    img.set({
+      originX: "center", originY: "center",
+      left: spec.left + spec.width / 2, top: spec.top + spec.height / 2,
+      angle: spec.angle ?? 0, skewX: spec.skewX ?? 0,
+    });
+    if (img.clipPath) {
+      img.clipPath.set({
+        originX: "center", originY: "center",
+        left: spec.left + spec.width / 2, top: spec.top + spec.height / 2,
+        angle: spec.angle ?? 0, skewX: spec.skewX ?? 0,
+      });
+    }
+  }
+  
   // Gambar non-CORS: tampil di editor, tapi harus disembunyikan saat export
   // supaya canvas hasil export tidak tainted
   (img as unknown as { aigtNoCors?: boolean }).aigtNoCors = !cors;
@@ -381,6 +398,21 @@ function makeFooterObjects(
     }
     x += itemGap;
   }
+  
+  const rotated = spec.angle != null || spec.skewX != null;
+  if (rotated) {
+    const group = new f.Group(objs, { selectable: false, evented: false });
+    const c = group.getCenterPoint();
+    group.set({
+      originX: "center", originY: "center",
+      left: c.x, top: c.y,
+      angle: spec.angle ?? 0,
+      skewX: spec.skewX ?? 0,
+    });
+    group.setCoords();
+    return [group];
+  }
+  
   return objs;
 }
 

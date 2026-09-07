@@ -1,0 +1,168 @@
+{
+  "_meta": {
+    "source_ref": "Chinese Restaurant Flayer Design Menu (Lan Hua Chinese Restaurant)",
+    "catatan": "Foto menu dimsum = image slot foreground dari templates.thumbnail_url (URL di JSON ini sample untuk galeri). Logo, headline, CTA price box, promo badge, dan footer contact dipisah presisi.",
+    "area_tengah": "dibiarkan sebagai ruang untuk foto produk dimsum thumbnail_url",
+    "ai_slots": {
+      "penjelasan": "Elemen teks dengan field 'bind' value-nya diisi AI saat generate.",
+      "bind_kosakata": ["headline", "body", "cta"],
+      "minimal_wajib": "headline",
+      "dipakai_template_ini": [
+        "headline -> DRAGON NINE DIMSUM",
+        "body -> Available on Monday - Friday | 10.00 - 15.00 WIB",
+        "cta -> SPECIAL PRICE IDR 308.000 NETT"
+      ]
+    },
+    "brand_theme_doc": {
+      "penjelasan": "Komposisi personalisasi brand saat GENERATE (render-time). Role warna / teks yang TIDAK disebut = LOCKED, tetap pakai nilai template.",
+      "color": "color_slots memetakan role -> index company_profile.brand_colors. Accent brandable.",
+      "font": "font_brand_roles = daftar role teks yang boleh pakai company_profile.brand_font."
+    }
+  },
+
+  "name": "Chinese Restaurant Dragon Dimsum Promo",
+  "industry": "fnb",
+  "theme": "promo",
+  "content_type": "instagram_post",
+  "copy_intent": "promotion",
+  "thumbnail_url": "https://png.pngtree.com/png-clipart/20231002/original/pngtree-dim-sum-food-png-image_13064985.png",
+  "is_premium": false,
+
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": { "width": 1080, "height": 1350 }
+    },
+    "background": {
+      "type": "gradient",
+      "direction": "to bottom",
+      "stops": ["#4A0909", "#7D1515", "#2C0404"]
+    },
+    "color_scheme": {
+      "accent": "#D4AF37",
+      "primary": "#FFFFFF",
+      "secondary": "#800000"
+    },
+    "font": { "family": "Montserrat" },
+
+    "brand_theme": {
+      "color_slots": { "accent": 0 },
+      "font_brand_roles": ["subtitle", "caption", "terms", "footnote"]
+    },
+
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.40,
+        "y": 0.03,
+        "width": 0.20,
+        "height": 0.07
+      },
+      {
+        "type": "text",
+        "role": "eyebrow",
+        "x": 0.10,
+        "y": 0.11,
+        "width": 0.80,
+        "align": "center",
+        "value": "• LAN HUA CHINESE RESTAURANT •",
+        "style": { "fontSize": 24, "weight": "600", "color": "#FFE484", "letterSpacing": 4 }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "maxWords": 3,
+        "x": 0.08,
+        "y": 0.15,
+        "width": 0.84,
+        "align": "center",
+        "value": "DRAGON\nNINE DIMSUM",
+        "style": {
+          "fontSize": 110,
+          "weight": "800",
+          "color": "accent",
+          "lineHeight": 0.95,
+          "fillGradient": ["#FFE484", "#C69214"]
+        }
+      },
+      {
+        "type": "text",
+        "role": "cta",
+        "bind": "cta",
+        "x": 0.18,
+        "y": 0.31,
+        "width": 0.64,
+        "align": "center",
+        "value": "SPECIAL PRICE IDR 308.000 NETT",
+        "style": {
+          "fontSize": 30,
+          "weight": "700",
+          "color": "#FFFFFF",
+          "background": "secondary",
+          "radius": 8,
+          "padding": "0.4em 1.0em"
+        }
+      },
+      {
+        "type": "text",
+        "role": "subtitle",
+        "bind": "body",
+        "x": 0.10,
+        "y": 0.38,
+        "width": 0.80,
+        "align": "center",
+        "value": "Available on Monday - Friday | 10.00 - 15.00 WIB",
+        "style": { "fontSize": 24, "weight": "500", "color": "primary" }
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "x": 0.08,
+        "y": 0.44,
+        "width": 0.84,
+        "height": 0.40,
+        "fit": "contain"
+      },
+      {
+        "type": "text",
+        "role": "badge",
+        "x": 0.65,
+        "y": 0.42,
+        "width": 0.28,
+        "align": "center",
+        "value": "9 PORTION\nDIMSUM\nFREE TEA",
+        "style": {
+          "fontSize": 18,
+          "weight": "800",
+          "color": "#FFE484",
+          "lineHeight": 1.15,
+          "background": "#500606",
+          "radius": 999,
+          "padding": "1.4em 1.2em",
+          "shadow": "0 4px 12px rgba(0,0,0,0.4)"
+        }
+      },
+      {
+        "type": "text",
+        "role": "terms",
+        "x": 0.10,
+        "y": 0.86,
+        "width": 0.80,
+        "align": "center",
+        "value": "*T&C Apply | Not Available on Public Holiday",
+        "style": { "fontSize": 20, "weight": "400", "color": "#D3D3D3" }
+      },
+      {
+        "type": "footer",
+        "x": 0.05,
+        "y": 0.91,
+        "width": 0.90,
+        "slots": ["whatsapp", "location"],
+        "align": "center",
+        "style": { "color": "#FFFFFF", "fontSize": 20 }
+      }
+    ]
+  }
+}

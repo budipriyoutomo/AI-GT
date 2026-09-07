@@ -78,7 +78,7 @@ function buildTextStyle(el: TemplateElement, scheme: ColorScheme): CSSProperties
   const decor: CSSProperties = {};
   if (s.shadow) decor.textShadow = s.shadow;
   if (s.stroke) {
-    decor.WebkitTextStroke = `${cqw(s.stroke.width)} ${s.stroke.color}`;
+    decor.WebkitTextStroke = `${cqw(s.stroke.width)} ${resolveColor(scheme, s.stroke.color)}`;
     decor.paintOrder = "stroke";
   }
   if (s.fillGradient) {
@@ -216,6 +216,11 @@ function FooterElement({ el, scheme, contact }: { el: TemplateElement; scheme: C
         padding: "0 3%",
         color: resolveColor(scheme, s.color),
         fontSize: cqw(s.fontSize ?? 20),
+        transform: [
+          s.rotate != null ? `rotate(${s.rotate}deg)` : "",
+          s.skew != null ? `skewX(${s.skew}deg)` : ""
+        ].filter(Boolean).join(" ") || undefined,
+        transformOrigin: (s.rotate != null || s.skew != null) ? "center" : undefined,
       }}
     >
       {(el.slots ?? []).map((slot) => (
@@ -259,10 +264,9 @@ function ImageElement({
   thumbnailUrl: string;
   backgroundUrl: string;
 }) {
-  // Foreground dari thumbnail_url ("thumbnail") atau foto latar dari background_url ("background").
-  // Sumber lain / URL kosong → jangan render (hindari img rusak).
   const src = el.source === "background" ? backgroundUrl : el.source === "thumbnail" ? thumbnailUrl : "";
   if (!src) return null;
+  const s = el.style ?? {};
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
@@ -278,6 +282,11 @@ function ImageElement({
         borderRadius: el.radius ? cqw(el.radius) : 0,
         // produk transparan (contain) → drop-shadow biar "float" & aesthetic
         filter: el.fit === "contain" ? "drop-shadow(0 6px 12px rgba(0,0,0,0.32))" : undefined,
+        transform: [
+          s.rotate != null ? `rotate(${s.rotate}deg)` : "",
+          s.skew != null ? `skewX(${s.skew}deg)` : ""
+        ].filter(Boolean).join(" ") || undefined,
+        transformOrigin: (s.rotate != null || s.skew != null) ? "center" : undefined,
       }}
     />
   );
