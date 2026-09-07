@@ -124,3 +124,84 @@ describe("paritas TemplateRenderer vs canvas-spec — font & visibility", () => 
     expect(screen.getByAltText("Logo bisnis")).toBeInTheDocument();
   });
 });
+
+// ── Gambar konten user (image_source = "upload") ──────────────────────────────
+
+const USER_IMAGE = "/permanent/uploads/u1/foto.png";
+
+const TEMPLATE_WITH_SLOT: TemplateConfig = {
+  ...GOLDEN_TEMPLATE,
+  elements: [
+    ...GOLDEN_TEMPLATE.elements,
+    { type: "image", source: "thumbnail", x: 0.1, y: 0.62, width: 0.8, height: 0.3 },
+  ],
+};
+
+function resolvedWithUserImage(templateConfig: TemplateConfig, userImageUrl: string | null): ResolvedConfig {
+  return resolveTemplateConfig({
+    templateConfig,
+    profile: { logo_url: null, brand_colors: ["#0033CC"], brand_font: "Poppins", tagline: null },
+    branded: true,
+    userImageUrl,
+  });
+}
+
+/** src semua <img> yang benar-benar terpasang (alt="" → role presentation, bukan img). */
+function imgSrcs(container: HTMLElement): (string | null)[] {
+  return Array.from(container.querySelectorAll("img")).map((el) => el.getAttribute("src"));
+}
+
+/** URL semua image spec — logo di-exclude lewat logoUrl: null pada fixture. */
+function imageUrls(cfg: ResolvedConfig, thumbnailUrl: string | null) {
+  return buildCanvasSpec({ cfg, thumbnailUrl, contact: {} })
+    .specs.filter((s) => s.kind === "image")
+    .map((s) => (s as { url: string }).url);
+}
+
+describe("paritas gambar user — slot template", () => {
+  it("gambar user menimpa slot image template di KEDUA renderer", () => {
+    const cfg = resolvedWithUserImage(TEMPLATE_WITH_SLOT, USER_IMAGE);
+
+    expect(imageUrls(cfg, "/templates/thumb.png")).toContain(cfg.userImage.url);
+
+    const { container } = render(createElement(TemplateRenderer, { cfg, thumbnailUrl: "/templates/thumb.png" }));
+    const rendered = imgSrcs(container);
+    expect(rendered).toContain(cfg.userImage.url);
+  });
+
+  it("tanpa gambar user, slot tetap memakai thumbnail template", () => {
+    const cfg = resolvedWithUserImage(TEMPLATE_WITH_SLOT, null);
+    expect(imageUrls(cfg, "/templates/thumb.png")).toEqual(["/templates/thumb.png"]);
+  });
+});
+
+describe("paritas gambar user — fallback layer bebas", () => {
+  it("template tanpa slot: gambar user tetap tampil di KEDUA renderer", () => {
+    const cfg = resolvedWithUserImage(GOLDEN_TEMPLATE, USER_IMAGE);
+    expect(cfg.userImage.overlay).not.toBeNull();
+
+    expect(imageUrls(cfg, null)).toContain(cfg.userImage.url);
+
+    const { container } = render(createElement(TemplateRenderer, { cfg, thumbnailUrl: "" }));
+    const rendered = imgSrcs(container);
+    expect(rendered).toContain(cfg.userImage.url);
+  });
+
+  it("posisi layer bebas sama persis di kedua renderer (rect bersama)", () => {
+    const cfg = resolvedWithUserImage(GOLDEN_TEMPLATE, USER_IMAGE);
+    const rect = cfg.userImage.overlay!;
+    const { width, height, specs } = buildCanvasSpec({ cfg, thumbnailUrl: null, contact: {} });
+    const spec = specs.find((s) => s.kind === "image" && (s as { url: string }).url === cfg.userImage.url) as {
+      left: number; top: number; width: number; height: number;
+    };
+
+    expect(spec.left).toBeCloseTo(rect.x * width);
+    expect(spec.top).toBeCloseTo(rect.y * height);
+
+    const { container } = render(createElement(TemplateRenderer, { cfg, thumbnailUrl: "" }));
+    const el = Array.from(container.querySelectorAll("img")).find((n) => n.getAttribute("src") === cfg.userImage.url)!;
+    const box = el.parentElement!;
+    expect(box.style.left).toBe(`${rect.x * 100}%`);
+    expect(box.style.top).toBe(`${rect.y * 100}%`);
+  });
+});

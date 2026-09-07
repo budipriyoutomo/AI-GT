@@ -257,3 +257,49 @@ describe("buildEditorPreviewConfig — skala ukuran", () => {
     expect(findByBind(out, "cta")!.style!.fontSize).toBe(30);
   });
 });
+
+// ── Pilihan font manual user (rank 1 di resolver) ─────────────────────────────
+
+describe("buildEditorPreviewConfig — font manual user", () => {
+  /** Template yang menaruh `body` di font_brand_roles — persis kasus yang bikin
+   *  kontrol "Font Body" mati diam-diam pada project branded. */
+  function brandedTemplate(): ProjectTemplateConfig {
+    return { ...makeTemplate(), brand_theme: { mode: "tint", font_brand_roles: ["body"] } };
+  }
+  const BRANDED: EditorBrandState = {
+    profile: { brand_font: "Montserrat", brand_colors: ["#0033CC"], logo_url: null, tagline: null },
+    branded: true,
+  };
+
+  it("tanpa flag manual, brand_font tetap menang untuk body", () => {
+    const out = build(brandedTemplate(), makeState({ bodyFont: "Lato" }), BRANDED);
+    expect(findByBind(out!, "body")?.style?.fontFamily).toBe("Montserrat");
+  });
+
+  it("bodyFontManual → pilihan user menang atas brand_font", () => {
+    const out = build(
+      brandedTemplate(),
+      makeState({ bodyFont: "Lato", bodyFontManual: true }),
+      BRANDED,
+    );
+    expect(findByBind(out!, "body")?.style?.fontFamily).toBe("Lato");
+  });
+
+  it("headlineFontManual diteruskan juga", () => {
+    const out = build(
+      brandedTemplate(),
+      makeState({ headlineFont: "Nunito", headlineFontManual: true }),
+      BRANDED,
+    );
+    expect(findByBind(out!, "headline")?.style?.fontFamily).toBe("Nunito");
+  });
+
+  it("id font lama tetap dinormalisasi saat ditandai manual", () => {
+    const out = build(
+      brandedTemplate(),
+      makeState({ bodyFont: "mono", bodyFontManual: true }),
+      BRANDED,
+    );
+    expect(findByBind(out!, "body")?.style?.fontFamily).toBe("Space Mono");
+  });
+});

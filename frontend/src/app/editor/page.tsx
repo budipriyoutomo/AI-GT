@@ -24,21 +24,11 @@ import { generateApi } from "@/api/generateApi";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import type { CarouselSlide, Project } from "@/types/project";
 import type { ResolvedConfig } from "@/lib/template/resolve";
+import type { OverlayRect } from "@/lib/template/image-slot";
+import { BRAND_FONT_OPTIONS, normalizeFontFamily } from "@/lib/fonts";
+import { FontSelect } from "@/components/ui/font-select";
 
 /* ── Constants ────────────────────────────────────────────── */
-
-const FONTS_HEADLINE = [
-  { id: "syne",    label: "Syne",       preview: "800 17px 'Syne', sans-serif"       },
-  { id: "inter",   label: "Inter",      preview: "700 17px Inter, sans-serif"        },
-  { id: "georgia", label: "Georgia",    preview: "700 17px Georgia, serif"           },
-  { id: "mono",    label: "Space Mono", preview: "700 14px 'Space Mono', monospace"  },
-];
-
-const FONTS_BODY = [
-  { id: "inter",   label: "Inter",      preview: "400 13px Inter, sans-serif"        },
-  { id: "georgia", label: "Georgia",    preview: "400 13px Georgia, serif"           },
-  { id: "syne",    label: "Syne",       preview: "400 13px 'Syne', sans-serif"       },
-];
 
 const LOCKED_ITEMS = [
   { label: "Layout & komposisi", icon: "layout-grid" },
@@ -74,27 +64,6 @@ function FieldLabel({ children, mono, value }: { children: React.ReactNode; mono
 
 /* ── Font picker button ───────────────────────────────────── */
 
-function FontButton({
-  label, preview, selected, onClick,
-}: { label: string; preview: string; selected: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "9px 12px", borderRadius: "var(--radius-md)", textAlign: "left",
-      border: `1.5px solid ${selected ? "var(--primary)" : "var(--border)"}`,
-      background: selected ? "var(--tint-primary)" : "var(--surface-sunken)",
-      cursor: "pointer", transition: "all .15s ease", width: "100%",
-    }}>
-      <span style={{ fontSize: "var(--text-xs)", fontWeight: selected ? 600 : 400, color: selected ? "var(--primary)" : "var(--foreground)" }}>
-        {label}
-      </span>
-      <span style={{ font: preview, color: selected ? "var(--primary)" : "var(--muted-foreground)", opacity: selected ? 1 : 0.7 }}>
-        Aa
-      </span>
-    </button>
-  );
-}
-
 /* ── Editor page ──────────────────────────────────────────── */
 
 export default function EditorPage() {
@@ -110,8 +79,12 @@ export default function EditorPage() {
   const [headline,      setHeadline]      = useState("");
   const [body,          setBody]          = useState("");
   const [cta,           setCta]           = useState("");
-  const [headlineFont,  setHeadlineFont]  = useState("syne");
-  const [bodyFont,      setBodyFont]      = useState("inter");
+  const [headlineFont,  setHeadlineFont]  = useState("Inter");
+  const [bodyFont,      setBodyFont]      = useState("Inter");
+  // true = font dipilih sendiri user (bukan warisan saran AI). Menang atas brand_font;
+  // tanpa flag ini, kontrol Font Body mati diam-diam di project branded.
+  const [headlineFontManual, setHeadlineFontManual] = useState(false);
+  const [bodyFontManual,     setBodyFontManual]     = useState(false);
   const [headlineSize,  setHeadlineSize]  = useState(32);
   const [bodySize,      setBodySize]      = useState(15);
   // Mode template: skala ukuran relatif template (1 = default template). Slider 0.6–1.6.
@@ -120,6 +93,8 @@ export default function EditorPage() {
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [thematicImageUrl, setThematicImageUrl] = useState<string | null>(null);
   const [thematicVisible,  setThematicVisible]  = useState(true);
+  // Posisi layer bebas gambar user; null = pakai posisi default resolver.
+  const [userImageRect,    setUserImageRect]    = useState<OverlayRect | null>(null);
 
   // Template visual identity (locked — set from template_config on load)
   const [accentColor,  setAccentColor]  = useState("#6366F1");
@@ -179,7 +154,14 @@ export default function EditorPage() {
   const previewCfg = useMemo<ResolvedConfig | null>(
     () => buildEditorPreviewConfig(
       project?.final_config.template_config,
-      { headline: effHeadline, body: effBody, cta: effCta, headlineFont, bodyFont, letterSpacing, headlineScale, bodyScale },
+      {
+        headline: effHeadline, body: effBody, cta: effCta, headlineFont, bodyFont,
+        letterSpacing, headlineScale, bodyScale,
+        // Toggle "Tampilkan di canvas" mematikan gambar tanpa menghapus URL-nya.
+        userImageUrl: thematicVisible ? thematicImageUrl : null,
+        userImageRect,
+        headlineFontManual, bodyFontManual,
+      },
       {
         profile: user
           ? { logo_url: user.logoUrl, brand_colors: user.brandColors, brand_font: user.brandFont, tagline: user.tagline }
@@ -187,7 +169,7 @@ export default function EditorPage() {
         branded,
       },
     ),
-    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing, headlineScale, bodyScale, branded, user],
+    [project?.final_config.template_config, effHeadline, effBody, effCta, headlineFont, bodyFont, letterSpacing, headlineScale, bodyScale, branded, user, thematicImageUrl, thematicVisible, userImageRect, headlineFontManual, bodyFontManual],
   );
 
   const tplThumbnailUrl = project?.final_config.template_config?.thumbnail_url ?? "";
@@ -221,6 +203,15 @@ export default function EditorPage() {
     return limits;
   }, [templateSpec]);
 
+  // Daftar font sama dengan Settings > Profil Bisnis. Font yang sedang dipakai tapi
+  // di luar daftar (mis. saran AI) tetap dimunculkan supaya pilihan aktif terlihat
+  // dan tidak diam-diam hilang saat user membuka dropdown.
+  const fontOptions = useMemo(() => {
+    const base: string[] = [...BRAND_FONT_OPTIONS];
+    const extra = [headlineFont, bodyFont].filter((f) => f && !base.includes(f));
+    return [...base, ...new Set(extra)];
+  }, [headlineFont, bodyFont]);
+
   const headlineMax = copyLimits.headline ?? 60;
   const bodyMax = copyLimits.body ?? 120;
 
@@ -243,8 +234,10 @@ export default function EditorPage() {
           setBody(copy.body ?? "");
           setCta(copy.cta ?? "");
         }
-        setHeadlineFont(typography.headline_font || "syne");
-        setBodyFont(typography.body_font || "inter");
+        setHeadlineFont(normalizeFontFamily(typography.headline_font) ?? "Inter");
+        setBodyFont(normalizeFontFamily(typography.body_font) ?? "Inter");
+        setHeadlineFontManual(!!typography.headline_font_manual);
+        setBodyFontManual(!!typography.body_font_manual);
         setHeadlineSize(typography.headline_size || 32);
         setBodySize(typography.body_size || 15);
         setHeadlineScale(typography.headline_scale || 1);
@@ -252,6 +245,7 @@ export default function EditorPage() {
         setLetterSpacing(typography.letter_spacing || 0);
         setTitleInput(p.title || "");
         setThematicImageUrl(thematic_image_url);
+        setUserImageRect(p.final_config.user_image_rect ?? null);
         setThematicVisible(!!thematic_image_url);
         setImageSource(image_source ?? "none");
         setImagePrompt(p.final_config.image_prompt ?? "");
@@ -306,9 +300,12 @@ export default function EditorPage() {
             body_size: bodySize,
             headline_scale: headlineScale,
             body_scale: bodyScale,
+            headline_font_manual: headlineFontManual,
+            body_font_manual: bodyFontManual,
             letter_spacing: letterSpacing,
           },
           thematic_image_url: thematicImageUrl,
+          user_image_rect: userImageRect,
           image_source: imageSource,
           image_prompt: imagePrompt,
         },
@@ -325,12 +322,12 @@ export default function EditorPage() {
     } catch {
       toast({ title: "Auto-save gagal", variant: "error" });
     }
-  }, [project, isCarousel, slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicImageUrl, imageSource, imagePrompt]);
+  }, [project, isCarousel, slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicImageUrl, userImageRect, imageSource, imagePrompt, headlineFontManual, bodyFontManual]);
 
   useAutoSave(
     projectLoaded,
     doSave,
-    [slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicVisible, imageSource, imagePrompt],
+    [slides, headline, body, cta, headlineFont, bodyFont, headlineSize, bodySize, headlineScale, bodyScale, letterSpacing, thematicImageUrl, thematicVisible, userImageRect, imageSource, imagePrompt, headlineFontManual, bodyFontManual],
   );
 
   // Capture thumbnail as soon as canvas finishes initializing (even if user never edits)
@@ -544,9 +541,6 @@ export default function EditorPage() {
               </button>
             )}
 
-            {project.is_exported && (
-              <Badge variant="success" dot>Exported</Badge>
-            )}
           </div>
         </div>
 
@@ -797,36 +791,25 @@ export default function EditorPage() {
                   Typography di-suggest AI. Override di sini sesuai selera.
                 </div>
 
-                {/* Font headline */}
+                {/* Font headline & body — daftar & komponen sama dengan Settings > Profil Bisnis */}
                 <div>
                   <FieldLabel>Font Headline</FieldLabel>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {FONTS_HEADLINE.map((f) => (
-                      <FontButton
-                        key={f.id}
-                        label={f.label}
-                        preview={f.preview}
-                        selected={headlineFont === f.id}
-                        onClick={() => setHeadlineFont(f.id)}
-                      />
-                    ))}
-                  </div>
+                  <FontSelect
+                    value={headlineFont}
+                    onChange={(f) => { setHeadlineFont(f); setHeadlineFontManual(true); }}
+                    options={fontOptions}
+                    sample="Aa — Judul promo"
+                  />
                 </div>
 
-                {/* Font body */}
                 <div>
                   <FieldLabel>Font Body</FieldLabel>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {FONTS_BODY.map((f) => (
-                      <FontButton
-                        key={f.id}
-                        label={f.label}
-                        preview={f.preview}
-                        selected={bodyFont === f.id}
-                        onClick={() => setBodyFont(f.id)}
-                      />
-                    ))}
-                  </div>
+                  <FontSelect
+                    value={bodyFont}
+                    onChange={(f) => { setBodyFont(f); setBodyFontManual(true); }}
+                    options={fontOptions}
+                    sample="AaBbCc 123 — teks isi"
+                  />
                 </div>
 
                 {templateSpec ? (
@@ -1199,7 +1182,13 @@ export default function EditorPage() {
             overflow: "hidden",
           }}>
             {templateSpec ? (
-              <TemplateFabricCanvas ref={canvasRef} spec={templateSpec} zoom={zoom} onReady={handleCanvasReady} />
+              <TemplateFabricCanvas
+                ref={canvasRef}
+                spec={templateSpec}
+                zoom={zoom}
+                onReady={handleCanvasReady}
+                onUserImageRectChange={setUserImageRect}
+              />
             ) : (
               <FabricCanvas ref={canvasRef} content={canvasContent} zoom={zoom} onReady={handleCanvasReady} />
             )}
@@ -1315,12 +1304,6 @@ export default function EditorPage() {
                   #{project.id.slice(0, 8).toUpperCase()}
                 </div>
               </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-              <Badge variant={project.is_exported ? "success" : "warning"} dot>
-                {project.is_exported ? "Exported" : "Draft"}
-              </Badge>
             </div>
           </div>
 

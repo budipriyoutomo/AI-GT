@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -15,10 +15,21 @@ from app.schemas.generate import (
 )
 from app.utils.exceptions import AppError, ErrorCode
 from app.schemas.project import ProjectData
-from app.services import generate_service
+from app.services import generate_service, storage_service
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1/generate", tags=["generate"])
+
+
+@router.post("/upload-image")
+async def upload_content_image(
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+):
+    """Upload gambar konten user ke R2. TIDAK menyentuh DB — URL-nya dikirim balik ke client
+    lalu ikut sebagai `uploaded_image_url` saat create session."""
+    image_url = storage_service.upload_content_image(str(current_user.id), await file.read())
+    return {"success": True, "data": {"image_url": image_url}}
 
 
 @router.post("/session", status_code=201)

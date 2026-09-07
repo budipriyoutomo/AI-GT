@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FontSelect } from "@/components/ui/font-select";
+import { BRAND_FONT_OPTIONS } from "@/lib/fonts";
 import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
@@ -15,14 +17,30 @@ import { LogoUploadField } from "@/components/ui/logo-upload-field";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { billingApi, type Plan, type Subscription } from "@/api/billingApi";
+import { formatPlanDate, planFeatures } from "@/lib/billing";
 import { EMPTY_CONTACT } from "@/lib/template/footer-contact";
 import type { CompanyContact } from "@/types/company-profile";
+
+const FEATURE_ICON: Record<string, string> = {
+  "generate": "sparkles",
+  "riwayat": "database",
+  "profil": "store",
+  "Thematic": "image",
+  "watermark": "download",
+  "support": "headset",
+};
+
+function featureIcon(label: string): string {
+  for (const key in FEATURE_ICON) if (label.includes(key)) return FEATURE_ICON[key];
+  return "check";
+}
 
 /* ── Constants ────────────────────────────────────────────── */
 
 const BRAND_COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
 
-const FONT_OPTIONS = ["Inter", "Poppins", "Montserrat", "Plus Jakarta Sans", "Nunito", "Lato", "Roboto", "Open Sans", "Playfair Display"];
+
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -76,7 +94,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 /* ── Tab: Profil ──────────────────────────────────────────── */
 
 function TabProfil() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword, deleteAccount } = useAuth();
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
   const [name, setName]                 = useState(user?.name ?? "");
   const [businessName, setBusinessName] = useState(user?.businessName ?? "");
@@ -86,6 +106,18 @@ function TabProfil() {
   const [newPw, setNewPw]         = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwError, setPwError]     = useState<string | null>(null);
+  const [savingPw, setSavingPw]   = useState(false);
+
+  const [sub, setSub]         = useState<Subscription | null>(null);
+  const [plans, setPlans]     = useState<Plan[]>([]);
+  const [subLoading, setSubLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([billingApi.subscription(), billingApi.plans()])
+      .then(([s, pl]) => { setSub(s); setPlans(pl.plans); })
+      .catch(() => { /* biarkan kosong — tampilkan state fallback */ })
+      .finally(() => setSubLoading(false));
+  }, []);
 
   async function handleSaveProfile(e: FormEvent) {
     e.preventDefault();
@@ -101,15 +133,40 @@ function TabProfil() {
     }
   }
 
-  function handleChangePassword(e: FormEvent) {
+  async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
     setPwError(null);
     if (!currentPw || !newPw || !confirmPw) { setPwError("Semua kolom wajib diisi."); return; }
     if (newPw.length < 6) { setPwError("Password baru minimal 6 karakter."); return; }
     if (newPw !== confirmPw) { setPwError("Konfirmasi password tidak cocok."); return; }
+    setSavingPw(true);
+    const err = await changePassword(currentPw, newPw);
+    setSavingPw(false);
+    if (err) { setPwError(err); return; }
     setCurrentPw(""); setNewPw(""); setConfirmPw("");
     toast({ title: "Password berhasil diubah", variant: "success" });
   }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm("Hapus akun secara permanen? Semua data dan konten akan hilang dan tidak bisa dikembalikan.")) return;
+    setDeleting(true);
+    const err = await deleteAccount();
+    setDeleting(false);
+    if (err) { toast({ title: "Gagal menghapus akun", desc: err, variant: "error" }); return; }
+    toast({ title: "Akun dihapus", variant: "success" });
+    router.replace("/login");
+  }
+
+  const currentPlan = sub ? plans.find((p) => p.id === sub.plan_id) ?? null : null;
+  const usage = sub?.usage ?? null;
+  const genLimit = usage?.generate_limit ?? 0;
+  const genPct = usage && genLimit > 0 ? Math.round((usage.generate_used / genLimit) * 100) : 0;
+  const genLeft = usage ? Math.max(genLimit - usage.generate_used, 0) : 0;
+  const histUnlimited = usage?.history_limit === -1;
+  const histPct = usage && !histUnlimited && usage.history_limit > 0
+    ? Math.round((usage.history_used / usage.history_limit) * 100) : 0;
+  const histLeft = usage && !histUnlimited ? Math.max(usage.history_limit - usage.history_used, 0) : 0;
+  const canUpgrade = sub != null && sub.plan_id !== "business";
 
   return (
     <div style={{ maxWidth: 600 }}>
@@ -195,12 +252,26 @@ function TabProfil() {
             </div>
           )}
           <div>
-            <Button type="submit" size="sm" variant="outline">Ubah password</Button>
+            <Button type="submit" size="sm" variant="outline" disabled={savingPw}>
+              {savingPw ? "Menyimpan..." : "Ubah password"}
+            </Button>
           </div>
         </form>
       </Section>
 
       <Section title="Paket & Kuota">
+        {subLoading ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "28px 4px", color: "var(--muted-foreground)" }}>
+            <Icon name="loader-2" size={16} style={{ animation: "spin 1s linear infinite" }} />
+            <span style={{ fontSize: "var(--text-sm)" }}>Memuat paket…</span>
+          </div>
+        ) : !sub || !usage ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px", background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
+            <Icon name="circle-alert" size={15} />
+            Gagal memuat data langganan.{" "}
+            <a href="/subscription" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>Buka halaman langganan</a>
+          </div>
+        ) : (
         <div style={{
           border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)",
           borderRadius: "var(--radius-xl)",
@@ -221,15 +292,17 @@ function TabProfil() {
               <Icon name="crown" size={18} />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--primary)" }}>Paket Pro</div>
-              <div className="aigt-caption" style={{ marginTop: 2 }}>Aktif hingga 30 Juli 2026</div>
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 800, color: "var(--primary)" }}>Paket {sub.plan_name}</div>
+              <div className="aigt-caption" style={{ marginTop: 2 }}>
+                {sub.current_period_end ? `Aktif hingga ${formatPlanDate(sub.current_period_end)}` : "Paket gratis"}
+              </div>
             </div>
             <span style={{
               padding: "3px 10px", borderRadius: "var(--radius-full)",
               background: "var(--tint-success)", color: "var(--success)",
               fontSize: "var(--text-xs)", fontWeight: 600,
-              flexShrink: 0,
-            }}>Aktif</span>
+              flexShrink: 0, textTransform: "capitalize",
+            }}>{sub.status === "active" ? "Aktif" : sub.status}</span>
           </div>
 
           {/* Usage stats */}
@@ -242,11 +315,11 @@ function TabProfil() {
                   Kuota generate bulan ini
                 </span>
                 <span className="aigt-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--primary)" }}>
-                  52 / 80
+                  {usage.generate_used} / {genLimit}
                 </span>
               </div>
-              <ProgressBar value={65} color="primary" height={6} />
-              <div className="aigt-caption" style={{ marginTop: 5 }}>28 generate tersisa · reset tiap tanggal 1</div>
+              <ProgressBar value={genPct} color="primary" height={6} />
+              <div className="aigt-caption" style={{ marginTop: 5 }}>{genLeft} generate tersisa · reset tiap tanggal 1</div>
             </div>
 
             {/* Storage */}
@@ -257,14 +330,17 @@ function TabProfil() {
                   Storage riwayat
                 </span>
                 <span className="aigt-mono" style={{ fontSize: 11, fontWeight: 600 }}>
-                  12 / 50 slot
+                  {usage.history_used} / {histUnlimited ? "∞" : `${usage.history_limit} slot`}
                 </span>
               </div>
-              <ProgressBar value={24} color="primary" height={6} />
-              <div className="aigt-caption" style={{ marginTop: 5 }}>38 slot tersisa · <a href="/subscription" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>Tambah storage</a></div>
+              <ProgressBar value={histPct} color="primary" height={6} />
+              <div className="aigt-caption" style={{ marginTop: 5 }}>
+                {histUnlimited ? "Riwayat tidak terbatas" : `${histLeft} slot tersisa`} · <a href="/subscription" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>Tambah storage</a>
+              </div>
             </div>
 
             {/* Plan features summary */}
+            {currentPlan && (
             <div style={{
               display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
               padding: "12px 14px",
@@ -272,23 +348,18 @@ function TabProfil() {
               border: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
               borderRadius: "var(--radius-lg)",
             }}>
-              {[
-                { label: "80 generate / bulan",    icon: "sparkles"   },
-                { label: "50 slot riwayat",         icon: "database"   },
-                { label: "3 profil bisnis",          icon: "store"      },
-                { label: "Thematic image AI",        icon: "image"      },
-                { label: "Export tanpa watermark",   icon: "download"   },
-                { label: "Template lengkap",         icon: "layout-grid"},
-              ].map((f) => (
+              {planFeatures(currentPlan).map((f) => (
                 <div key={f.label} style={{
                   display: "flex", alignItems: "center", gap: 6,
-                  fontSize: "var(--text-xs)", color: "var(--foreground)",
+                  fontSize: "var(--text-xs)",
+                  color: f.ok ? "var(--foreground)" : "var(--muted-foreground)", opacity: f.ok ? 1 : 0.5,
                 }}>
-                  <Icon name={f.icon as "sparkles"} size={11} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                  <Icon name={(f.ok ? featureIcon(f.label) : "x") as "sparkles"} size={11} style={{ color: f.ok ? "var(--primary)" : "var(--muted-foreground)", flexShrink: 0 }} />
                   {f.label}
                 </div>
               ))}
             </div>
+            )}
           </div>
 
           {/* Footer actions */}
@@ -297,11 +368,13 @@ function TabProfil() {
             borderTop: "1px solid color-mix(in oklch, var(--primary) 15%, transparent)",
             display: "flex", gap: 8,
           }}>
+            {canUpgrade && (
             <Button size="sm" icon="arrow-up-circle"
-              onClick={() => toast({ title: "Mengarahkan ke halaman upgrade…", variant: "info" })}
+              onClick={() => window.location.href = "/subscription"}
             >
-              Upgrade ke Business
+              Upgrade paket
             </Button>
+            )}
             <Button size="sm" variant="outline" icon="external-link"
               onClick={() => window.location.href = "/subscription"}
             >
@@ -309,6 +382,7 @@ function TabProfil() {
             </Button>
           </div>
         </div>
+        )}
       </Section>
 
       <Section title="Notifikasi">
@@ -343,9 +417,10 @@ function TabProfil() {
             size="sm"
             variant="destructive"
             icon="trash-2"
-            onClick={() => toast({ title: "Fitur ini belum tersedia", desc: "Hubungi support untuk menghapus akun.", variant: "warning" })}
+            disabled={deleting}
+            onClick={handleDeleteAccount}
           >
-            Hapus akun
+            {deleting ? "Menghapus..." : "Hapus akun"}
           </Button>
         </div>
       </Section>
@@ -487,7 +562,7 @@ function TabProfilBisnis() {
           label="Font utama"
           value={font}
           onChange={setFont}
-          options={FONT_OPTIONS}
+          options={[...BRAND_FONT_OPTIONS]}
         />
       </Section>
 

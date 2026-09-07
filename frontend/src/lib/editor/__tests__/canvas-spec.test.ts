@@ -24,6 +24,7 @@ function makeCfg(overrides: Partial<ResolvedConfig> = {}): ResolvedConfig {
     font: { family: "Montserrat" },
     elements: [],
     logoUrl: "https://cdn/logo.png",
+    userImage: { url: null, slot: null, overlay: null },
     warnings: [],
     ...overrides,
   };
@@ -670,5 +671,37 @@ describe("flowedTop — gap desain negatif", () => {
 
   it("gap negatif + anchor aktual panjang → tetap di posisi authored", () => {
     expect(flowedTop(405, { authoredBottom: 516, actualBottom: 500 })).toBe(405);
+  });
+});
+
+describe("layer bebas gambar user", () => {
+  const USER = { url: "https://cdn/foto.png", slot: null, overlay: { x: 0.2, y: 0.34, width: 0.6, height: 0.32 } };
+
+  it("spec layer bebas ditandai interactive (bisa digeser)", () => {
+    const cfg = makeCfg({ logoUrl: null, userImage: USER });
+    const { specs } = buildCanvasSpec({ cfg, thumbnailUrl: null, contact: {} });
+    const img = specs.find((s): s is ImageSpec => s.kind === "image")!;
+    expect(img.interactive).toBe(true);
+  });
+
+  it("gambar di slot template TIDAK interactive — geometri milik template", () => {
+    const cfg = makeCfg({
+      logoUrl: null,
+      elements: [{ type: "image", source: "thumbnail", x: 0.1, y: 0.1, width: 0.8, height: 0.3 }],
+      userImage: { url: "https://cdn/foto.png", slot: { kind: "element", path: [0] }, overlay: null },
+    });
+    const { specs } = buildCanvasSpec({ cfg, thumbnailUrl: null, contact: {} });
+    const img = specs.find((s): s is ImageSpec => s.kind === "image")!;
+    expect(img.url).toBe("https://cdn/foto.png");
+    expect(img.interactive).toBeUndefined();
+  });
+
+  it("rect layer bebas dipetakan ke px sesuai dimensi canvas", () => {
+    const cfg = makeCfg({ logoUrl: null, userImage: USER });
+    const { width, height, specs } = buildCanvasSpec({ cfg, thumbnailUrl: null, contact: {} });
+    const img = specs.find((s): s is ImageSpec => s.kind === "image")!;
+    expect(img.left).toBeCloseTo(0.2 * width);
+    expect(img.top).toBeCloseTo(0.34 * height);
+    expect(img.width).toBeCloseTo(0.6 * width);
   });
 });

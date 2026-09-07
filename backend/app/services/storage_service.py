@@ -4,6 +4,7 @@ Lifecycle: temp/ (TTL 1 jam) → permanent/ (saat user pilih varian) → exporte
 """
 import logging
 import time
+import uuid
 from datetime import datetime, timezone
 
 import boto3
@@ -148,6 +149,60 @@ def upload_logo(user_id: str, file_bytes: bytes) -> str:
     except Exception as e:
         logger.error("upload_logo failed for user %s: %s", user_id, e)
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload logo ke storage.")
+
+
+def upload_content_image(user_id: str, file_bytes: bytes) -> str:
+    """Normalize + upload gambar konten user ke permanent/uploads/{user_id}/{uuid}.png.
+
+    Key-nya random (bukan deterministik seperti logo): satu user bisa punya banyak gambar
+    konten sekaligus, jadi upload baru tidak boleh menimpa yang sedang dipakai project lain.
+    """
+    normalized = images.normalize_content_image(file_bytes)
+    key = f"permanent/uploads/{user_id}/{uuid.uuid4()}.png"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=normalized,
+            ContentType="image/png",
+        )
+        return _asset_path(key)
+    except Exception as e:
+        logger.error("upload_content_image failed for user %s: %s", user_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload gambar ke storage.")
+
+
+def upload_payment_proof(file_data: bytes, user_id: str, order_id: str, ext: str, content_type: str) -> str:
+    """Upload bukti transfer ke permanent/payment-proofs/{user_id}/{order_id}.{ext}."""
+    key = f"permanent/payment-proofs/{user_id}/{order_id}.{ext}"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=file_data,
+            ContentType=content_type,
+        )
+        return _asset_path(key)
+    except Exception as e:
+        logger.error("upload_payment_proof failed order_id=%s: %s", order_id, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload bukti transfer.")
+
+
+def get_object(key: str) -> tuple[bytes, str] | None:
+    """Baca objek dari R2. Return (bytes, content_type), atau None bila tidak ada.
+
+    Dipakai proxy aset — CDN publik tidak mengirim header CORS, sedangkan canvas
+    Fabric butuh gambar yang boleh dibaca lintas origin agar export tidak tainted.
+    """
+    try:
+        client = _get_client()
+        obj = client.get_object(Bucket=settings.cloudflare_r2_bucket_name, Key=key)
+        return obj["Body"].read(), obj.get("ContentType") or "application/octet-stream"
+    except Exception:
+        logger.info("get_object miss for key=%s", key)
+        return None
 
 
 def delete_file(key: str) -> None:

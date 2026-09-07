@@ -1,6 +1,8 @@
 import { resolveTemplateConfig } from "@/lib/template/resolve";
 import type { BrandSource, ResolvedConfig } from "@/lib/template/resolve";
 import type { CopyResult } from "./merge";
+import { normalizeFontFamily } from "@/lib/fonts";
+import type { OverlayRect } from "@/lib/template/image-slot";
 import type { ProjectTemplateConfig } from "@/types/project";
 import type { TemplateConfig, TemplateElement } from "@/types/template";
 
@@ -16,6 +18,13 @@ export interface EditorPreviewState {
   letterSpacing: number; // px ruang preview 800px
   headlineScale: number; // faktor skala ukuran headline relatif template (1 = default template)
   bodyScale: number;     // faktor skala ukuran body relatif template
+  /** Gambar konten user; null/hidden → template pakai gambar bawaannya. */
+  userImageUrl?: string | null;
+  /** Posisi layer bebas gambar user; null = default resolver. */
+  userImageRect?: OverlayRect | null;
+  /** true = font DIPILIH user di editor (bukan warisan saran AI) → menang atas brand_font. */
+  headlineFontManual?: boolean;
+  bodyFontManual?: boolean;
 }
 
 /** Konteks brand editor — final_config.brand_applied + company profile live. */
@@ -26,20 +35,14 @@ export interface EditorBrandState {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Font id di panel editor → family name (dipakai merge layer & canvas renderer)
-const FONT_ID_TO_FAMILY: Record<string, string> = {
-  syne: "Syne",
-  inter: "Inter",
-  georgia: "Georgia",
-  mono: "Space Mono",
-};
-
 // Slider letterSpacing editor bekerja di ruang preview 800px; template di ruang 1080px.
 const LETTER_SPACING_SCALE = 1080 / 800;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fontFamilyOf = (id: string): string => FONT_ID_TO_FAMILY[id] ?? id;
+// Editor lama menyimpan id font ("syne"); normalizeFontFamily memetakannya ke nama
+// family. Nama family diteruskan apa adanya.
+const fontFamilyOf = (value: string): string => normalizeFontFamily(value) ?? "Inter";
 
 /** Hapus elemen ber-bind cta (rekursif) — dipakai saat CTA kosong/null. Ini fixup
  * editor-spesifik murni (UI state), BUKAN aturan resolve — makanya tetap di adapter
@@ -119,6 +122,12 @@ export function buildEditorPreviewConfig(
       profile: brand.profile,
       branded: brand.branded,
       copy,
+      userImageUrl: state.userImageUrl ?? null,
+      userImageRect: state.userImageRect ?? null,
+      fontOverrides: {
+        headline: state.headlineFontManual ? fontFamilyOf(state.headlineFont) : null,
+        body: state.bodyFontManual ? fontFamilyOf(state.bodyFont) : null,
+      },
     });
   } catch {
     return null; // config lama/invalid — fallback ke canvas generik

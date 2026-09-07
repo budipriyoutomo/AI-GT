@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Canvas, FabricObject, Textbox } from "fabric";
 import { ICONS } from "@/components/template/SocialIcon";
 import { computeTextLayout, textBoxLayout } from "@/lib/editor/canvas-spec";
+import { corsSafeAssetUrl } from "@/lib/assetUrl";
+import { FONT_CSS_VAR } from "@/lib/fonts";
 import type { MeasureBlock } from "@/lib/editor/fit-text";
 import type {
   CanvasSpecResult,
@@ -15,6 +17,7 @@ import type {
   RectSpec,
   TextSpec,
 } from "@/lib/editor/canvas-spec";
+import type { OverlayRect } from "@/lib/template/image-slot";
 
 /**
  * Canvas Fabric yang menggambar template_config (via CanvasSpecResult dari
@@ -32,14 +35,10 @@ const DISPLAY_BASE_WIDTH = 800;
 // ── Font resolution ───────────────────────────────────────────────────────────
 
 // Family template → CSS variable next/font (nilai variable = family ter-hash)
-const FONT_VARS: Record<string, string> = {
-  Poppins: "--font-poppins",
-  Montserrat: "--font-montserrat",
-  Inter: "--font-inter",
-};
-
 function resolveFontStack(family: string): string {
-  const varName = FONT_VARS[family];
+  // Peta family → CSS var dari lib/fonts.ts — sama dengan yang dipakai renderer CSS,
+  // supaya preview dan PNG export memakai font yang sama.
+  const varName = FONT_CSS_VAR[family];
   if (varName && typeof window !== "undefined") {
     const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
     if (v) return v;
@@ -106,6 +105,9 @@ const imageElementCache = new Map<string, Promise<LoadedImage | null>>();
 function loadImageElement(url: string): Promise<LoadedImage | null> {
   const hit = imageElementCache.get(url);
   if (hit) return hit;
+  // Aset kita dimuat lewat proxy backend yang mengirim header CORS — CDN publik
+  // tidak, dan tanpa CORS gambar akan dibuang dari PNG hasil export.
+  const src = corsSafeAssetUrl(url) ?? url;
   const p = new Promise<LoadedImage | null>((resolve) => {
     // Coba CORS dulu (aman untuk export); gagal → load biasa agar tetap tampil,
     // objeknya ditandai dan disembunyikan sementara saat export.
@@ -114,7 +116,7 @@ function loadImageElement(url: string): Promise<LoadedImage | null> {
       if (cors) img.crossOrigin = "anonymous";
       img.onload = () => resolve({ el: img, cors });
       img.onerror = () => (cors ? tryLoad(false) : resolve(null));
-      img.src = url;
+      img.src = src;
     };
     tryLoad(true);
   });
@@ -225,8 +227,10 @@ function makeImage(f: FabricNS, spec: ImageSpec, { el, cors }: LoadedImage) {
     top: spec.top + (spec.fit === "contain" ? (spec.height - ih * scale) / 2 : 0),
     scaleX: scale,
     scaleY: scale,
-    selectable: false,
-    evented: false,
+    // Hanya layer bebas gambar user yang boleh dipindah; sisanya geometri template.
+    selectable: !!spec.interactive,
+    evented: !!spec.interactive,
+    hasControls: !!spec.interactive,
   });
 
   if (spec.fit === "cover" || spec.radius) {
@@ -260,6 +264,9 @@ function makeImage(f: FabricNS, spec: ImageSpec, { el, cors }: LoadedImage) {
   // Gambar non-CORS: tampil di editor, tapi harus disembunyikan saat export
   // supaya canvas hasil export tidak tainted
   (img as unknown as { aigtNoCors?: boolean }).aigtNoCors = !cors;
+  if (spec.interactive) {
+    (img as unknown as { aigtUserImage?: boolean }).aigtUserImage = true;
+  }
   return img;
 }
 
@@ -419,19 +426,22 @@ function makeFooterObjects(
 // ── Scene build ───────────────────────────────────────────────────────────────
 
 async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult) {
-  // Pre-load semua gambar dulu agar object bisa dibuat sinkron sesuai z-order.
-  // Ikon footer (SVG data-URI) ikut di-preload karena digambar sinkron di makeFooterObjects.
-  const imageUrls = result.specs.filter((s) => s.kind === "image").map((s) => (s as ImageSpec).url);
+  // Ikon footer adalah SVG data-URI (tanpa network) — aman di-preload karena
+  // makeFooterObjects menggambarnya sinkron.
   const footerIconUrls = result.specs
     .filter((s): s is FooterSpec => s.kind === "footer")
     .flatMap((ft) => ft.items.map((it) => footerIconUrl(it.slot, ft.color, ft.fontSize)))
     .filter((u): u is string => !!u);
-  const urls = [...new Set([...imageUrls, ...footerIconUrls])];
   const loaded = new Map(await Promise.all(
-    urls.map(async (u) => [u, await loadImageElement(u)] as const),
+    [...new Set(footerIconUrls)].map(async (u) => [u, await loadImageElement(u)] as const),
   ));
 
   const textLayout = computeTextLayout(result.specs, (spec) => measurerFor(f, spec));
+
+  // Gambar dari network TIDAK ditunggu di sini: teks & bentuk digambar duluan,
+  // gambar menyusul di slot z-order yang sudah dipesan placeholder. Menunggu
+  // semuanya bikin canvas kosong berdetik-detik saat load pertama.
+  const pending: { spec: ImageSpec; placeholder: FabricObject }[] = [];
 
   canvas.clear();
   for (const spec of result.specs) {
@@ -440,8 +450,12 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
         canvas.add(makeRect(f, spec));
         break;
       case "image": {
-        const el = loaded.get(spec.url);
-        if (el) canvas.add(makeImage(f, spec, el));
+        const placeholder = new f.Rect({
+          left: spec.left, top: spec.top, width: spec.width, height: spec.height,
+          fill: "transparent", visible: false, selectable: false, evented: false,
+        });
+        canvas.add(placeholder);
+        pending.push({ spec, placeholder });
         break;
       }
       case "text": {
@@ -459,6 +473,18 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
       }
     }
   }
+  canvas.renderAll(); // teks & bentuk sudah terlihat sebelum gambar tiba
+
+  await Promise.all(pending.map(async ({ spec, placeholder }) => {
+    const el = await loadImageElement(spec.url);
+    const index = canvas.getObjects().indexOf(placeholder);
+    if (index < 0) return; // scene sudah di-rebuild — hasil ini basi
+    canvas.remove(placeholder);
+    if (!el) return;
+    const img = makeImage(f, spec, el);
+    canvas.add(img);
+    canvas.moveObjectTo(img, index);
+  }));
   canvas.renderAll();
 }
 
@@ -466,8 +492,14 @@ async function buildScene(f: FabricNS, canvas: Canvas, result: CanvasSpecResult)
 
 const TemplateFabricCanvas = forwardRef<
   TemplateFabricCanvasHandle,
-  { spec: CanvasSpecResult; zoom?: number; onReady?: () => void }
->(({ spec, zoom = 0.55, onReady }, ref) => {
+  {
+    spec: CanvasSpecResult;
+    zoom?: number;
+    onReady?: () => void;
+    /** Dipanggil saat user selesai menggeser/resize layer bebas gambar. */
+    onUserImageRectChange?: (rect: OverlayRect) => void;
+  }
+>(({ spec, zoom = 0.55, onReady, onUserImageRectChange }, ref) => {
   const elRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<Canvas | null>(null);
   const fabricRef = useRef<FabricNS | null>(null);
@@ -475,6 +507,8 @@ const TemplateFabricCanvas = forwardRef<
   const readyFiredRef = useRef(false);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
+  const onRectRef = useRef(onUserImageRectChange);
+  onRectRef.current = onUserImageRectChange;
 
   useImperativeHandle(ref, () => ({
     exportPng: () =>
@@ -512,6 +546,19 @@ const TemplateFabricCanvas = forwardRef<
           height: spec.height,
           selection: false,
           renderOnAddRemove: false,
+        });
+        // Posisi layer bebas dilaporkan dalam koordinat fraksional agar bebas dari
+        // dimensi canvas — sama ruang dengan USER_IMAGE_OVERLAY_RECT.
+        canvasRef.current.on("object:modified", (e) => {
+          const obj = e.target as FabricObject & { aigtUserImage?: boolean };
+          if (!obj?.aigtUserImage) return;
+          const c = canvasRef.current!;
+          onRectRef.current?.({
+            x: (obj.left ?? 0) / c.getWidth(),
+            y: (obj.top ?? 0) / c.getHeight(),
+            width: (obj.width * (obj.scaleX ?? 1)) / c.getWidth(),
+            height: (obj.height * (obj.scaleY ?? 1)) / c.getHeight(),
+          });
         });
       } else if (
         canvasRef.current.getWidth() !== spec.width ||

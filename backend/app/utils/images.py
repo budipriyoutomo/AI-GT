@@ -8,10 +8,15 @@ MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
 MAX_DIMENSION = 1024
 ALLOWED_FORMATS = {"PNG", "JPEG", "WEBP"}
 
+# Gambar konten dipakai sebagai foto foreground/background canvas — butuh resolusi jauh
+# lebih besar dari logo, jadi batasnya sendiri.
+MAX_CONTENT_FILE_SIZE_BYTES = 5 * 1024 * 1024
+MAX_CONTENT_DIMENSION = 2048
 
-def normalize_logo_image(file_bytes: bytes) -> bytes:
-    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-        raise AppError(400, ErrorCode.FILE_TOO_LARGE, "Ukuran file maksimum 2 MB.")
+
+def _decode(file_bytes: bytes, max_size: int, max_size_label: str) -> Image.Image:
+    if len(file_bytes) > max_size:
+        raise AppError(400, ErrorCode.FILE_TOO_LARGE, f"Ukuran file maksimum {max_size_label}.")
 
     try:
         img = Image.open(BytesIO(file_bytes))
@@ -25,15 +30,30 @@ def normalize_logo_image(file_bytes: bytes) -> bytes:
         raise AppError(
             400, ErrorCode.INVALID_FILE_TYPE, "Format file tidak didukung. Gunakan PNG, JPEG, atau WEBP."
         )
+    return img
 
+
+def _to_png(img: Image.Image, max_dimension: int) -> bytes:
     img = img.convert("RGBA")
 
     longest = max(img.size)
-    if longest > MAX_DIMENSION:
-        scale = MAX_DIMENSION / longest
+    if longest > max_dimension:
+        scale = max_dimension / longest
         new_size = (round(img.width * scale), round(img.height * scale))
         img = img.resize(new_size, Image.LANCZOS)
 
     out = BytesIO()
     img.save(out, format="PNG")
     return out.getvalue()
+
+
+def normalize_logo_image(file_bytes: bytes) -> bytes:
+    return _to_png(_decode(file_bytes, MAX_FILE_SIZE_BYTES, "2 MB"), MAX_DIMENSION)
+
+
+def normalize_content_image(file_bytes: bytes) -> bytes:
+    """Gambar konten user (image_source = "upload"). Dinormalisasi ke PNG sama seperti logo,
+    tapi dengan batas ukuran/dimensi yang lebih longgar."""
+    return _to_png(
+        _decode(file_bytes, MAX_CONTENT_FILE_SIZE_BYTES, "5 MB"), MAX_CONTENT_DIMENSION
+    )

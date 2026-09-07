@@ -53,6 +53,9 @@ interface AuthContextValue {
   updateProfile: (data: Partial<Omit<UserContext, "id" | "email">>) => Promise<void>;
   /** Fetch fresh company_profile and merge it into the shared user state. */
   refreshProfile: () => Promise<void>;
+  uploadLogo: (file: File) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>;
+  deleteAccount: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -152,6 +155,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => prev ? { ...prev, ...data } : prev);
   }
 
+  async function uploadLogo(file: File): Promise<void> {
+    // Endpoint upload TIDAK menyentuh DB (§ storage_service.upload_logo) — hanya
+    // mengembalikan {logo_url}. Persist ke company_profile lewat updateProfile()
+    // seperti field brand lain, supaya tri-state PATCH & sinkronisasi state tetap satu jalur.
+    const { logo_url } = await companyProfileApi.uploadLogo(file);
+    await updateProfile({ logoUrl: logo_url });
+  }
+
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<string | null> {
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
+    }
+  }
+
+  async function deleteAccount(): Promise<string | null> {
+    try {
+      await authApi.deleteAccount();
+      authApi.logout();
+      setUser(null);
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return "Terjadi kesalahan. Coba lagi.";
+    }
+  }
+
   function logout() {
     authApi.logout();
     setUser(null);
@@ -183,7 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!ready) return null;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ user, login, register, logout, updateProfile, refreshProfile, uploadLogo, changePassword, deleteAccount }}
+    >
       {children}
     </AuthContext.Provider>
   );

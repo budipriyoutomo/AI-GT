@@ -16,6 +16,8 @@ export interface CreateSessionRequest {
   platform: PlatformEnum;
   language_style: LanguageStyleEnum;
   image_source?: ImageSourceEnum;
+  /** Hasil generateApi.uploadImage — wajib saat image_source = "upload". */
+  uploaded_image_url?: string | null;
   thematic_image_theme?: string | null;
   selected_image_prompt?: string | null;
   product_or_service: string;
@@ -27,6 +29,12 @@ export interface CreateSessionRequest {
 }
 
 export const generateApi = {
+  uploadImage: (file: File): Promise<{ image_url: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.upload<{ image_url: string }>("/api/v1/generate/upload-image", formData);
+  },
+
   createSession: (data: CreateSessionRequest): Promise<GenerateSession> =>
     api.post<GenerateSession>("/api/v1/generate/session", data),
 

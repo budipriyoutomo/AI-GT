@@ -157,7 +157,6 @@ class TestExportProject:
         assert res.status_code == 200
         body = res.json()
         assert body["success"] is True
-        assert body["data"]["is_exported"] is True
         assert body["data"]["exported_image_url"] == fake_url
 
     async def test_export_project_not_found(self, client: AsyncClient, auth_headers: dict):

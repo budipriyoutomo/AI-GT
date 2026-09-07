@@ -5,14 +5,13 @@ import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { projectsApi } from "@/api/projectsApi";
 import { resolveAssetUrl } from "@/lib/assetUrl";
-import type { Project } from "@/types/project";
+import { isProjectExported, type Project } from "@/types/project";
 
 const ACCENT_BY_INDEX = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
 
@@ -75,10 +74,7 @@ function HistoryCard({ project, onDelete }: { project: Project; onDelete: () => 
           <div className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.title}</div>
           <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>{project.id.slice(0, 8).toUpperCase()}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-          <Badge variant={project.is_exported ? "success" : "warning"} dot>
-            {project.is_exported ? "Exported" : "Draft"}
-          </Badge>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{formatDate(project.created_at)}</span>
             <button className="aigt-iconbtn" style={{ width: 26, height: 26, color: "var(--destructive)" }} onClick={handleDelete}>
@@ -106,8 +102,8 @@ export default function HistoryPage() {
 
   const list = useMemo(() => {
     let result = projects;
-    if (filter === "Exported") result = result.filter((p) => p.is_exported);
-    if (filter === "Draft") result = result.filter((p) => !p.is_exported);
+    if (filter === "Exported") result = result.filter((p) => isProjectExported(p));
+    if (filter === "Draft") result = result.filter((p) => !isProjectExported(p));
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter((p) =>
@@ -125,13 +121,10 @@ export default function HistoryPage() {
     <Shell
       active="history"
       title="Riwayat"
-      actions={
-        <Button size="sm" variant="outline" icon="download">Export semua</Button>
-      }
     >
       <PageHead
         title="Riwayat Generate"
-        subtitle={`${projects.length} konten total · ${projects.filter((p) => p.is_exported).length} exported`}
+        subtitle={`${projects.length} konten total · ${projects.filter((p) => isProjectExported(p)).length} exported`}
       />
 
       {/* Toolbar */}
@@ -150,7 +143,10 @@ export default function HistoryPage() {
             </button>
           )}
         </div>
-        <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Exported", "Draft"]} />
+        {/* Status filter (Semua/Exported/Draft) hidden temporarily */}
+        {false && (
+          <Tabs value={filter} onChange={setFilter} tabs={["Semua", "Exported", "Draft"]} />
+        )}
         <div style={{ marginLeft: "auto" }}>
           <span className="aigt-caption">{list.length} hasil</span>
         </div>
