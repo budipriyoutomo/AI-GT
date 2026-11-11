@@ -40,6 +40,8 @@ export interface ImageSpec {
   height: number;
   fit: "cover" | "contain";
   radius?: number; // px
+  angle?: number;
+  skewX?: number;
   /** true = layer bebas gambar user: boleh digeser/resize di editor. Slot template tidak. */
   interactive?: boolean;
 }
@@ -97,6 +99,8 @@ export interface FooterSpec {
   opacity: number;
   color: string;
   fontSize: number;
+  angle?: number;
+  skewX?: number;
   // Satu entri per slot (urut). `text` = kontak dari company profile (null → ikon saja).
   // Ikon SELALU dirender (paritas SocialIcon di TemplateRenderer).
   items: { slot: string; text: string | null }[];
@@ -476,6 +480,7 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
       const url = isUserSlot ? ctx.userImage.url : el.source === "thumbnail" ? ctx.thumbnailUrl : null;
       // Foto foreground dari templates.thumbnail_url — kosong → jangan render
       if (!url) return [];
+      const s = el.style ?? {};
       return [{
         kind: "image",
         url,
@@ -485,6 +490,8 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
         height: (el.height ?? 0.3) * ctx.h,
         fit: el.fit === "contain" ? "contain" : "cover",
         radius: el.radius != null ? el.radius * ctx.scale : undefined,
+        angle: s.rotate ?? undefined,
+        skewX: s.skew ?? undefined,
       }];
     }
 
@@ -544,6 +551,8 @@ function elementSpecs(el: TemplateElement, ctx: Ctx, index: number): CanvasSpec[
         opacity: s.opacity ?? 1,
         color: resolveColor(ctx.scheme, s.color),
         fontSize: (s.fontSize ?? 20) * ctx.scale,
+        angle: s.rotate ?? undefined,
+        skewX: s.skew ?? undefined,
         // Semua slot dipertahankan agar ikon tetap tampil walau kontak kosong.
         // Nilai kosong/"" → null (ikon saja), paritas dengan TemplateRenderer (`contact[slot] && …`).
         items: (el.slots ?? []).map((slot) => ({ slot, text: ctx.contact[slot] || null })),

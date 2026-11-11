@@ -1,0 +1,176 @@
+{
+  "_meta": {
+    "source_ref": "Red And Cream Food Business Illustrated Chinese New Year Promo Invitation.webp",
+    "catatan": "Template F&B perayaan Imlek poster retro. Elemen image dan footer (frame belakang) menggunakan skewX negatif. Teks headline menggunakan efek outline tebal (stroke) seperti stiker tanpa box background, sesuai permintaan pengguna.",
+    "ai_slots": {
+      "bind_kosakata": ["headline", "body"],
+      "dipakai_template_ini": [
+        "headline -> CHINESE NEW YEAR SPECIALS",
+        "body -> reserve your table. save up to 50% off!"
+      ]
+    }
+  },
+  "name": "Chinese New Year Red & Cream Promo",
+  "industry": "fnb",
+  "theme": "promo",
+  "content_type": "instagram_post",
+  "copy_intent": "promotion",
+  "thumbnail_url": "https://images.unsplash.com/photo-1541696432-82c6da8ce7bf?q=80&w=1080",
+  "is_premium": false,
+  "template_config": {
+    "canvas": {
+      "aspect": "4:5",
+      "dimensions": {
+        "width": 1080,
+        "height": 1350
+      }
+    },
+    "background": {
+      "type": "color",
+      "value": "#8C0D16"
+    },
+    "color_scheme": {
+      "accent": "#FFF9E6",
+      "primary": "#8C0D16",
+      "secondary": "#FFE6A3"
+    },
+    "font": {
+      "family": "Archivo Black"
+    },
+    "brand_theme": {
+      "mode": "tint",
+      "color_slots": {
+        "accent": 0
+      },
+      "font_brand_roles": ["body"]
+    },
+    "elements": [
+      {
+        "type": "logo",
+        "source": "brand",
+        "x": 0.38,
+        "y": 0.02,
+        "width": 0.24,
+        "height": 0.05
+      },
+      {
+        "type": "footer",
+        "x": 0.07,
+        "y": 0.31,
+        "width": 0.86,
+        "height": 0.47,
+        "slots": [],
+        "style": {
+          "backgroundColor": "accent",
+          "radius": 12,
+          "skew": -8
+        }
+      },
+      {
+        "type": "image",
+        "source": "thumbnail",
+        "x": 0.08,
+        "y": 0.32,
+        "width": 0.84,
+        "height": 0.45,
+        "fit": "cover",
+        "radius": 8,
+        "style": {
+          "skew": -8
+        }
+      },
+      {
+        "type": "text",
+        "role": "headline",
+        "bind": "headline",
+        "maxWords": 5,
+        "x": 0.05,
+        "y": 0.08,
+        "width": 0.90,
+        "align": "center",
+        "value": "CHINESE NEW\nYEAR SPECIALS",
+        "style": {
+          "fontSize": 96,
+          "weight": "400",
+          "color": "primary",
+          "fontFamily": "Archivo Black",
+          "skew": -8,
+          "stroke": {
+            "width": 15,
+            "color": "accent"
+          }
+        }
+      },
+      {
+        "type": "text",
+        "role": "badge",
+        "x": 0.02,
+        "y": 0.45,
+        "width": 0.38,
+        "align": "center",
+        "value": "set-meals",
+        "style": {
+          "fontSize": 36,
+          "weight": "700",
+          "color": "primary",
+          "background": "accent",
+          "radius": 6,
+          "padding": "0.15em 0.6em",
+          "rotate": -8,
+          "fontFamily": "Poppins",
+          "shadow": "0 4px 12px rgba(0,0,0,0.3)"
+        }
+      },
+      {
+        "type": "text",
+        "role": "badge",
+        "x": 0.60,
+        "y": 0.65,
+        "width": 0.38,
+        "align": "center",
+        "value": "group tables",
+        "style": {
+          "fontSize": 36,
+          "weight": "700",
+          "color": "primary",
+          "background": "accent",
+          "radius": 6,
+          "padding": "0.15em 0.6em",
+          "rotate": 6,
+          "fontFamily": "Poppins",
+          "shadow": "0 4px 12px rgba(0,0,0,0.3)"
+        }
+      },
+      {
+        "type": "text",
+        "role": "body",
+        "bind": "body",
+        "x": 0.08,
+        "y": 0.84,
+        "width": 0.84,
+        "align": "center",
+        "value": "reserve your table. save up to 50% off!",
+        "style": {
+          "fontSize": 28,
+          "weight": "600",
+          "color": "accent",
+          "lineHeight": 1.3,
+          "fontFamily": "Poppins",
+          "letterSpacing": 2
+        }
+      },
+      {
+        "type": "footer",
+        "x": 0.05,
+        "y": 0.93,
+        "width": 0.90,
+        "slots": ["instagram", "whatsapp", "location"],
+        "align": "center",
+        "style": {
+          "color": "secondary",
+          "fontSize": 20
+        }
+      }
+    ]
+  }
+}
