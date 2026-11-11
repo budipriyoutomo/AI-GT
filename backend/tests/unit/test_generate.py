@@ -659,3 +659,111 @@ class TestBrandApplied:
         project = await db.scalar(select(Project).where(Project.session_id == session.id))
         assert project is not None
         assert project.final_config["brand_applied"] is True
+
+
+class TestPlatformLockedToInstagramFeed:
+    """P1-4c — MVP dikunci ke Instagram Feed (semua template 4:5 `instagram_post`).
+
+    Platform lain dulu bisa dipilih tapi tak mengubah apa pun selain prompt — copy ditulis
+    untuk TikTok/Story sementara output tetap poster 4:5 Instagram.
+    """
+
+    async def test_platform_optional_defaults_to_instagram_feed(
+        self, client: AsyncClient, auth_headers: dict, sample_template: Template, company_profile: CompanyProfile,
+    ):
+        payload = _payload(str(sample_template.id))
+        payload.pop("platform")
+        with patch("app.services.generate_service.run_generation_task", new_callable=AsyncMock):
+            res = await client.post("/api/v1/generate/session", headers=auth_headers, json=payload)
+        assert res.status_code == 201
+        session_id = res.json()["data"]["id"]
+        session = await client.get(f"/api/v1/generate/session/{session_id}", headers=auth_headers)
+        assert session.json()["data"]["platform"] == "instagram_feed"
+
+    async def test_other_platforms_rejected(
+        self, client: AsyncClient, auth_headers: dict, sample_template: Template, company_profile: CompanyProfile,
+    ):
+        for platform in ("instagram_story", "facebook", "tiktok"):
+            with patch("app.services.generate_service.run_generation_task", new_callable=AsyncMock):
+                res = await client.post(
+                    "/api/v1/generate/session", headers=auth_headers,
+                    json=_payload(str(sample_template.id), platform=platform),
+                )
+            assert res.status_code == 422, platform
+
+
+class TestGenerateAuxEndpoints:
+    """P3-2 — endpoint pendukung di routers/generate.py yang belum teruji."""
+
+    async def test_upload_image(self, client: AsyncClient, auth_headers: dict, verified_user: User):
+        from app.services import storage_service
+
+        url = f"/permanent/uploads/{verified_user.id}/abc.png"
+        with patch.object(storage_service, "upload_content_image", return_value=url) as up:
+            res = await client.post(
+                "/api/v1/generate/upload-image", headers=auth_headers,
+                files={"file": ("a.png", b"PNGDATA", "image/png")},
+            )
+        assert res.status_code == 200
+        assert res.json() == {"success": True, "data": {"image_url": url}}
+        up.assert_called_once_with(str(verified_user.id), b"PNGDATA")
+
+    async def test_upload_image_requires_auth(self, client: AsyncClient):
+        res = await client.post("/api/v1/generate/upload-image", files={"file": ("a.png", b"x", "image/png")})
+        assert res.status_code == 401
+
+    async def test_image_suggestions(self, client: AsyncClient, auth_headers: dict):
+        from app.services import ai_service
+
+        with patch.object(ai_service, "generate_image_suggestions", new=AsyncMock(return_value=["a", "b", "c"])) as gen:
+            res = await client.post(
+                "/api/v1/generate/image-suggestions", headers=auth_headers,
+                json={"content_brief": "kopi susu", "industry": "fnb"},
+            )
+        assert res.status_code == 200
+        assert res.json()["data"]["suggestions"] == ["a", "b", "c"]
+        assert gen.call_args.kwargs["language_preference"] == "id"  # default
+
+    async def test_image_suggestions_ai_failure_is_503(self, client: AsyncClient, auth_headers: dict):
+        """AGENTS.md §4: provider AI tidak tersedia → 503 AI_GENERATION_FAILED."""
+        from app.services import ai_service
+
+        with patch.object(ai_service, "generate_image_suggestions", new=AsyncMock(return_value=[])):
+            res = await client.post(
+                "/api/v1/generate/image-suggestions", headers=auth_headers, json={"content_brief": "kopi"},
+            )
+        assert res.status_code == 503
+        assert res.json()["error"]["code"] == "AI_GENERATION_FAILED"
+
+    async def test_image_suggestions_validation(self, client: AsyncClient, auth_headers: dict):
+        res = await client.post("/api/v1/generate/image-suggestions", headers=auth_headers, json={})
+        assert res.status_code == 422
+
+    async def test_image_without_project(self, client: AsyncClient, auth_headers: dict):
+        from app.services import ai_service
+
+        with patch.object(ai_service, "generate_single_image", new=AsyncMock(return_value="https://img/x.png")):
+            res = await client.post("/api/v1/generate/image", headers=auth_headers, json={"prompt": "kopi"})
+        assert res.status_code == 200
+        assert res.json()["data"]["url"] == "https://img/x.png"
+
+    async def test_image_for_project(self, client: AsyncClient, auth_headers: dict, verified_user: User, project):
+        from app.services import generate_service
+
+        with patch.object(generate_service, "regenerate_project_image", new=AsyncMock(return_value="/permanent/x.png")) as regen:
+            res = await client.post(
+                "/api/v1/generate/image", headers=auth_headers,
+                json={"prompt": "kopi", "project_id": str(project.id)},
+            )
+        assert res.json()["data"]["url"] == "/permanent/x.png"
+        args = regen.call_args.args
+        assert (args[1], args[2], args[3]) == (verified_user.id, project.id, "kopi")
+
+    async def test_image_ai_failure_returns_null_url(self, client: AsyncClient, auth_headers: dict):
+        """Kegagalan gambar tidak menggagalkan request (AGENTS.md §5) — url null."""
+        from app.services import ai_service
+
+        with patch.object(ai_service, "generate_single_image", new=AsyncMock(return_value=None)):
+            res = await client.post("/api/v1/generate/image", headers=auth_headers, json={"prompt": "kopi"})
+        assert res.status_code == 200
+        assert res.json()["data"]["url"] is None

@@ -30,6 +30,10 @@ class GenerateSession(Base):
     # 0-100. Diperbarui backend saat run_generation_task berjalan agar frontend
     # bisa menampilkan progress asli (bukan simulasi waktu).
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Diisi saat status → "failed" (A-8). HANYA untuk panel admin — jangan pernah
+    # diserialisasi ke response user (pesan provider bisa berisi detail internal).
+    error_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

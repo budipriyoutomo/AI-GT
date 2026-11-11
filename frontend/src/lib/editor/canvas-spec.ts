@@ -113,6 +113,9 @@ export interface CanvasSpecResult {
 export interface CanvasSpecInput {
   cfg: ResolvedConfig;
   thumbnailUrl?: string | null; // templates.thumbnail_url — background/foreground image
+  /** templates.background_url — latar `source:"background"` (paritas TemplateRenderer).
+   *  undefined = project lama yang final_config-nya belum membawa background_url → pakai thumbnailUrl. */
+  backgroundUrl?: string | null;
   contact?: Record<string, string>;
   tagline?: string | null;      // company_profile.tagline — isi elemen tipe "tagline"
 }
@@ -341,6 +344,7 @@ interface Ctx {
   scheme: ColorScheme;
   defaultFont: string;
   thumbnailUrl: string | null;
+  backgroundUrl: string | null | undefined;
   logoUrl: string | null;
   contact: Record<string, string>;
   tagline: string;
@@ -576,8 +580,10 @@ function backgroundSpecs(cfg: ResolvedConfig, ctx: Ctx): CanvasSpec[] {
 
   if (bg.type === "image") {
     const specs: CanvasSpec[] = [{ kind: "rect", ...full, fill: bg.fallback ?? "#111111" }];
-    const url =
-      ctx.userImage.slot?.kind === "background" ? ctx.userImage.url : ctx.thumbnailUrl;
+    // Sama dengan TemplateRenderer: "background" → background_url, selain itu → thumbnail_url.
+    const templateBg =
+      bg.source === "background" && ctx.backgroundUrl !== undefined ? ctx.backgroundUrl : ctx.thumbnailUrl;
+    const url = ctx.userImage.slot?.kind === "background" ? ctx.userImage.url : templateBg;
     if (url) {
       specs.push({ kind: "image", url, ...full, fit: "cover" });
     }
@@ -617,6 +623,7 @@ export function buildCanvasSpec(input: CanvasSpecInput): CanvasSpecResult {
     scheme: cfg.color_scheme ?? ({} as ColorScheme),
     defaultFont: cfg.font?.family ?? "Inter",
     thumbnailUrl: input.thumbnailUrl ?? null,
+    backgroundUrl: input.backgroundUrl,
     logoUrl: cfg.logoUrl ?? null,
     contact: input.contact ?? {},
     tagline: input.tagline ?? "",

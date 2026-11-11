@@ -8,8 +8,11 @@ export function useAutoSave(
   delay = 1000,
 ) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Selalu panggil fn terbaru tanpa me-reset timer: ref diperbarui setelah render (bukan saat render).
   const fnRef = useRef(fn);
-  fnRef.current = fn;
+  useEffect(() => {
+    fnRef.current = fn;
+  });
 
   useEffect(() => {
     if (!enabled) return;

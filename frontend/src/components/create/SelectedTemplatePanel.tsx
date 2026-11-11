@@ -31,8 +31,6 @@ export function SelectedTemplatePanel({
   hasBrand,
   onToggleBrand,
   userLogoUrl,
-  isCarousel,
-  slideCount,
   onChangeTemplate,
 }: {
   template: Template | null;
@@ -43,8 +41,6 @@ export function SelectedTemplatePanel({
   hasBrand: boolean;
   onToggleBrand: () => void;
   userLogoUrl: string | null;
-  isCarousel: boolean;
-  slideCount: number;
   onChangeTemplate: () => void;
 }) {
   const resolved = template
@@ -100,7 +96,6 @@ export function SelectedTemplatePanel({
         <div className="aigt-h6">{template?.name ?? "Memuat…"}</div>
         <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
           {template?.content_type && <Badge variant="secondary">{template.content_type}</Badge>}
-          {isCarousel && <Badge variant="info" icon="layers">{slideCount} Slide</Badge>}
           {template?.industry && <Badge variant="secondary">{template.industry}</Badge>}
           {template?.theme && <Badge variant="info">{template.theme}</Badge>}
         </div>

@@ -103,6 +103,8 @@ const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zo
     useEffect(() => {
       if (!elRef.current) return;
       let alive = true;
+      // Objek holder yang sama dipakai cleanup (isinya diisi async setelah fabric dimuat).
+      const objs = objRef.current;
 
       import("fabric").then(({ Canvas, Rect, FabricText, Textbox, FabricImage, Gradient }) => {
         if (!alive || !elRef.current) return;
@@ -278,8 +280,8 @@ const FabricCanvas = forwardRef<FabricCanvasHandle, { content: CanvasContent; zo
 
       return () => {
         alive = false;
-        objRef.current.canvas?.dispose();
-        objRef.current.canvas = null;
+        objs.canvas?.dispose();
+        objs.canvas = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

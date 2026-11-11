@@ -5,100 +5,38 @@ import Link from "next/link";
 import { Shell } from "@/components/shell/shell";
 import { PageHead } from "@/components/shell/page-head";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
-import { toast } from "@/components/ui/toast";
+import { EmptyState, LoadErrorState } from "@/components/ui/empty-state";
+import { QuotaExhaustedBanner } from "@/components/billing/QuotaExhaustedBanner";
 import { projectsApi } from "@/api/projectsApi";
-import { resolveAssetUrl } from "@/lib/assetUrl";
+import { HistoryCard } from "@/components/history/HistoryCard";
+import { useSubscription } from "@/hooks/useSubscription";
+import { isQuotaExhausted } from "@/lib/quota";
 import { isProjectExported, type Project } from "@/types/project";
-
-const ACCENT_BY_INDEX = ["--chart-1", "--chart-3", "--chart-2", "--chart-4", "--chart-5"];
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-
-function HistoryCard({ project, onDelete }: { project: Project; onDelete: () => void }) {
-  const headline = project.final_config?.copy?.headline ?? project.title;
-  const accent = ACCENT_BY_INDEX[parseInt(project.id.slice(-1), 16) % ACCENT_BY_INDEX.length];
-
-  async function handleDelete() {
-    try {
-      await projectsApi.delete(project.id);
-      toast({ title: "Konten dihapus", desc: project.title, variant: "info" });
-      onDelete();
-    } catch {
-      toast({ title: "Gagal menghapus", variant: "error" });
-    }
-  }
-
-  return (
-    <div style={{ position: "relative" }} className="group">
-      <Card variant="elevated" padding={12} hover style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ position: "relative" }}>
-          <div style={{
-            aspectRatio: "4 / 3",
-            borderRadius: "var(--radius-md)",
-            background: `color-mix(in oklch, var(${accent}) 15%, var(--surface-sunken))`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden",
-          }}>
-            {(project.thumbnail_url || project.exported_image_url) ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={resolveAssetUrl(project.thumbnail_url ?? project.exported_image_url)!}
-                alt={headline}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <div style={{ padding: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: `var(${accent})` }}>Copy</div>
-                <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2, color: `color-mix(in oklch, var(${accent}) 70%, var(--foreground))`, marginTop: 4 }}>{headline}</div>
-                {project.final_config?.copy?.cta && (
-                  <span style={{ display: "inline-block", marginTop: 8, padding: "3px 10px", borderRadius: 999, background: `var(${accent})`, color: "#fff", fontSize: 9, fontWeight: 700 }}>
-                    {project.final_config.copy.cta}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto" style={{ position: "absolute", inset: "12px 12px auto 12px" }}>
-            <Link href={`/editor?projectId=${project.id}`} style={{ display: "block" }}>
-              <Button icon="pencil" style={{ width: "100%" }}>Edit di Canvas</Button>
-            </Link>
-          </div>
-        </div>
-        <div style={{ marginTop: 11 }}>
-          <div className="aigt-h6" style={{ fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.title}</div>
-          <div className="aigt-mono" style={{ fontSize: 10, color: "var(--primary)", fontWeight: 600, marginTop: 3 }}>{project.id.slice(0, 8).toUpperCase()}</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span className="aigt-mono" style={{ fontSize: 10, color: "var(--muted-foreground)" }}>{formatDate(project.created_at)}</span>
-            <button className="aigt-iconbtn" style={{ width: 26, height: 26, color: "var(--destructive)" }} onClick={handleDelete}>
-              <Icon name="trash-2" size={14} />
-            </button>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
 
 export default function HistoryPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState("Semua");
   const [query, setQuery] = useState("");
+  const sub = useSubscription();
+  const quotaExhausted = isQuotaExhausted(sub?.usage);
 
   useEffect(() => {
     projectsApi.list()
       .then(setProjects)
-      .catch(() => toast({ title: "Gagal memuat riwayat", variant: "error" }))
+      .catch(() => setLoadError(true))
       .finally(() => setLoadingList(false));
-  }, []);
+  }, [reloadKey]);
+
+  function retryLoad() {
+    setLoadError(false);
+    setLoadingList(true);
+    setReloadKey((k) => k + 1);
+  }
 
   const list = useMemo(() => {
     let result = projects;
@@ -117,6 +55,10 @@ export default function HistoryPage() {
     setProjects((prev) => prev.filter((p) => p.id !== id));
   }
 
+  function handleRenamed(id: string, title: string) {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, title } : p)));
+  }
+
   return (
     <Shell
       active="history"
@@ -126,6 +68,8 @@ export default function HistoryPage() {
         title="Riwayat Generate"
         subtitle={`${projects.length} konten total · ${projects.filter((p) => isProjectExported(p)).length} exported`}
       />
+
+      <QuotaExhaustedBanner usage={sub?.usage ?? null} />
 
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
@@ -158,24 +102,29 @@ export default function HistoryPage() {
           <Icon name="loader-2" size={20} style={{ animation: "spin 1s linear infinite" }} />
           <span style={{ fontSize: "var(--text-sm)" }}>Memuat riwayat…</span>
         </div>
+      ) : loadError ? (
+        <LoadErrorState title="Gagal memuat riwayat" onRetry={retryLoad} />
       ) : list.length > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {list.map((p) => (
-            <HistoryCard key={p.id} project={p} onDelete={() => handleDelete(p.id)} />
+            <HistoryCard key={p.id} project={p} onDelete={() => handleDelete(p.id)} onRenamed={handleRenamed} />
           ))}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "60px 0", color: "var(--muted-foreground)" }}>
-          <Icon name={query || filter !== "Semua" ? "search-x" : "folder-open"} size={36} style={{ opacity: 0.4 }} />
-          <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>
-            {query || filter !== "Semua" ? "Tidak ada konten yang cocok" : "Belum ada konten"}
-          </div>
-          {(query || filter !== "Semua") ? (
-            <button onClick={() => { setQuery(""); setFilter("Semua"); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "var(--text-xs)", fontWeight: 600 }}>Reset filter</button>
-          ) : (
-            <Link href="/templates"><Button size="sm" icon="plus">Buat konten pertama</Button></Link>
-          )}
-        </div>
+        query || filter !== "Semua" ? (
+          <EmptyState
+            icon="search-x"
+            title="Tidak ada konten yang cocok"
+            action={<Button size="sm" variant="ghost" onClick={() => { setQuery(""); setFilter("Semua"); }}>Reset filter</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon="folder-open"
+            title="Belum ada konten"
+            // Kuota habis: banner di atas sudah mengarahkan ke upgrade — jangan ajak generate yang pasti ditolak.
+            action={quotaExhausted ? undefined : <Link href="/templates"><Button size="sm" icon="plus">Buat konten pertama</Button></Link>}
+          />
+        )
       )}
     </Shell>
   );

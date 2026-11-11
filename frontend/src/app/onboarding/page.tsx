@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FontSelect } from "@/components/ui/font-select";
-import { Switch } from "@/components/ui/switch";
 import { Icon } from "@/components/ui/icon";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LogoUploadField } from "@/components/ui/logo-upload-field";
@@ -19,7 +18,7 @@ const STEPS = [
   { t: "Profil Bisnis", s: "Nama, industri & deskripsi" },
   { t: "Logo & Identitas", s: "Unggah logo dan tagline" },
   { t: "Brand Color", s: "Warna utama brand" },
-  { t: "Preferensi", s: "Bahasa, tone & platform" },
+  { t: "Preferensi", s: "Bahasa konten" },
 ];
 
 const COLORS = ["#2F6BFF", "#7C3AED", "#0EA5A4", "#E5484D", "#F59E0B", "#EC4899", "#16A34A", "#0F172A"];
@@ -29,26 +28,21 @@ export default function OnboardingPage() {
   const router = useRouter();
 
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [industry, setIndustry] = useState("F&B / Kuliner");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [color, setColor] = useState("#2F6BFF");
-  const [secondary, setSecondary] = useState("#7C3AED");
-  const [tagline, setTagline] = useState("");
-  const [font, setFont] = useState("Inter");
-  const [lang, setLang] = useState("Indonesia");
-  const [tone, setTone] = useState("Ramah & santai");
+  // Pre-fill dari profil tersimpan — dibaca sekali saat mount (initializer), bukan setState di effect.
+  const [name, setName] = useState(() => user?.businessName || "");
+  const [industry, setIndustry] = useState(() => user?.industry || "F&B / Kuliner");
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => user?.logoUrl || null);
+  const [color, setColor] = useState(() => user?.brandColors?.[0] || "#2F6BFF");
+  const [secondary, setSecondary] = useState(() => user?.brandColors?.[1] || "#7C3AED");
+  const [tagline, setTagline] = useState(() => user?.tagline || "");
+  const [font, setFont] = useState(() => user?.brandFont || "Inter");
+  const [lang, setLang] = useState(() => {
+    const pref = user?.languagePreference;
+    return pref === "en" ? "English" : pref === "mix" ? "Campur" : "Indonesia";
+  });
 
   useEffect(() => {
-    if (!user) { router.replace("/login"); return; }
-    // pre-fill from saved profile
-    if (user.businessName) setName(user.businessName);
-    if (user.industry) setIndustry(user.industry);
-    if (user.brandColors?.[0]) setColor(user.brandColors[0]);
-    if (user.brandColors?.[1]) setSecondary(user.brandColors[1]);
-    if (user.tagline) setTagline(user.tagline);
-    if (user.brandFont) setFont(user.brandFont);
-    if (user.logoUrl) setLogoUrl(user.logoUrl);
+    if (!user) router.replace("/login");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,6 +60,7 @@ export default function OnboardingPage() {
         brandColors: [color, secondary],
         brandFont: font,
         logoUrl,
+        languagePreference: lang === "English" ? "en" : lang === "Campur" ? "mix" : "id",
       });
       toast({ title: "Profil bisnis tersimpan!", desc: "Kamu siap membuat konten pertama.", variant: "success" });
       router.replace("/dashboard");
@@ -84,17 +79,8 @@ export default function OnboardingPage() {
         <div style={{ marginBottom: 18 }}>
           <Input label="Nama bisnis" value={name} onChange={(e) => setName(e.target.value)} placeholder="mis. Toko Kopi Senja" />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+        <div style={{ marginBottom: 18 }}>
           <Select label="Industri" value={industry} onChange={(e) => setIndustry(e.target.value)} options={["F&B / Kuliner", "Fashion & Retail", "Jasa & Layanan", "Kesehatan & Kecantikan", "Toko Kelontong", "Edukasi", "Lainnya"]} />
-          <Input label="Kota" defaultValue="Bandung" placeholder="mis. Bandung" />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label style={{ fontSize: "var(--text-xs)", fontWeight: 500 }}>Deskripsi singkat</label>
-          <textarea
-            className="w-full min-h-[88px] p-[10px_12px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-sunken)] text-[var(--foreground)] text-[var(--text-sm)] outline-none resize-y focus:border-[var(--ring)]"
-            defaultValue="Coffee shop lokal dengan suasana hangat, menyajikan kopi specialty dan camilan untuk teman ngobrol sore."
-            placeholder="Jelaskan produk/jasa utama dan keunikan bisnismu…"
-          />
         </div>
       </div>
     );
@@ -174,7 +160,7 @@ export default function OnboardingPage() {
       <div>
         <h2 className="aigt-h2">Preferensi konten</h2>
         <p className="aigt-caption" style={{ fontSize: "var(--text-sm)", margin: "6px 0 26px" }}>
-          Atur gaya bahasa dan platform default untuk hasil yang lebih relevan.
+          Bahasa ini dipakai AI saat menulis copy kontenmu.
         </p>
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Bahasa konten</label>
@@ -184,19 +170,6 @@ export default function OnboardingPage() {
                 {l}
               </button>
             ))}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
-          <Select label="Gaya bahasa" value={tone} onChange={(e) => setTone(e.target.value)} options={["Formal", "Casual", "Persuasive", "Fun & Playful", "Inspiratif"]} />
-          <Select label="Target audiens" options={["Anak muda (18–25)", "Keluarga", "Profesional (25–40)", "Umum"]} />
-        </div>
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, marginBottom: 6, display: "block" }}>Platform default</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-            <Switch label="Instagram" defaultChecked />
-            <Switch label="WhatsApp Story" defaultChecked />
-            <Switch label="TikTok" />
-            <Switch label="Facebook" />
           </div>
         </div>
       </div>

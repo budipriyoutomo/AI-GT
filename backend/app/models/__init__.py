@@ -7,6 +7,9 @@ from app.models.project import Project
 from app.models.contact_message import ContactMessage
 from app.models.subscription import Subscription
 from app.models.payment_order import PaymentOrder
+from app.models.admin_audit_log import AdminAuditLog
+from app.models.job_run import JobRun
+from app.models.template_draft import TemplateDraft
 
 __all__ = [
     "User",
@@ -18,4 +21,7 @@ __all__ = [
     "ContactMessage",
     "Subscription",
     "PaymentOrder",
+    "AdminAuditLog",
+    "JobRun",
+    "TemplateDraft",
 ]

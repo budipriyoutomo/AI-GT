@@ -34,16 +34,11 @@ def _bank() -> BankInstruction:
 
 
 def _order_data(order: PaymentOrder) -> dict:
-    if order.kind == "plan":
-        item = billing_plans.get_plan(order.item_id)
-    else:
-        item = billing_plans.get_addon(order.item_id)
-    item_name = item["name"] if item else order.item_id
     return OrderData(
         id=order.id,
         kind=order.kind,
         item_id=order.item_id,
-        item_name=item_name,
+        item_name=billing_plans.item_name(order.kind, order.item_id),
         amount=order.amount,
         unique_code=order.unique_code,
         total_amount=order.total_amount,
@@ -53,6 +48,7 @@ def _order_data(order: PaymentOrder) -> dict:
         created_at=order.created_at,
         expires_at=order.expires_at,
         paid_at=order.paid_at,
+        rejection_reason=order.rejection_reason,
     ).model_dump()
 
 

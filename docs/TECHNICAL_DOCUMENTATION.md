@@ -281,9 +281,11 @@ Order pembayaran **transfer manual** (tanpa payment gateway):
 - Lifecycle status: `pending` → (`attach_proof`) `awaiting_verification` → (`confirm_order`) `paid`;
   `pending` yang lewat `expires_at` → `expired`. **`awaiting_verification` tidak pernah di-expire**
   (user sudah bayar, tinggal menunggu admin).
-- Konfirmasi dilakukan manual lewat `backend/scripts/confirm_payment.py` → `billing_service.confirm_order()`:
+- Konfirmasi dilakukan admin lewat panel `/admin/orders` (`admin_payment_service.confirm()`, guard status) atau jalur
+  darurat `backend/scripts/confirm_payment.py <order_id> --admin <email>` (tanpa guard status, tetap tercatat di audit
+  log dengan `payload.via = "cli"`). Keduanya berujung di `billing_service.confirm_order()`:
   set `paid`, lalu aktifkan paket (`current_period_end = now + PERIOD_DAYS`) atau pasang `storage_addon_id`.
-- Maintenance (`run_billing_maintenance`, cron 30 menit) + **self-healing saat dibaca**: endpoint
+- Maintenance (job `billing_maintenance`, cron 30 menit) + **self-healing saat dibaca**: endpoint
   `GET /subscription` memanggil `downgrade_expired_subscriptions`, `GET /orders*` memanggil
   `expire_stale_orders` — jadi data tidak pernah basi walau cron tak jalan.
 
@@ -601,10 +603,13 @@ ai-gt-bucket/
 > (`400 INVALID_FILE_TYPE`) — supaya client tak bisa menunjuk objek lain di bucket.
 
 ### Cleanup terjadwal
-`main.py` lifespan menjalankan `AsyncIOScheduler` dengan **dua** job, masing-masing **setiap 30 menit**:
-- `cleanup_service.cleanup_expired_temp_files` — memindai `generate_sessions` dengan `expires_at < now`,
-  lalu menghapus file `temp/` dari `thematic_image_url` tiap varian.
-- `billing_service.run_billing_maintenance` — `expire_stale_orders` + `downgrade_expired_subscriptions`.
+`main.py` lifespan menjadwalkan setiap job di `job_service.JOBS` lewat `AsyncIOScheduler`
+(`job_service.run_scheduled`), masing-masing **setiap 30 menit**. Setiap run — terjadwal maupun manual dari
+`/admin/storage` — tercatat di tabel `job_runs` (status, hasil, error); kegagalan dicatat, tidak mematikan scheduler.
+- `cleanup_temp` → `cleanup_service._do_cleanup` — memindai `generate_sessions` dengan `expires_at < now`,
+  menghapus file `temp/` dari `thematic_image_url` tiap varian, lalu **mengosongkan URL-nya** (idempoten:
+  file yang sama tidak dihapus/dihitung ulang di run berikutnya).
+- `billing_maintenance` — `expire_stale_orders` + `downgrade_expired_subscriptions`.
 
 ---
 

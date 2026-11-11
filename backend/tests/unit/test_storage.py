@@ -183,3 +183,95 @@ class TestDeleteFile:
         with patch.object(storage_service, "_get_client", return_value=mock_client):
             with patch.object(storage_service, "settings", _mock_settings()):
                 storage_service.delete_file("temp/x.png")
+
+
+class TestDeleteUserPrefix:
+    """P2-5 — hapus akun harus ikut membersihkan file user di R2.
+    Paginasi dipakai karena list_objects_v2 dibatasi 1000 objek per respons."""
+
+    def test_deletes_every_object_under_prefix(self):
+        mock_client = MagicMock()
+        paginator = MagicMock()
+        paginator.paginate.return_value = [
+            {"Contents": [
+                {"Key": "permanent/uploads/u1/a.png"},
+                {"Key": "permanent/uploads/u1/b.png"},
+            ]},
+        ]
+        mock_client.get_paginator.return_value = paginator
+        mock_client.delete_objects.return_value = {}
+
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                deleted = storage_service.delete_user_prefix("permanent/uploads/u1/")
+
+        assert deleted == 2
+        paginator.paginate.assert_called_once_with(
+            Bucket=_BUCKET, Prefix="permanent/uploads/u1/"
+        )
+        mock_client.delete_objects.assert_called_once_with(
+            Bucket=_BUCKET,
+            Delete={"Objects": [
+                {"Key": "permanent/uploads/u1/a.png"},
+                {"Key": "permanent/uploads/u1/b.png"},
+            ]},
+        )
+
+    def test_batches_deletes_in_chunks_of_1000(self):
+        """delete_objects menerima maksimal 1000 key per panggilan."""
+        keys = [{"Key": f"permanent/exported/u1/{i}.png"} for i in range(1500)]
+        mock_client = MagicMock()
+        paginator = MagicMock()
+        paginator.paginate.return_value = [{"Contents": keys}]
+        mock_client.get_paginator.return_value = paginator
+
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                deleted = storage_service.delete_user_prefix("permanent/exported/u1/")
+
+        assert deleted == 1500
+        assert mock_client.delete_objects.call_count == 2
+        first = mock_client.delete_objects.call_args_list[0].kwargs["Delete"]["Objects"]
+        second = mock_client.delete_objects.call_args_list[1].kwargs["Delete"]["Objects"]
+        assert len(first) == 1000
+        assert len(second) == 500
+
+    def test_empty_prefix_makes_no_delete_call(self):
+        mock_client = MagicMock()
+        paginator = MagicMock()
+        paginator.paginate.return_value = [{}]  # tanpa key "Contents"
+        mock_client.get_paginator.return_value = paginator
+
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                deleted = storage_service.delete_user_prefix("permanent/logos/u1/")
+
+        assert deleted == 0
+        mock_client.delete_objects.assert_not_called()
+
+    def test_swallows_error(self):
+        """Kegagalan R2 tidak boleh menggagalkan penghapusan akun."""
+        mock_client = MagicMock()
+        mock_client.get_paginator.side_effect = Exception("R2 down")
+
+        with patch.object(storage_service, "_get_client", return_value=mock_client):
+            with patch.object(storage_service, "settings", _mock_settings()):
+                assert storage_service.delete_user_prefix("permanent/uploads/u1/") == 0
+
+
+class TestDeleteUserFiles:
+    """Semua prefix milik user ikut terhapus — tidak ada yang tertinggal."""
+
+    def test_covers_all_five_user_prefixes(self):
+        with patch.object(storage_service, "delete_user_prefix", return_value=0) as m:
+            storage_service.delete_user_files("u1")
+
+        called = {c.args[0] for c in m.call_args_list}
+        assert called == {
+            "permanent/thematic-images/u1/",
+            "permanent/thumbnails/u1/",
+            "permanent/exported/u1/",
+            "permanent/logos/u1/",
+            "permanent/uploads/u1/",
+            "permanent/payment-proofs/u1/",
+        }

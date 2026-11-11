@@ -10,15 +10,16 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/lib/auth";
+import { useStoredValue } from "@/hooks/useStoredValue";
+import { billingApi } from "@/api/billingApi";
 
 const NAV = [
   {
     group: "Workspace",
     items: [
       { id: "dashboard", label: "Dashboard",       icon: "layout-dashboard", href: "/dashboard" },
-      { id: "campaign",  label: "Buat Campaign",        icon: "megaphone",        href: "/campaign"  },
       { id: "templates", label: "Galeri Template", icon: "layout-grid",      href: "/templates" },
-      { id: "history",   label: "Riwayat",         icon: "history",          href: "/history",  badge: "12" },
+      { id: "history",   label: "Riwayat",         icon: "history",          href: "/history" },
     ],
   },
   {
@@ -74,7 +75,7 @@ function SidebarTooltip({ label, badge, anchorRef, visible }: {
 
 /* ── Single nav item ──────────────────────────────────────── */
 
-type NavEntry = typeof NAV[0]["items"][0];
+type NavEntry = { id: string; label: string; icon: string; href: string; badge?: string };
 
 function NavItem({ it, active, collapsed }: { it: NavEntry; active: string; collapsed: boolean }) {
   const [hovered, setHovered] = useState(false);
@@ -109,123 +110,25 @@ function NavItem({ it, active, collapsed }: { it: NavEntry; active: string; coll
   );
 }
 
-/* ── Campaign nav item (featured) ────────────────────────── */
-
-function CampaignNavItem({ active, collapsed }: { active: string; collapsed: boolean }) {
-  const [hovered, setHovered] = useState(false);
-  const ref = useRef<HTMLAnchorElement>(null);
-  const isActive = active === "campaign";
-
-  if (collapsed) {
-    return (
-      <>
-        <Link
-          ref={ref}
-          href="/campaign"
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "2px 8px", padding: "9px 0",
-            borderRadius: "var(--radius-md)",
-            background: isActive
-              ? "linear-gradient(135deg, var(--primary), var(--chart-4))"
-              : "linear-gradient(135deg, color-mix(in oklch, var(--primary) 80%, var(--chart-4)), color-mix(in oklch, var(--chart-4) 80%, var(--primary)))",
-            color: "#fff",
-            textDecoration: "none",
-            position: "relative",
-            boxShadow: hovered || isActive
-              ? "0 4px 14px color-mix(in oklch, var(--primary) 35%, transparent)"
-              : "none",
-            transition: "box-shadow .2s ease",
-          }}
-        >
-          <Icon name="megaphone" size={16} />
-        </Link>
-        <SidebarTooltip label="Buat Campaign" anchorRef={ref} visible={hovered} />
-      </>
-    );
-  }
-
-  return (
-    <Link
-      href="/campaign"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        margin: "2px 8px", padding: "10px 12px",
-        borderRadius: "var(--radius-md)",
-        background: isActive
-          ? "linear-gradient(135deg, var(--primary), var(--chart-4))"
-          : hovered
-          ? "linear-gradient(135deg, color-mix(in oklch, var(--primary) 90%, transparent), color-mix(in oklch, var(--chart-4) 90%, transparent))"
-          : "linear-gradient(135deg, color-mix(in oklch, var(--primary) 75%, transparent), color-mix(in oklch, var(--chart-4) 75%, transparent))",
-        color: "#fff",
-        textDecoration: "none",
-        boxShadow: hovered || isActive
-          ? "0 4px 18px color-mix(in oklch, var(--primary) 30%, transparent)"
-          : "0 2px 8px color-mix(in oklch, var(--primary) 15%, transparent)",
-        transition: "all .18s ease",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Shimmer overlay on hover */}
-      {hovered && (
-        <span style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,.12) 50%, transparent 60%)",
-          pointerEvents: "none",
-        }} />
-      )}
-
-      <span style={{
-        width: 28, height: 28, borderRadius: "var(--radius-sm)", flexShrink: 0,
-        background: "rgba(255,255,255,.18)",
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <Icon name="megaphone" size={15} />
-      </span>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "var(--text-xs)", fontWeight: 700, letterSpacing: ".01em", lineHeight: 1 }}>
-          Buat Campaign
-        </div>
-        <div style={{ fontSize: 10, opacity: .78, marginTop: 3, fontWeight: 400, lineHeight: 1 }}>
-          Konten masif, sekali klik
-        </div>
-      </div>
-
-      <span className="animate-pulse" style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        padding: "2px 6px", borderRadius: 999,
-        background: "rgba(255,255,255,.22)",
-        fontSize: 9, fontWeight: 800, letterSpacing: ".06em",
-        flexShrink: 0,
-      }}>
-        HOT
-      </span>
-    </Link>
-  );
-}
-
 /* ── Sidebar ──────────────────────────────────────────────── */
 
 export function Sidebar({ active }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [storedCollapsed, setStoredCollapsed] = useStoredValue("sidebar-collapsed", () => "false", "false");
+  const collapsed = storedCollapsed === "true";
+  const [projectCount, setProjectCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved === "true") setCollapsed(true);
+    // Badge Riwayat memakai usage.history_used dari endpoint langganan yang sudah ada,
+    // supaya tidak menambah request daftar project hanya demi satu angka.
+    billingApi.subscription()
+      .then((sub) => setProjectCount(sub.usage.history_used))
+      .catch(() => { /* fail-soft: badge cukup disembunyikan */ });
   }, []);
 
   function toggle() {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("sidebar-collapsed", String(next));
+    setStoredCollapsed(String(!collapsed));
   }
 
   function handleLogout() {
@@ -289,11 +192,14 @@ export function Sidebar({ active }: SidebarProps) {
               ? <div className="aigt-glabel aigt-label">{g.group}</div>
               : <div style={{ height: 8 }} />
             }
-            {g.items.map((it) =>
-              it.id === "campaign"
-                ? <CampaignNavItem key={it.id} active={active} collapsed={collapsed} />
-                : <NavItem key={it.id} it={it} active={active} collapsed={collapsed} />
-            )}
+            {g.items.map((it) => (
+              <NavItem
+                key={it.id}
+                it={it.id === "history" && projectCount ? { ...it, badge: String(projectCount) } : it}
+                active={active}
+                collapsed={collapsed}
+              />
+            ))}
           </div>
         ))}
       </nav>

@@ -90,6 +90,46 @@ async def auth_headers(verified_user: User) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _make_user(db: AsyncSession, email: str, role: str) -> User:
+    provider = get_auth_provider()
+    user = User(
+        id=uuid.uuid4(),
+        email=email,
+        password_hash=provider.hash_password("password123"),
+        name=f"{role.title()} User",
+        is_verified=True,
+        role=role,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+def _headers_for(user: User) -> dict:
+    return {"Authorization": f"Bearer {get_auth_provider().create_token(str(user.id))}"}
+
+
+@pytest_asyncio.fixture
+async def admin_user(db: AsyncSession) -> User:
+    return await _make_user(db, "admin@example.com", "admin")
+
+
+@pytest_asyncio.fixture
+async def admin_headers(admin_user: User) -> dict:
+    return _headers_for(admin_user)
+
+
+@pytest_asyncio.fixture
+async def superadmin_user(db: AsyncSession) -> User:
+    return await _make_user(db, "superadmin@example.com", "superadmin")
+
+
+@pytest_asyncio.fixture
+async def superadmin_headers(superadmin_user: User) -> dict:
+    return _headers_for(superadmin_user)
+
+
 @pytest_asyncio.fixture
 async def other_user(db: AsyncSession) -> User:
     """User lain — untuk test forbidden access."""

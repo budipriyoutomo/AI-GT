@@ -14,7 +14,10 @@ import { Icon } from "@/components/ui/icon";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { projectsApi } from "@/api/projectsApi";
-import { billingApi, type Subscription } from "@/api/billingApi";
+import { EmptyState, LoadErrorState } from "@/components/ui/empty-state";
+import { QuotaExhaustedBanner } from "@/components/billing/QuotaExhaustedBanner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { isQuotaExhausted } from "@/lib/quota";
 import { resolveAssetUrl } from "@/lib/assetUrl";
 import { isProjectExported, type Project } from "@/types/project";
 
@@ -109,19 +112,29 @@ function ProjectCard({
 export default function DashboardPage() {
   const { user } = useAuth();
   const [projects,  setProjects]  = useState<Project[]>([]);
-  const [sub,       setSub]       = useState<Subscription | null>(null);
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filter,    setFilter]    = useState("Semua");
 
   const firstName = user?.name?.split(" ")[0] ?? "sana";
 
+  // Kartu kuota fallback "—" bila gagal memuat.
+  const sub = useSubscription();
+  const quotaExhausted = isQuotaExhausted(sub?.usage);
+
   useEffect(() => {
     projectsApi.list()
       .then(setProjects)
-      .catch(() => toast({ title: "Gagal memuat data", variant: "error" }))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-    billingApi.subscription().then(setSub).catch(() => { /* kartu kuota fallback */ });
-  }, []);
+  }, [reloadKey]);
+
+  function retryLoad() {
+    setLoadError(false);
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }
 
   /* Derived stats */
   const totalGenerated = projects.length;
@@ -147,6 +160,8 @@ export default function DashboardPage() {
       actions={<Button size="sm" variant="outline" icon="calendar">Juni 2026</Button>}
     >
       <PageHead title={`Halo, ${firstName} 👋`} subtitle="Ringkasan workspace dan konten yang baru kamu buat." />
+
+      <QuotaExhaustedBanner usage={sub?.usage ?? null} />
 
       {/* Create banner */}
       <div style={{
@@ -236,18 +251,19 @@ export default function DashboardPage() {
           <Icon name="loader-2" size={20} style={{ animation: "spin 1s linear infinite" }} />
           <span style={{ fontSize: "var(--text-sm)" }}>Memuat konten…</span>
         </div>
+      ) : loadError ? (
+        <LoadErrorState title="Gagal memuat konten" onRetry={retryLoad} />
       ) : recent.length === 0 ? (
-        <Card variant="sunken" padding={40} style={{ textAlign: "center", color: "var(--muted-foreground)" }}>
-          <Icon name={filter !== "Semua" ? "search-x" : "folder-open"} size={32} style={{ opacity: 0.4 }} />
-          <p style={{ marginTop: 10, fontSize: "var(--text-sm)" }}>
-            {filter !== "Semua" ? "Tidak ada konten dengan filter ini" : "Belum ada konten. Yuk buat yang pertama!"}
-          </p>
-          {filter === "Semua" && (
-            <Link href="/create" style={{ marginTop: 12, display: "inline-block" }}>
-              <Button size="sm" icon="plus">Buat konten</Button>
-            </Link>
-          )}
-        </Card>
+        filter !== "Semua" ? (
+          <EmptyState icon="search-x" title="Tidak ada konten dengan filter ini" />
+        ) : (
+          <EmptyState
+            icon="folder-open"
+            title={quotaExhausted ? "Belum ada konten" : "Belum ada konten. Yuk buat yang pertama!"}
+            // Kuota habis: banner di atas sudah mengarahkan ke upgrade — jangan ajak generate yang pasti ditolak.
+            action={quotaExhausted ? undefined : <Link href="/create"><Button size="sm" icon="plus">Buat konten</Button></Link>}
+          />
+        )
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           {recent.map((p) => (

@@ -52,13 +52,34 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return body.data as T;
 }
 
+/** Ambil body biner (mis. gambar privat) dengan Authorization header.
+ *  <img src> tidak bisa mengirim token, jadi pemanggil menjadikannya blob URL. */
+async function requestBlob(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { method: "GET", headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiClientError(
+      body?.error?.code ?? "UNKNOWN_ERROR",
+      body?.error?.message ?? "Terjadi kesalahan",
+      res.status,
+    );
+  }
+  return res.blob();
+}
+
 export const api = {
+  getBlob: (path: string) => requestBlob(path),
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(data) }),
   patch: <T>(path: string, data: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "DELETE", ...(data !== undefined && { body: JSON.stringify(data) }) }),
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: "POST", body: formData }),
 };

@@ -12,12 +12,13 @@ import { toast } from "@/components/ui/toast";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Tabs } from "@/components/ui/tabs";
 import { SelectedTemplatePanel } from "@/components/create/SelectedTemplatePanel";
 import { MiniTemplateCard } from "@/components/create/MiniTemplateCard";
 import { BrandPreviewToggle } from "@/components/create/BrandPreviewToggle";
+import { QuotaExhaustedBanner } from "@/components/billing/QuotaExhaustedBanner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { isQuotaError, isQuotaExhausted } from "@/lib/quota";
 import { generateApi } from "@/api/generateApi";
-import type { CarouselSettings } from "@/api/generateApi";
 import { templatesApi } from "@/api/templatesApi";
 import type { Template, TemplateListItem } from "@/types/template";
 import type { GoalEnum, PlatformEnum, LanguageStyleEnum, ImageSourceEnum } from "@/types/generate-session";
@@ -37,12 +38,11 @@ const GOALS: { id: GoalEnum; label: string; desc: string; icon: string }[] = [
   { id: "promo",       label: "Promo / Diskon",    desc: "Promosikan penawaran, diskon, atau event",         icon: "tag"          },
 ];
 
-const PLATFORMS: { id: PlatformEnum; label: string; icon: string; ratio: string }[] = [
-  { id: "instagram_feed",  label: "Instagram Feed",  icon: "instagram", ratio: "4:5" },
-  { id: "instagram_story", label: "Instagram Story", icon: "smartphone", ratio: "9:16" },
-  { id: "facebook",        label: "Facebook",        icon: "facebook",  ratio: "16:9" },
-  { id: "tiktok",          label: "TikTok",          icon: "video",     ratio: "9:16" },
-];
+// P1-4c: MVP dikunci ke Instagram Feed — ketujuh template 4:5 `instagram_post`. Pilihan platform
+// lain dulu hanya mengubah prompt AI (copy TikTok di poster Instagram). Buka lagi bersama template
+// & canvas per rasio (P1-4b) di kedua renderer.
+const MVP_PLATFORM: { id: PlatformEnum; label: string; ratio: string; size: string } =
+  { id: "instagram_feed", label: "Instagram Feed", ratio: "4:5", size: "1080×1350" };
 
 const LANGUAGE_STYLES: { value: LanguageStyleEnum; label: string; description: string }[] = [
   { value: "formal",      label: "Formal",        description: "Kalimat lengkap, profesional, tidak ada singkatan" },
@@ -54,19 +54,17 @@ const LANGUAGE_STYLES: { value: LanguageStyleEnum; label: string; description: s
 
 const DEFAULT_LANGUAGE_STYLE: LanguageStyleEnum | null = null;
 
-// Fallbacks for when the user reaches the brief step directly (shared template
+// Fallback for when the user reaches the brief step directly (shared template
 // link, "Mulai dari kosong", or browsing /templates without Step 1) and never
-// picked goal/platform. The backend requires both, so we default rather than
-// silently no-op the Generate button.
+// picked a goal. The backend requires it, so we default rather than silently
+// no-op the Generate button.
 const DEFAULT_GOAL: GoalEnum = "awareness";
-const DEFAULT_PLATFORM: PlatformEnum = "instagram_feed";
 
 const IMAGE_SOURCES: { id: ImageSourceEnum; label: string; icon: string; desc: string }[] = [
   { id: "upload",    label: "Upload gambar",    icon: "upload",   desc: "Gunakan foto atau aset brand milikmu sendiri"           },
   { id: "none",      label: "Tanpa gambar",     icon: "ban",      desc: "Hanya copy dan typography, tanpa elemen visual tambahan" },
 ];
 
-const PICKER_FORMATS = ["Semua", "Single", "Carousel"];
 const PICKER_INDUSTRIES = [
   "Semua industri",
   "F&B / Kuliner",
@@ -76,34 +74,11 @@ const PICKER_INDUSTRIES = [
   "Edukasi",
 ];
 
-const STORY_FLOWS: { id: string; label: string; icon: string; desc: string }[] = [
-  { id: "problem_solution",  label: "Problem → Solusi",   icon: "lightbulb",    desc: "Kenalkan masalah, tawarkan solusi, jelaskan manfaat"       },
-  { id: "feature_highlight", label: "Feature Highlight",  icon: "star",         desc: "Tampilkan fitur-fitur unggulan produk satu per satu"       },
-  { id: "step_by_step",      label: "Step by Step",       icon: "list-ordered", desc: "Panduan langkah demi langkah yang mudah diikuti"           },
-  { id: "social_proof",      label: "Social Proof",       icon: "users",        desc: "Hook kuat, tampilkan testimoni dan bukti nyata"            },
-  { id: "custom",            label: "Kustom",             icon: "edit-3",       desc: "Tentukan sendiri alur narasi untuk setiap slide"           },
-];
-
-function getSlideLabels(flow: string, count: number): string[] {
-  const configs: Record<string, { first: string; mid: string[]; last: string }> = {
-    problem_solution:  { first: "Cover", mid: ["Problem", "Solusi", "Manfaat", "Detail", "Info"],         last: "CTA" },
-    feature_highlight: { first: "Cover", mid: ["Fitur 1", "Fitur 2", "Fitur 3", "Fitur 4", "Fitur 5"],    last: "CTA" },
-    step_by_step:      { first: "Intro", mid: ["Langkah 1", "Langkah 2", "Langkah 3", "Langkah 4", "Langkah 5"], last: "CTA" },
-    social_proof:      { first: "Hook",  mid: ["Masalah", "Testimoni", "Solusi", "Bukti", "Detail"],       last: "CTA" },
-  };
-  const c = configs[flow];
-  if (!c || count <= 0) return Array.from({ length: count }, (_, i) => `Slide ${i + 1}`);
-  if (count === 1) return ["CTA"];
-  if (count === 2) return [c.first, c.last];
-  return [c.first, ...c.mid.slice(0, count - 2), c.last];
-}
-
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams.get("templateId");
   const goalParam  = searchParams.get("goal") as GoalEnum | null;
-  const platParam  = searchParams.get("platform") as PlatformEnum | null;
   const { user, refreshProfile } = useAuth();
 
   // company_profile bisa berubah kapan saja (mis. brand color diedit di Settings).
@@ -117,9 +92,8 @@ export default function CreatePage() {
   // template panel both reflect it).
   const [brandPreview, setBrandPreview] = useState(() => parseBrandPreview(searchParams.get("brandPreview")));
 
-  // Step 1: Goal + Platform
-  const [goal, setGoal]         = useState<GoalEnum | null>(goalParam);
-  const [platform, setPlatform] = useState<PlatformEnum | null>(platParam);
+  // Step 1: Goal (platform dikunci — MVP_PLATFORM)
+  const [goal, setGoal] = useState<GoalEnum | null>(goalParam);
 
   // Step 3: Form Brief
   const [template, setTemplate]                 = useState<Template | null>(null);
@@ -131,26 +105,18 @@ export default function CreatePage() {
   const [imageSrc, setImageSrc]                 = useState<ImageSourceEnum | null>(null);
   const [uploadedFile, setUploadedFile]         = useState<File | null>(null);
   const [generating, setGenerating]             = useState(false);
+  // Kuota habis: dari data langganan, atau setelah backend menjawab 429 (data bisa basi).
+  const sub = useSubscription();
+  const [quotaRejected, setQuotaRejected]       = useState(false);
+  const quotaBlocked = quotaRejected || isQuotaExhausted(sub?.usage);
 
   // Template picker state
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [allTemplates, setAllTemplates]             = useState<TemplateListItem[]>([]);
-  const [pickerLoading, setPickerLoading]           = useState(false);
-  const [pickerFmt, setPickerFmt]                   = useState("Semua");
+  // "idle" = belum dimuat (atau gagal & siap dicoba lagi saat picker dibuka ulang).
+  const [pickerFetch, setPickerFetch]               = useState<"idle" | "loaded" | "failed">("idle");
   const [pickerIndustry, setPickerIndustry]         = useState("Semua industri");
   const [pickerQ, setPickerQ]                       = useState("");
-
-  // Carousel-specific state
-  const [slideCount, setSlideCount]             = useState(5);
-  const [storyFlow, setStoryFlow]               = useState<string | null>(null);
-  const [customFlow, setCustomFlow]             = useState("");
-  const [slideDirections, setSlideDirections]   = useState<(string | null)[]>(Array(5).fill(null));
-
-  useEffect(() => {
-    // Resize directions array when slide count changes — keep existing entries, pad with null
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSlideDirections(prev => Array.from({ length: slideCount }, (_, i) => prev[i] ?? null));
-  }, [slideCount]);
 
   useEffect(() => {
     if (templateId) {
@@ -159,28 +125,39 @@ export default function CreatePage() {
   }, [templateId]);
 
   useEffect(() => {
-    if (!showTemplatePicker || allTemplates.length > 0) return;
-    setPickerLoading(true);
+    if (!showTemplatePicker || pickerFetch !== "idle") return;
+    let alive = true;
     templatesApi.list()
-      .then(setAllTemplates)
-      .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
-      .finally(() => setPickerLoading(false));
-  }, [showTemplatePicker, allTemplates.length]);
+      .then((list) => { if (alive) { setAllTemplates(list); setPickerFetch("loaded"); } })
+      .catch(() => {
+        if (!alive) return;
+        toast({ title: "Gagal memuat template", variant: "error" });
+        setPickerFetch("failed");
+      });
+    return () => { alive = false; };
+  }, [showTemplatePicker, pickerFetch]);
+
+  // Diturunkan, bukan di-set di effect (react-hooks/set-state-in-effect).
+  const pickerLoading = showTemplatePicker && pickerFetch === "idle";
+
+  function openTemplatePicker() {
+    if (pickerFetch === "failed") setPickerFetch("idle");  // coba lagi
+    setShowTemplatePicker(true);
+  }
 
   const pickerList = useMemo(() => allTemplates.filter((t) => {
-    if (pickerFmt !== "Semua" && t.content_type !== pickerFmt) return false;
     if (pickerIndustry !== "Semua industri" && t.industry !== pickerIndustry) return false;
     if (pickerQ && !t.name.toLowerCase().includes(pickerQ.toLowerCase())) return false;
     return true;
-  }), [allTemplates, pickerFmt, pickerIndustry, pickerQ]);
+  }), [allTemplates, pickerIndustry, pickerQ]);
 
   // ── Step 1: no templateId yet ──
   if (!templateId) {
-    const canGoToTemplates = goal !== null && platform !== null;
+    const canGoToTemplates = goal !== null;
 
     return (
       <Shell active="templates" title="Quick Generate" stepperStep={1}>
-        <PageHead subtitle="Pilih tujuan dan platform dulu. Template akan otomatis disesuaikan." />
+        <PageHead subtitle="Pilih tujuan kontenmu dulu. AI akan menyesuaikan copy dengan tujuan itu." />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Goal */}
@@ -215,35 +192,16 @@ export default function CreatePage() {
             </div>
           </Card>
 
-          {/* Platform */}
+          {/* Format output — dikunci ke Instagram Feed untuk MVP (P1-4c) */}
           <Card variant="elevated" padding={20}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ width: 36, height: 36, borderRadius: "var(--radius-lg)", flexShrink: 0, background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                <Icon name="monitor-smartphone" size={16} />
+                <Icon name="rectangle-vertical" size={16} />
               </span>
               <div>
-                <div className="aigt-h5">Platform</div>
-                <div className="aigt-caption">Di mana konten ini akan dipublikasikan?</div>
+                <div className="aigt-h5">Format: {MVP_PLATFORM.label}</div>
+                <div className="aigt-caption">Rasio {MVP_PLATFORM.ratio} ({MVP_PLATFORM.size}) — semua template saat ini dibuat untuk format ini.</div>
               </div>
-              <Badge variant={platform ? "success" : "warning"} style={{ marginLeft: "auto", flexShrink: 0 }}>{platform ? "Dipilih" : "Wajib"}</Badge>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-              {PLATFORMS.map((p) => (
-                <button key={p.id} onClick={() => setPlatform(p.id)} style={{
-                  padding: "12px 14px", borderRadius: "var(--radius-lg)",
-                  border: `1px solid ${platform === p.id ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                  background: platform === p.id ? "var(--tint-primary)" : "var(--card)",
-                  cursor: "pointer", fontFamily: "var(--font-sans)", textAlign: "left",
-                  display: "flex", flexDirection: "column", gap: 4, transition: "all .15s ease",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Icon name={p.icon as "video"} size={14} style={{ color: platform === p.id ? "var(--primary)" : "var(--muted-foreground)" }} />
-                    <span style={{ fontSize: "var(--text-sm)", fontWeight: platform === p.id ? 600 : 500, color: platform === p.id ? "var(--primary)" : "var(--foreground)" }}>{p.label}</span>
-                    {platform === p.id && <Icon name="check-circle-2" size={14} style={{ color: "var(--primary)", marginLeft: "auto" }} />}
-                  </div>
-                  <div className="aigt-caption" style={{ paddingLeft: 22 }}>Rasio {p.ratio}</div>
-                </button>
-              ))}
             </div>
           </Card>
 
@@ -251,7 +209,7 @@ export default function CreatePage() {
             <Button
               icon="layout-template"
               disabled={!canGoToTemplates}
-              onClick={() => router.push(`/templates?goal=${goal}&platform=${platform}`)}
+              onClick={() => router.push(`/templates?goal=${goal}`)}
             >
               Lihat Template
             </Button>
@@ -262,8 +220,6 @@ export default function CreatePage() {
   }
 
   // ── Step 3: templateId provided → Form Brief ──
-  const isCarousel = template?.content_type === "Carousel";
-
   const currentBrief: ContentBrief = {
     product: productOrService,
     mainMessage: keyMessage,
@@ -300,7 +256,6 @@ export default function CreatePage() {
     setTemplate(t as Template);
     const params = new URLSearchParams({ templateId: t.id });
     if (goal) params.set("goal", goal);
-    if (platform) params.set("platform", platform);
     // No brand-preview toggle in this inline picker — carry over whatever the
     // current URL already had (e.g. arrived branded from the gallery modal).
     if (brandPreview) params.set("brandPreview", "true");
@@ -335,15 +290,6 @@ export default function CreatePage() {
 
     setGenerating(true);
     try {
-      const carouselData: CarouselSettings | null = (isCarousel && storyFlow)
-        ? {
-            slide_count: slideCount,
-            story_flow: storyFlow,
-            custom_flow: storyFlow === "custom" ? customFlow.trim() || null : null,
-            slide_directions: slideDirections.some(d => d) ? slideDirections : undefined,
-          }
-        : null;
-
       // Gambar diupload lebih dulu supaya session dibuat dengan URL-nya sudah pasti —
       // kalau upload gagal, generate tidak jalan sama sekali (tak ada session setengah jadi).
       let uploadedImageUrl: string | null = null;
@@ -354,7 +300,7 @@ export default function CreatePage() {
       const session = await generateApi.createSession({
         template_id: templateId,
         goal: goal ?? DEFAULT_GOAL,
-        platform: platform ?? DEFAULT_PLATFORM,
+        platform: MVP_PLATFORM.id,
         language_style: parsed.data.languageStyle,
         product_or_service: parsed.data.product,
         key_message: parsed.data.mainMessage,
@@ -364,12 +310,16 @@ export default function CreatePage() {
         uploaded_image_url: uploadedImageUrl,
         thematic_image_theme: null,
         selected_image_prompt: null,
-        campaign_data: carouselData,
+        campaign_data: null,  // P1-2a: carousel di luar cakupan MVP
         brand_applied: brandPreview,
       });
       router.push(`/generate?sessionId=${session.id}`);
     } catch (err) {
-      toast({ title: "Gagal memulai generate", desc: err instanceof Error ? err.message : "Coba lagi", variant: "error" });
+      if (isQuotaError(err)) {
+        setQuotaRejected(true);
+      } else {
+        toast({ title: "Gagal memulai generate", desc: err instanceof Error ? err.message : "Coba lagi", variant: "error" });
+      }
       setGenerating(false);
     }
   }
@@ -406,11 +356,17 @@ export default function CreatePage() {
               )}
             </span>
           )}
-          <Button icon="sparkles" onClick={handleGenerate} disabled={generating}>
+          <Button icon="sparkles" onClick={handleGenerate} disabled={generating || quotaBlocked}>
             {generating ? "Memulai…" : "Generate"}
           </Button>
         </div>
       </div>
+
+      {quotaBlocked && (
+        <div style={{ flexShrink: 0, padding: "12px 24px 0" }}>
+          <QuotaExhaustedBanner usage={sub?.usage ?? null} force />
+        </div>
+      )}
 
       {/* ── Two-column layout: fills remaining height, no page scroll ── */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", gap: 24, padding: "16px 24px 0 24px" }}>
@@ -429,6 +385,7 @@ export default function CreatePage() {
               <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={() => setShowTemplatePicker(false)}
+                  aria-label="Tutup pilihan template"
                   style={{ width: 28, height: 28, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--card)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", flexShrink: 0 }}
                 >
                   <Icon name="arrow-left" size={13} />
@@ -439,11 +396,6 @@ export default function CreatePage() {
               {/* Filters */}
               <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
                 <Input icon="search" placeholder="Cari template…" value={pickerQ} onChange={(e) => setPickerQ(e.target.value)} />
-                <Tabs
-                  value={pickerFmt}
-                  onChange={setPickerFmt}
-                  tabs={PICKER_FORMATS.map((f) => ({ value: f, label: f === "Semua" ? "Semua format" : f }))}
-                />
                 <Select
                   value={pickerIndustry}
                   onChange={(e) => setPickerIndustry(e.target.value)}
@@ -461,7 +413,7 @@ export default function CreatePage() {
               {!pickerLoading && (
                 <div style={{ padding: "6px 16px", flexShrink: 0 }}>
                   <span className="aigt-caption">
-                    {pickerList.length} template{(pickerFmt !== "Semua" || pickerIndustry !== "Semua industri" || pickerQ) ? " (difilter)" : ""}
+                    {pickerList.length} template{(pickerIndustry !== "Semua industri" || pickerQ) ? " (difilter)" : ""}
                   </span>
                 </div>
               )}
@@ -484,7 +436,7 @@ export default function CreatePage() {
                     <Icon name="search-x" size={24} />
                     <p style={{ marginTop: 8, fontSize: "var(--text-xs)" }}>Tidak ada template yang cocok.</p>
                     <button
-                      onClick={() => { setPickerQ(""); setPickerFmt("Semua"); setPickerIndustry("Semua industri"); }}
+                      onClick={() => { setPickerQ(""); setPickerIndustry("Semua industri"); }}
                       style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "var(--text-xs)", fontWeight: 600 }}
                     >
                       Reset filter
@@ -520,9 +472,7 @@ export default function CreatePage() {
               hasBrand={hasBrand}
               onToggleBrand={handleToggleBrand}
               userLogoUrl={user?.logoUrl ?? null}
-              isCarousel={isCarousel}
-              slideCount={slideCount}
-              onChangeTemplate={() => setShowTemplatePicker(true)}
+              onChangeTemplate={openTemplatePicker}
             />
 
           )}
@@ -623,161 +573,6 @@ export default function CreatePage() {
               ariaLabel="Gaya bahasa"
             />
           </Card>
-
-          {/* Section D: Pengaturan Carousel — hanya muncul jika template carousel */}
-          {isCarousel && template && (
-            <Card variant="elevated" padding={20}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <span style={{ width: 38, height: 38, borderRadius: "var(--radius-lg)", flexShrink: 0, background: "var(--tint-primary)", color: "var(--primary)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="layers" size={18} />
-                </span>
-                <div>
-                  <div className="aigt-h5">Pengaturan Carousel</div>
-                  <div className="aigt-caption" style={{ marginTop: 3 }}>Tentukan jumlah slide dan alur narasi konten.</div>
-                </div>
-                <Badge variant={storyFlow ? "success" : "warning"} style={{ marginLeft: "auto", flexShrink: 0 }}>
-                  {storyFlow ? "Dikonfigurasi" : "Wajib"}
-                </Badge>
-              </div>
-
-              {/* Jumlah Slide */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  Jumlah Slide
-                  <Badge variant="secondary" style={{ padding: "1px 6px", fontSize: 10 }}>3–8</Badge>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <button
-                    onClick={() => setSlideCount(c => Math.max(3, c - 1))}
-                    disabled={slideCount <= 3}
-                    style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--card)", cursor: slideCount <= 3 ? "not-allowed" : "pointer", opacity: slideCount <= 3 ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", flexShrink: 0, transition: "all .15s ease" }}
-                  >
-                    <Icon name="minus" size={15} />
-                  </button>
-                  <div style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)", border: "1px solid var(--border)" }}>
-                    <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: "var(--foreground)", fontFamily: "var(--font-mono)" }}>{slideCount}</div>
-                    <div className="aigt-caption" style={{ marginTop: 4 }}>
-                      Cover + {slideCount - 2} Konten + Closing
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSlideCount(c => Math.min(8, c + 1))}
-                    disabled={slideCount >= 8}
-                    style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--card)", cursor: slideCount >= 8 ? "not-allowed" : "pointer", opacity: slideCount >= 8 ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--foreground)", flexShrink: 0, transition: "all .15s ease" }}
-                  >
-                    <Icon name="plus" size={15} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Alur Cerita */}
-              <div>
-                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  Alur Cerita <Badge variant="warning" style={{ padding: "1px 6px", fontSize: 10 }}>Wajib</Badge>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {STORY_FLOWS.map((sf) => {
-                    const isSelected = storyFlow === sf.id;
-                    const previewLabels = sf.id !== "custom" ? getSlideLabels(sf.id, 5) : [];
-                    return (
-                      <button key={sf.id} onClick={() => setStoryFlow(sf.id)} style={{
-                        padding: "12px 14px", borderRadius: "var(--radius-lg)",
-                        border: `1px solid ${isSelected ? "color-mix(in oklch, var(--primary) 40%, transparent)" : "var(--border)"}`,
-                        background: isSelected ? "var(--tint-primary)" : "var(--card)",
-                        cursor: "pointer", fontFamily: "var(--font-sans)", textAlign: "left",
-                        display: "flex", alignItems: "flex-start", gap: 12, transition: "all .15s ease",
-                      }}>
-                        <span style={{ width: 34, height: 34, borderRadius: "var(--radius-md)", flexShrink: 0, marginTop: 1, background: isSelected ? "color-mix(in oklch, var(--primary) 15%, transparent)" : "var(--surface-sunken)", border: `1px solid ${isSelected ? "color-mix(in oklch, var(--primary) 25%, transparent)" : "var(--border)"}`, color: isSelected ? "var(--primary)" : "var(--muted-foreground)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon name={sf.icon as "star"} size={15} />
-                        </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: "var(--text-sm)", fontWeight: isSelected ? 600 : 500, color: isSelected ? "var(--primary)" : "var(--foreground)" }}>{sf.label}</div>
-                          <div className="aigt-caption" style={{ marginTop: 2 }}>{sf.desc}</div>
-                          {previewLabels.length > 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 6, flexWrap: "wrap" }}>
-                              {previewLabels.map((l, i, arr) => (
-                                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: (i === 0 || i === arr.length - 1) ? "color-mix(in oklch, var(--primary) 12%, transparent)" : "var(--surface-sunken)", color: (i === 0 || i === arr.length - 1) ? "var(--primary)" : "var(--muted-foreground)", border: `1px solid ${(i === 0 || i === arr.length - 1) ? "color-mix(in oklch, var(--primary) 22%, transparent)" : "var(--border)"}` }}>
-                                    {l}
-                                  </span>
-                                  {i < arr.length - 1 && <Icon name="chevron-right" size={9} style={{ color: "var(--muted-foreground)", opacity: 0.5 }} />}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {isSelected && <Icon name="check-circle-2" size={17} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 2 }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Alur kustom — input manual */}
-              {storyFlow === "custom" && (
-                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: "var(--radius-lg)", border: "1px solid color-mix(in oklch, var(--primary) 30%, transparent)", background: "color-mix(in oklch, var(--primary) 4%, var(--card))" }}>
-                  <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 6, display: "block", color: "var(--primary)" }}>
-                    Alur Kustom
-                  </label>
-                  <input
-                    type="text"
-                    value={customFlow}
-                    onChange={(e) => setCustomFlow(e.target.value)}
-                    placeholder="Contoh: Intro → Masalah → Fitur → Testimoni → CTA"
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-sm)", fontFamily: "var(--font-sans)", outline: "none" }}
-                  />
-                  <div className="aigt-caption" style={{ marginTop: 5 }}>Pisahkan tiap slide dengan &ldquo; → &rdquo;. AI akan mengikuti urutan ini.</div>
-                </div>
-              )}
-
-              {/* Catatan per Slide */}
-              {storyFlow && (
-                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                    Catatan per Slide <Badge variant="secondary" style={{ padding: "1px 6px", fontSize: 10 }}>Opsional</Badge>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {getSlideLabels(storyFlow, slideCount).map((label, i) => {
-                      const isFirst = i === 0;
-                      const isLast = i === slideCount - 1;
-                      const placeholder = isFirst
-                        ? "Contoh: Buat hook yang menarik, perkenalkan produk atau masalah"
-                        : isLast
-                        ? "Contoh: CTA yang clear, sertakan urgency atau benefit utama"
-                        : "Contoh: Detail informasi yang perlu disampaikan di slide ini";
-                      return (
-                        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                          <div style={{ flexShrink: 0, paddingTop: 7 }}>
-                            <span style={{ width: 22, height: 22, borderRadius: 999, background: (isFirst || isLast) ? "var(--tint-primary)" : "var(--surface-sunken)", border: `1px solid ${(isFirst || isLast) ? "color-mix(in oklch, var(--primary) 30%, transparent)" : "var(--border)"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", color: (isFirst || isLast) ? "var(--primary)" : "var(--muted-foreground)" }}>
-                              {i + 1}
-                            </span>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--muted-foreground)", display: "block", marginBottom: 4 }}>
-                              {label}
-                            </label>
-                            <input
-                              type="text"
-                              value={slideDirections[i] ?? ""}
-                              onChange={(e) => {
-                                setSlideDirections(prev => {
-                                  const next = [...prev];
-                                  next[i] = e.target.value || null;
-                                  return next;
-                                });
-                              }}
-                              placeholder={placeholder}
-                              style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--surface-sunken)", color: "var(--foreground)", fontSize: "var(--text-xs)", fontFamily: "var(--font-sans)", outline: "none" }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
 
           {/* Section 3: Sumber Gambar — 3-column grid, deselectable */}
           <Card variant="elevated" padding={20}>

@@ -53,6 +53,53 @@ class TestRegister:
         })
         assert res.status_code == 422
 
+    async def test_register_sets_user_verified(
+        self, client: AsyncClient, db: AsyncSession
+    ):
+        """B-1a: registrasi langsung aktif, tidak menunggu verifikasi email."""
+        res = await client.post("/api/v1/auth/register", json={
+            "name": "Budi",
+            "email": "autoverif@example.com",
+            "password": "secret123",
+        })
+        assert res.status_code == 201
+        assert res.json()["data"]["user"]["is_verified"] is True
+
+        user = await db.scalar(
+            select(User).where(User.email == "autoverif@example.com")
+        )
+        assert user is not None
+        assert user.is_verified is True
+
+    async def test_register_token_usable_immediately(self, client: AsyncClient):
+        """B-1a: token dari register harus langsung bisa dipakai (auto-login)."""
+        res = await client.post("/api/v1/auth/register", json={
+            "name": "Budi",
+            "email": "autologin@example.com",
+            "password": "secret123",
+        })
+        token = res.json()["data"]["access_token"]
+
+        me = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert me.status_code == 200
+        assert me.json()["data"]["email"] == "autologin@example.com"
+
+    async def test_register_then_login(self, client: AsyncClient):
+        """B-1a: user baru langsung bisa login tanpa langkah verifikasi."""
+        await client.post("/api/v1/auth/register", json={
+            "name": "Budi",
+            "email": "langsunglogin@example.com",
+            "password": "secret123",
+        })
+        res = await client.post("/api/v1/auth/login", json={
+            "email": "langsunglogin@example.com",
+            "password": "secret123",
+        })
+        assert res.status_code == 200
+        assert "access_token" in res.json()["data"]
+
     async def test_register_creates_starter_subscription(
         self, client: AsyncClient, db: AsyncSession
     ):
@@ -102,13 +149,17 @@ class TestLogin:
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "AUTH_INVALID_CREDENTIALS"
 
-    async def test_login_unverified_email(self, client: AsyncClient, unverified_user: User):
+    async def test_login_unverified_user_allowed(
+        self, client: AsyncClient, unverified_user: User
+    ):
+        """B-1a: gate is_verified dicabut — user lama yang belum terverifikasi
+        tidak boleh buntu di login."""
         res = await client.post("/api/v1/auth/login", json={
             "email": unverified_user.email,
             "password": "password123",
         })
-        assert res.status_code == 401
-        assert res.json()["error"]["code"] == "AUTH_EMAIL_NOT_VERIFIED"
+        assert res.status_code == 200
+        assert "access_token" in res.json()["data"]
 
 
 class TestGetMe:
@@ -227,6 +278,36 @@ class TestDeleteAccount:
             select(Subscription).where(Subscription.user_id == verified_user.id)
         )
         assert remaining is None
+
+    async def test_delete_account_cleans_r2_files(
+        self, client: AsyncClient, auth_headers: dict, verified_user: User
+    ):
+        """P2-5: baris DB terhapus tapi file R2 tertinggal = sampah permanen di bucket."""
+        from unittest.mock import patch
+
+        from app.services import auth_service as svc
+
+        with patch.object(svc.storage_service, "delete_user_files") as m:
+            res = await client.request("DELETE", "/api/v1/auth/me", headers=auth_headers)
+
+        assert res.status_code == 200
+        m.assert_called_once_with(str(verified_user.id))
+
+    async def test_delete_account_survives_r2_failure(
+        self, client: AsyncClient, auth_headers: dict
+    ):
+        """Kegagalan R2 tidak boleh menggagalkan penghapusan akun — baris DB sudah commit."""
+        from unittest.mock import patch
+
+        from app.services import auth_service as svc
+
+        with patch.object(
+            svc.storage_service, "delete_user_files", side_effect=Exception("R2 down")
+        ):
+            res = await client.request("DELETE", "/api/v1/auth/me", headers=auth_headers)
+
+        assert res.status_code == 200
+        assert res.json()["success"] is True
 
     async def test_delete_account_no_auth(self, client: AsyncClient):
         res = await client.request("DELETE", "/api/v1/auth/me")

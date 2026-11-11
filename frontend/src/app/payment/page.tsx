@@ -97,6 +97,9 @@ function PaymentInner() {
 
   const isPaid = order.status === "paid";
   const isAwaiting = order.status === "awaiting_verification";
+  const isRejected = order.status === "rejected";
+  // Order ditolak/kadaluarsa tidak menerima bukti transfer lagi (backend menolak upload).
+  const isClosed = isRejected || order.status === "expired";
 
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
@@ -104,8 +107,8 @@ function PaymentInner() {
       <Card variant="elevated" padding={20}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>{order.item_name}</div>
-          <Badge variant={isPaid ? "success" : isAwaiting ? "warning" : "secondary"} dot>
-            {isPaid ? "Lunas" : isAwaiting ? "Menunggu verifikasi" : "Menunggu pembayaran"}
+          <Badge variant={isPaid ? "success" : isAwaiting ? "warning" : isClosed ? "destructive" : "secondary"} dot>
+            {isPaid ? "Lunas" : isAwaiting ? "Menunggu verifikasi" : isRejected ? "Ditolak" : isClosed ? "Kadaluarsa" : "Menunggu pembayaran"}
           </Badge>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "var(--text-xs)" }}>
@@ -134,6 +137,27 @@ function PaymentInner() {
             <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Pembayaran terkonfirmasi</div>
             <div className="aigt-caption">Paket kamu sudah aktif. Terima kasih!</div>
             <Link href="/subscription"><Button size="sm" icon="arrow-left">Kembali ke paket</Button></Link>
+          </div>
+        </Card>
+      ) : isClosed ? (
+        <Card variant="elevated" padding={24}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+            <span style={{ width: 48, height: 48, borderRadius: 999, background: "var(--destructive)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="x" size={24} />
+            </span>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
+              {isRejected ? "Pembayaran ditolak" : "Order sudah kadaluarsa"}
+            </div>
+            {isRejected && order.rejection_reason && (
+              <div style={{ fontSize: "var(--text-xs)", lineHeight: 1.6 }}>{order.rejection_reason}</div>
+            )}
+            <div className="aigt-caption">
+              {isRejected
+                ? "Kalau kamu yakin sudah transfer dengan benar, hubungi kami lewat halaman Kontak."
+                : "Batas waktu pembayaran sudah lewat."}
+              {" "}Silakan buat order baru untuk melanjutkan.
+            </div>
+            <Link href="/subscription"><Button size="sm" icon="arrow-left">Buat order baru</Button></Link>
           </div>
         </Card>
       ) : (

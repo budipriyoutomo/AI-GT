@@ -20,7 +20,13 @@ from app.models.project import Project
 from app.models.template import Template
 from app.schemas.generate import CreateSessionRequest
 from app.services import ai_service, billing_service, storage_service
-from app.services.providers.ai_types import CopyError, CopyInput, ImageInput
+from app.services.providers.ai_types import (
+    CopyError,
+    CopyInput,
+    CopyInvalidJsonError,
+    CopyTimeoutError,
+    ImageInput,
+)
 from app.services.providers.copy_prompt import build_copy_brief
 from app.utils.exceptions import AppError, ErrorCode
 
@@ -36,11 +42,14 @@ def _normalize_template_config(template, template_cfg: dict) -> dict:
       name           — template.name
       content_type   — template.content_type (platform type, e.g. "instagram_post")
       thumbnail_url  — template.thumbnail_url (needed by TemplateRenderer for image backgrounds)
+      background_url — template.background_url (latar `source:"background"`; dibaca canvas Fabric
+                       saat editor & export — tanpa ini latar upload admin hilang dari PNG)
     """
     result = dict(template_cfg)
     result["name"] = template.name if template else ""
     result["content_type"] = template.content_type if template else ""
     result["thumbnail_url"] = template.thumbnail_url if template else None
+    result["background_url"] = template.background_url if template else None
     return result
 
 
@@ -316,6 +325,16 @@ async def run_generation_task(session_id: uuid.UUID) -> None:
         await _do_generate(db, session_id)
 
 
+_MAX_ERROR_MESSAGE = 500
+
+
+def _mark_failed(session: GenerateSession, reason: str, message: str) -> None:
+    """Status failed + jejak untuk panel admin (A-8). Tidak dikirim ke user."""
+    session.status = "failed"
+    session.error_reason = reason
+    session.error_message = message[:_MAX_ERROR_MESSAGE]
+
+
 async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
     session = await db.scalar(
         select(GenerateSession).where(GenerateSession.id == session_id)
@@ -328,7 +347,8 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         select(CompanyProfile).where(CompanyProfile.user_id == session.user_id)
     )
     if not template or not profile:
-        session.status = "failed"
+        _mark_failed(session, "missing_template" if not template else "missing_profile",
+                     "Template tidak ditemukan." if not template else "Company profile belum dibuat.")
         await db.commit()
         return
 
@@ -374,7 +394,13 @@ async def _do_generate(db: AsyncSession, session_id: uuid.UUID) -> None:
         )
     except CopyError as e:
         logger.error("Copy generation failed for session %s: %s", session_id, e)
-        session.status = "failed"
+        if isinstance(e, CopyTimeoutError):
+            reason = "copy_timeout"
+        elif isinstance(e, CopyInvalidJsonError):
+            reason = "copy_invalid_json"
+        else:
+            reason = "copy_failed"
+        _mark_failed(session, reason, str(e))
         await db.commit()
         return
 

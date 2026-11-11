@@ -59,6 +59,12 @@ def get_addon(addon_id: str) -> dict | None:
     return _ADDONS_BY_ID.get(addon_id)
 
 
+def item_name(kind: str, item_id: str) -> str:
+    """Nama tampilan item order ("plan" | "addon"); fallback ke id bila sudah tak ada di katalog."""
+    item = get_plan(item_id) if kind == "plan" else get_addon(item_id)
+    return item["name"] if item else item_id
+
+
 def effective_history_limit(plan: dict, addon_id: str | None) -> int:
     """history_limit efektif = limit paket + extra_slots add-on aktif.
     Paket unlimited (-1) tetap unlimited, add-on tidak berpengaruh."""

@@ -101,6 +101,30 @@ describe("buildCanvasSpec — background", () => {
     expect(img).toMatchObject({ url: "https://cdn/bg.png", left: 0, top: 0, width: 1080, height: 1350, fit: "cover" });
   });
 
+  it("background source \"background\" → background_url, bukan thumbnail (paritas TemplateRenderer)", () => {
+    const out = build(
+      makeCfg({ background: { type: "image", source: "background", fallback: "#0B1420" } }),
+      { thumbnailUrl: "https://cdn/foreground.png", backgroundUrl: "https://cdn/latar.png" },
+    );
+    expect(specOf<ImageSpec>(out.specs, "image").url).toBe("https://cdn/latar.png");
+  });
+
+  it("background source \"background\", background_url null → hanya fallback rect (tidak memakai thumbnail)", () => {
+    const out = build(
+      makeCfg({ background: { type: "image", source: "background", fallback: "#0B1420" } }),
+      { thumbnailUrl: "https://cdn/foreground.png", backgroundUrl: null },
+    );
+    expect(out.specs.filter((s) => s.kind === "image")).toHaveLength(0);
+  });
+
+  it("project lama tanpa background_url di final_config (undefined) → tetap thumbnail seperti dulu", () => {
+    const out = build(
+      makeCfg({ background: { type: "image", source: "background", fallback: "#0B1420" } }),
+      { thumbnailUrl: "https://cdn/legacy.png" },
+    );
+    expect(specOf<ImageSpec>(out.specs, "image").url).toBe("https://cdn/legacy.png");
+  });
+
   it("background image tanpa thumbnailUrl → hanya fallback rect", () => {
     const out = build(makeCfg({ background: { type: "image", fallback: "#0B1420" } }));
     expect(out.specs.filter((s) => s.kind === "image")).toHaveLength(0);

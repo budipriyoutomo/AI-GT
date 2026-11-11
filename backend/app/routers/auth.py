@@ -27,7 +27,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
             **TokenData(access_token=token).model_dump(),
             "user": UserData.model_validate(user).model_dump(),
         },
-        "message": "Registrasi berhasil. Silakan verifikasi email kamu.",
+        "message": "Registrasi berhasil.",
     }
 
 

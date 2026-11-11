@@ -174,6 +174,8 @@ function ProbeUpdate() {
       <span data-testid="logo">{user?.logoUrl ?? "none"}</span>
       <button onClick={() => updateProfile({ logoUrl: null })}>clear-logo</button>
       <button onClick={() => updateProfile({ businessName: "Nama Baru" })}>update-name-only</button>
+      <button onClick={() => updateProfile({ languagePreference: "en" })}>set-language</button>
+      <span data-testid="lang">{user?.languagePreference ?? "none"}</span>
     </div>
   );
 }
@@ -219,5 +221,29 @@ describe("AuthContext updateProfile — logo tri-state (absent vs null)", () => 
     await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(1));
     const body = updateProfileMock.mock.calls[0][0];
     expect(body).not.toHaveProperty("logo_url");
+  });
+
+  it("membawa language_preference dari company_profile ke UserContext", async () => {
+    getProfile.mockResolvedValue(makeProfile({ language_preference: "en" }));
+    render(
+      <AuthProvider>
+        <ProbeUpdate />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("lang").textContent).toBe("en"));
+  });
+
+  it("updateProfile({ languagePreference }) mengirim language_preference ke API", async () => {
+    render(
+      <AuthProvider>
+        <ProbeUpdate />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("logo").textContent).toContain("logo.png"));
+
+    screen.getByText("set-language").click();
+
+    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(1));
+    expect(updateProfileMock.mock.calls[0][0]).toHaveProperty("language_preference", "en");
   });
 });

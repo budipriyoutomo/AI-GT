@@ -10,6 +10,9 @@ const PROTECTED = [
   "/settings",
   "/editor",
   "/campaign",
+  // Cek role dilakukan backend (get_current_admin) + AdminShell; middleware hanya
+  // memastikan ada token, karena cookie tidak memuat role.
+  "/admin",
 ];
 
 const AUTH_ONLY = ["/login", "/register"];

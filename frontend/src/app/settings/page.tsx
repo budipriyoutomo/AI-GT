@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FontSelect } from "@/components/ui/font-select";
 import { BRAND_FONT_OPTIONS } from "@/lib/fonts";
-import { Switch } from "@/components/ui/switch";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
@@ -383,24 +382,6 @@ function TabProfil() {
           </div>
         </div>
         )}
-      </Section>
-
-      <Section title="Notifikasi">
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {[
-            { label: "Generate selesai",  desc: "Notifikasi saat konten selesai dibuat",            defaultChecked: true  },
-            { label: "Jadwal tayang",     desc: "Pengingat 1 jam sebelum konten terjadwal",         defaultChecked: true  },
-            { label: "Tips & pembaruan",  desc: "Update fitur baru dan tips penggunaan AI-GT",      defaultChecked: false },
-          ].map((n) => (
-            <div key={n.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{n.label}</div>
-                <div className="aigt-caption" style={{ marginTop: 2 }}>{n.desc}</div>
-              </div>
-              <Switch defaultChecked={n.defaultChecked} />
-            </div>
-          ))}
-        </div>
       </Section>
 
       <Section title="Zona Berbahaya">

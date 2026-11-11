@@ -38,7 +38,8 @@ describe("contentBriefSchema", () => {
   });
 
   it("rejects missing languageStyle", () => {
-    const { languageStyle: _, ...without } = valid;
+    const without: Partial<typeof valid> = { ...valid };
+    delete without.languageStyle;
     const result = contentBriefSchema.safeParse(without);
     expect(result.success).toBe(false);
   });

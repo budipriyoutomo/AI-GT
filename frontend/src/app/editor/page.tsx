@@ -173,6 +173,8 @@ export default function EditorPage() {
   );
 
   const tplThumbnailUrl = project?.final_config.template_config?.thumbnail_url ?? "";
+  // undefined = project lama (sebelum A-6) — canvas-spec jatuh ke thumbnail seperti dulu.
+  const tplBackgroundUrl = project?.final_config.template_config?.background_url;
 
   // Spec render pixel untuk canvas Fabric (posisi, warna, gradient sudah di-resolve)
   const templateSpec = useMemo(
@@ -180,6 +182,7 @@ export default function EditorPage() {
       ? buildCanvasSpec({
           cfg: previewCfg,
           thumbnailUrl: tplThumbnailUrl || null,
+          backgroundUrl: tplBackgroundUrl,
           // Kontak mengikuti brand_applied, sama seperti logo & tagline yang sudah diresolve
           // resolver — unbranded → placeholder default, branded → kontak profil user.
           // logoUrl & tagline TIDAK dikirim: sudah final di previewCfg (cfg.logoUrl / value elemen).
@@ -187,7 +190,7 @@ export default function EditorPage() {
             ?? DEFAULT_COMPANY_PROFILE.contact,
         })
       : null,
-    [previewCfg, tplThumbnailUrl, branded, user?.contact, user?.address],
+    [previewCfg, tplThumbnailUrl, tplBackgroundUrl, branded, user?.contact, user?.address],
   );
 
   // Batas karakter per slot = kapasitas nyata layout template — sumber yang sama dengan
@@ -217,7 +220,7 @@ export default function EditorPage() {
 
   /* ── Load project ── */
   useEffect(() => {
-    if (!projectId) { setLoading(false); setLoadError(true); return; }
+    if (!projectId) return;  // tanpa projectId: project tetap null → layar error (lihat render)
     projectsApi.get(projectId)
       .then((p) => {
         setProject(p);
@@ -445,7 +448,7 @@ export default function EditorPage() {
   };
 
   /* ── Loading ── */
-  if (loading) {
+  if (loading && projectId) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", gap: 10, background: "var(--background)", color: "var(--muted-foreground)" }}>
         <Icon name="loader-2" size={20} style={{ animation: "spin 1s linear infinite" }} />
@@ -1487,6 +1490,7 @@ export default function EditorPage() {
                 <TemplateRenderer
                   cfg={previewCfg}
                   thumbnailUrl={tplThumbnailUrl}
+                  backgroundUrl={tplBackgroundUrl === undefined ? tplThumbnailUrl : (tplBackgroundUrl ?? "")}
                 />
                 <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
                   Render HTML dari template_config + copy AI yang sudah diedit

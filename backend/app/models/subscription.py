@@ -19,6 +19,8 @@ class Subscription(Base):
     status: Mapped[str] = mapped_column(String(20), default="active")
     storage_addon_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Reset kuota manual oleh admin (A-5): generate dihitung sejak max(tgl 1 bulan ini, quota_reset_at).
+    quota_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

@@ -15,6 +15,8 @@ export interface ProjectTemplateConfig extends Omit<TemplateConfig, "elements" |
   slide_count?: number;
   layout?: string;
   thumbnail_url?: string | null;
+  /** Sejak A-6. Tidak ada di project lama → renderer memakai thumbnail_url. */
+  background_url?: string | null;
 }
 
 /* ── Carousel ── */

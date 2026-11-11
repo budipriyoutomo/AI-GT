@@ -48,8 +48,6 @@ describe("SelectedTemplatePanel", () => {
         userBrandFont={null}
         contact={null}
         userLogoUrl={null}
-        isCarousel={false}
-        slideCount={5}
         hasBrand={false}
         onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
@@ -67,8 +65,6 @@ describe("SelectedTemplatePanel", () => {
         userBrandFont="Poppins"
         contact={null}
         userLogoUrl="/permanent/logos/u1/logo.png?v=1"
-        isCarousel={false}
-        slideCount={5}
         hasBrand={false}
         onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
@@ -94,8 +90,6 @@ describe("SelectedTemplatePanel", () => {
         userBrandFont="Poppins"
         contact={null}
         userLogoUrl="/permanent/logos/u1/logo.png?v=1"
-        isCarousel={false}
-        slideCount={5}
         hasBrand={false}
         onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
@@ -114,8 +108,6 @@ describe("SelectedTemplatePanel", () => {
         userBrandFont={null}
         contact={null}
         userLogoUrl={null}
-        isCarousel={false}
-        slideCount={5}
         hasBrand={false}
         onToggleBrand={() => {}}
         onChangeTemplate={() => {}}
@@ -139,8 +131,6 @@ describe("SelectedTemplatePanel", () => {
         userBrandFont={null}
         contact={null}
         userLogoUrl={null}
-        isCarousel={false}
-        slideCount={5}
         hasBrand={false}
         onToggleBrand={() => {}}
         onChangeTemplate={onChangeTemplate}
@@ -162,8 +152,6 @@ describe("SelectedTemplatePanel", () => {
         userLogoUrl={null}
         hasBrand={true}
         onToggleBrand={onToggleBrand}
-        isCarousel={false}
-        slideCount={5}
         onChangeTemplate={() => {}}
       />,
     );
@@ -182,8 +170,6 @@ describe("SelectedTemplatePanel", () => {
         userLogoUrl={null}
         hasBrand={false}
         onToggleBrand={() => {}}
-        isCarousel={false}
-        slideCount={5}
         onChangeTemplate={() => {}}
       />,
     );
@@ -201,30 +187,9 @@ describe("SelectedTemplatePanel", () => {
         userLogoUrl={null}
         hasBrand={true}
         onToggleBrand={() => {}}
-        isCarousel={false}
-        slideCount={5}
         onChangeTemplate={() => {}}
       />,
     );
     expect(screen.getByText("Kembali ke original")).toBeInTheDocument();
-  });
-
-  it("shows slide count badge when isCarousel is true", () => {
-    render(
-      <SelectedTemplatePanel
-        template={TEMPLATE}
-        brandPreview={false}
-        userBrandColors={null}
-        userBrandFont={null}
-        contact={null}
-        userLogoUrl={null}
-        isCarousel={true}
-        slideCount={6}
-        hasBrand={false}
-        onToggleBrand={() => {}}
-        onChangeTemplate={() => {}}
-      />,
-    );
-    expect(screen.getByText("6 Slide")).toBeInTheDocument();
   });
 });

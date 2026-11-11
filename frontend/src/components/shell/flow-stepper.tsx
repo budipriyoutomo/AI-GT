@@ -1,7 +1,7 @@
 import { Icon } from "@/components/ui/icon";
 
 const STEPS = [
-  "Tujuan & Platform",
+  "Tujuan",
   "Pilih Template",
   "Isi Brief",
   "Generate",

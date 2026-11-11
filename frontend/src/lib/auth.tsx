@@ -24,6 +24,8 @@ export interface UserContext {
    *  form Settings menyimpan `contact` apa adanya, jadi `location` akan ikut tersimpan. */
   address?: string;
   contact?: CompanyContact;
+  /** Bahasa konten pilihan user ("id" | "en" | …) — ikut ke prompt AI. */
+  languagePreference?: string;
 }
 
 /** Map company profile (snake_case) → fields yang dibawa UserContext. */
@@ -37,6 +39,7 @@ function profileFields(profile: CompanyProfile): Partial<UserContext> {
     tagline: profile.tagline ?? undefined,
     address: profile.address ?? undefined,
     contact: profile.contact ?? undefined,
+    languagePreference: profile.language_preference ?? undefined,
   };
 }
 
@@ -105,12 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function register(
-    name: string,
-    email: string,
-    password: string,
-    _businessName?: string,
-  ): Promise<string | null> {
+  // businessName (param ke-4 di AuthContextValue) belum dikirim ke backend — nama bisnis diisi
+  // di onboarding. Implementasi cukup tidak menerimanya; pemanggil tetap boleh mengoper.
+  async function register(name: string, email: string, password: string): Promise<string | null> {
     try {
       const { user: u } = await authApi.register(name, email, password);
       setUser({ id: u.id, name: u.name, email: u.email });
@@ -134,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.tagline !== undefined) payload.tagline = data.tagline;
     if (data.address !== undefined) payload.address = data.address;
     if (data.contact !== undefined) payload.contact = data.contact;
+    if (data.languagePreference !== undefined) payload.language_preference = data.languagePreference;
 
     try {
       await companyProfileApi.update(payload);
@@ -149,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           tagline: data.tagline,
           address: data.address,
           contact: data.contact,
+          language_preference: data.languagePreference,
         });
       }
     }

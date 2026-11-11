@@ -5,12 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { contactApi } from "@/api/contactApi";
-
-const CATEGORIES = [
-  { value: "support", label: "Dukungan Umum" },
-  { value: "partnership", label: "Bisnis & Kemitraan" },
-  { value: "privacy", label: "Privasi & Legal" },
-];
+import { CONTACT_CATEGORIES as CATEGORIES } from "@/lib/contactCategories";
 
 export function ContactForm() {
   const [name, setName] = useState("");

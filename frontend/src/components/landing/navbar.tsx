@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
 export function LandingNavbar() {
-  const [open, setOpen] = useState(false);
-  void open; // mobile menu — wired up later
   return (
     <nav style={{
       position: "sticky", top: 0, zIndex: 100,

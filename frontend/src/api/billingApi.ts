@@ -60,6 +60,8 @@ export interface Order {
   created_at: string;
   expires_at: string | null;
   paid_at: string | null;
+  /** Diisi admin saat order ditolak (A-3). */
+  rejection_reason: string | null;
 }
 
 export const billingApi = {

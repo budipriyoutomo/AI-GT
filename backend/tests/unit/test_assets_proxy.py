@@ -95,6 +95,24 @@ class TestAssetProxyEndpoint:
         res = await client.get(f"{self.URL}/secrets/config.json")
         assert res.status_code == 404
 
+    async def test_rejects_payment_proofs(self, client: AsyncClient):
+        """Bukti transfer berisi data pribadi (nama, rekening) — proxy publik tanpa
+        auth tidak boleh menyajikannya. Akses admin lewat endpoint ber-get_current_admin (A-3)."""
+        r2 = _r2_client_returning(_png_bytes())
+        with patch.object(storage_service, "_get_client", return_value=r2):
+            with patch.object(storage_service, "settings", _mock_storage_settings()):
+                res = await client.get(f"{self.URL}/permanent/payment-proofs/u1/order1.png")
+        assert res.status_code == 404
+        r2.get_object.assert_not_called()
+
+    async def test_rejects_payment_proofs_with_dot_segment(self, client: AsyncClient):
+        r2 = _r2_client_returning(_png_bytes())
+        with patch.object(storage_service, "_get_client", return_value=r2):
+            with patch.object(storage_service, "settings", _mock_storage_settings()):
+                res = await client.get(f"{self.URL}/permanent/./payment-proofs/u1/order1.png")
+        assert res.status_code in (307, 404)
+        r2.get_object.assert_not_called()
+
     async def test_rejects_path_traversal(self, client: AsyncClient):
         res = await client.get(f"{self.URL}/permanent/../secrets/config.json")
         assert res.status_code in (307, 404)

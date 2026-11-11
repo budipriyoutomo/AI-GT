@@ -11,6 +11,10 @@ router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
 # Proxy hanya boleh membaca folder aset — bukan seluruh bucket.
 ALLOWED_PREFIXES = ("permanent/", "temp/")
 
+# Data pribadi — tidak pernah lewat proxy publik. Admin membacanya lewat
+# endpoint ber-get_current_admin (MVP_AUDIT_TODO A-3).
+DENIED_PREFIXES = ("permanent/payment-proofs/",)
+
 # Aset di-key dengan UUID/timestamp (immutable), jadi boleh di-cache lama.
 CACHE_CONTROL = "public, max-age=31536000, immutable"
 
@@ -25,7 +29,11 @@ async def get_asset(key: str) -> Response:
     Publik (tanpa auth): dipanggil oleh <img>/Image() yang tidak bisa mengirim
     Authorization header. Key-nya sendiri berisi UUID yang tidak bisa ditebak.
     """
-    if not key.startswith(ALLOWED_PREFIXES) or ".." in key:
+    # Segmen kosong/"."/".." ditolak supaya DENIED_PREFIXES tak bisa diakali
+    # dengan "permanent/./payment-proofs/...".
+    if any(seg in ("", ".", "..") for seg in key.split("/")):
+        return Response(status_code=404)
+    if not key.startswith(ALLOWED_PREFIXES) or key.startswith(DENIED_PREFIXES):
         return Response(status_code=404)
 
     obj = storage_service.get_object(key)

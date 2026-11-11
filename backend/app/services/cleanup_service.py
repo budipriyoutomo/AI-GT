@@ -1,6 +1,6 @@
 """
 Cleanup service — hapus file R2 temp/ dari session yang sudah expired.
-Di-trigger oleh APScheduler setiap 30 menit.
+Dijalankan lewat job_service ("cleanup_temp") — terjadwal tiap 30 menit atau manual dari /admin/storage.
 """
 import logging
 from datetime import datetime, timezone
@@ -37,20 +37,17 @@ async def _do_cleanup(db: AsyncSession) -> int:
             if url and "/temp/" in url:
                 key = urlparse(url).path.lstrip("/")
                 storage_service.delete_file(key)
+                # Tandai sudah dibersihkan — tanpa ini file yang sama "dihapus" & dihitung
+                # ulang tiap run selamanya. Aman: session expired tak bisa dipilih lagi,
+                # dan project menyimpan URL permanennya sendiri di final_config.
+                variant.thematic_image_url = None
                 deleted += 1
 
     if deleted:
+        await db.commit()
         logger.info(
             "Cleanup: dihapus %d temp file dari %d expired session.",
             deleted,
             len(expired_sessions),
         )
     return deleted
-
-
-async def cleanup_expired_temp_files() -> int:
-    """Entry point cron job — buat DB session sendiri lalu panggil _do_cleanup."""
-    from app.database import AsyncSessionLocal
-
-    async with AsyncSessionLocal() as db:
-        return await _do_cleanup(db)

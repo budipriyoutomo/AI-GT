@@ -12,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Icon } from "@/components/ui/icon";
-import { toast } from "@/components/ui/toast";
+import { EmptyState, LoadErrorState } from "@/components/ui/empty-state";
+import { QuotaExhaustedBanner } from "@/components/billing/QuotaExhaustedBanner";
+import { useSubscription } from "@/hooks/useSubscription";
 import { templatesApi } from "@/api/templatesApi";
 import { companyProfileApi } from "@/api/companyProfileApi";
 import { TemplateRenderer } from "@/components/template/TemplateRenderer";
@@ -143,10 +145,12 @@ function SkeletonCard() {
 export default function TemplatesPage() {
   const searchParams = useSearchParams();
   const goalParam    = searchParams.get("goal");
-  const platformParam = searchParams.get("platform");
 
   const [templates, setTemplates] = useState<TemplateListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const sub = useSubscription();
   const [fmt, setFmt] = useState("Semua");
   const [industry, setIndustry] = useState("Semua industri");
   const [q, setQ] = useState("");
@@ -160,8 +164,11 @@ export default function TemplatesPage() {
   useEffect(() => {
     templatesApi.list()
       .then(setTemplates)
-      .catch(() => toast({ title: "Gagal memuat template", variant: "error" }))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+  }, [reloadKey]);
+
+  useEffect(() => {
     // Brand color/font/logo untuk preview adapted — diam-diam, tidak menghalangi galeri bila gagal.
     companyProfileApi.get()
       .then((p) => {
@@ -170,6 +177,12 @@ export default function TemplatesPage() {
       })
       .catch(() => { setProfile(null); setContact(null); });
   }, []);
+
+  function retryLoad() {
+    setLoadError(false);
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }
 
   const list = useMemo(() => {
     return templates.filter((t) => {
@@ -180,12 +193,11 @@ export default function TemplatesPage() {
     });
   }, [templates, fmt, industry, q]);
 
-  // Build template link that preserves goal+platform context + the brand-preview
+  // Build template link that preserves goal context + the brand-preview
   // toggle state from the preview modal at the moment "Pakai template ini" is clicked.
   function templateLink(templateId: string, brandPreview: boolean) {
     const params = new URLSearchParams({ templateId, brandPreview: String(brandPreview) });
     if (goalParam) params.set("goal", goalParam);
-    if (platformParam) params.set("platform", platformParam);
     return `/create?${params.toString()}`;
   }
 
@@ -193,7 +205,7 @@ export default function TemplatesPage() {
     <Shell
       active="templates"
       title="Galeri Template"
-      stepperStep={(goalParam || platformParam) ? 2 : undefined}
+      stepperStep={goalParam ? 2 : undefined}
       actions={
         <Link href="/create">
           <Button size="sm" icon="sparkles">Mulai dari kosong</Button>
@@ -202,16 +214,17 @@ export default function TemplatesPage() {
     >
       <PageHead subtitle="Pilih template, AI akan menyesuaikan copy dan typography dengan brand dan industrimu." />
 
-      {/* Context bar: shows goal+platform from Step 1 */}
-      {(goalParam || platformParam) && (
+      <QuotaExhaustedBanner usage={sub?.usage ?? null} />
+
+      {/* Context bar: tujuan dari Step 1. Bukan filter — galeri tidak disaring per tujuan. */}
+      {goalParam && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 14px", background: "color-mix(in oklch, var(--info) 6%, var(--card))", border: "1px solid color-mix(in oklch, var(--info) 20%, transparent)", borderRadius: "var(--radius-lg)", flexWrap: "wrap" }}>
-          <Icon name="filter" size={14} style={{ color: "var(--info)", flexShrink: 0 }} />
-          <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>Filter aktif:</span>
-          {goalParam && <Badge variant="info" icon="target">{goalParam}</Badge>}
-          {platformParam && <Badge variant="info" icon="monitor-smartphone">{platformParam}</Badge>}
+          <Icon name="target" size={14} style={{ color: "var(--info)", flexShrink: 0 }} />
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>Tujuan konten:</span>
+          <Badge variant="info" icon="target">{goalParam}</Badge>
           <Link href="/create" style={{ marginLeft: "auto" }}>
             <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 4 }}>
-              <Icon name="x" size={12} /> Hapus filter
+              <Icon name="x" size={12} /> Ganti tujuan
             </button>
           </Link>
         </div>
@@ -240,7 +253,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Count */}
-      {!loading && (
+      {!loading && !loadError && (
         <div className="aigt-caption" style={{ marginBottom: 16 }}>
           {list.length} template
           {(fmt !== "Semua" || industry !== "Semua industri" || q) ? " (difilter)" : ""}
@@ -252,23 +265,18 @@ export default function TemplatesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
+      ) : loadError ? (
+        <LoadErrorState title="Gagal memuat template" onRetry={retryLoad} />
       ) : list.length === 0 ? (
-        <Card variant="sunken" padding={48} style={{ textAlign: "center", color: "var(--muted-foreground)" }}>
-          <Icon name="search-x" size={28} />
-          <p style={{ marginTop: 10 }}>
-            {templates.length === 0
-              ? "Belum ada template yang tersedia."
-              : "Tidak ada template yang cocok dengan filter."}
-          </p>
-          {templates.length > 0 && (
-            <button
-              onClick={() => { setQ(""); setFmt("Semua"); setIndustry("Semua industri"); }}
-              style={{ marginTop: 12, background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "var(--text-xs)", fontWeight: 600 }}
-            >
-              Reset filter
-            </button>
-          )}
-        </Card>
+        templates.length === 0 ? (
+          <EmptyState icon="layout-template" title="Belum ada template yang tersedia." />
+        ) : (
+          <EmptyState
+            icon="search-x"
+            title="Tidak ada template yang cocok dengan filter."
+            action={<Button size="sm" variant="ghost" onClick={() => { setQ(""); setFmt("Semua"); setIndustry("Semua industri"); }}>Reset filter</Button>}
+          />
+        )
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
           {list.map((t) => (

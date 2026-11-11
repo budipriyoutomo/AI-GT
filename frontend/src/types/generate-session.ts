@@ -1,5 +1,6 @@
 export type GoalEnum = "awareness" | "engagement" | "conversion" | "launch" | "promo";
-export type PlatformEnum = "instagram_feed" | "instagram_story" | "facebook" | "tiktok";
+/** P1-4c: MVP dikunci ke Instagram Feed — selaras dengan backend `schemas/generate.PLATFORM_ENUM`. */
+export type PlatformEnum = "instagram_feed";
 export type LanguageStyleEnum = "formal" | "casual" | "persuasive" | "fun_playful" | "inspiratif";
 export type ImageSourceEnum = "upload" | "generated" | "none";
 

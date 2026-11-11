@@ -75,3 +75,5 @@ class OrderData(BaseModel):
     created_at: datetime
     expires_at: datetime | None
     paid_at: datetime | None
+    # Diisi admin saat order ditolak (A-3) — ditampilkan ke user di halaman pembayaran.
+    rejection_reason: str | None = None

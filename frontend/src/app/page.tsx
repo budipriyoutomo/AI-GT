@@ -13,7 +13,7 @@ const BASE_URL = "https://aigt.id";
 export const metadata: Metadata = {
   title: "AI-GT — Buat Konten Instagram, TikTok & WhatsApp dalam 10 Detik",
   description:
-    "AI-GT membantu UMKM Indonesia buat konten sosial media berkualitas secara otomatis dengan AI. Generate caption, visual, dan jadwal posting Instagram, TikTok, WhatsApp — tanpa skill desain. Gratis 20 konten/bulan.",
+    "AI-GT membantu UMKM Indonesia buat konten sosial media berkualitas secara otomatis dengan AI. Generate caption dan visual siap posting untuk Instagram, TikTok, WhatsApp — tanpa skill desain. Gratis 20 konten/bulan.",
   keywords: [
     "AI konten UMKM",
     "generate konten otomatis",
@@ -156,16 +156,16 @@ const FEATURES = [
     tint: "color-mix(in oklch, var(--chart-4) 12%, transparent)",
   },
   {
-    icon: "calendar-clock",
-    title: "Jadwal & Publish Otomatis",
-    desc: "Atur kapan konten tayang di Instagram, WhatsApp, dan TikTok langsung dari satu dashboard.",
+    icon: "sliders-horizontal",
+    title: "Editor Canvas & Export PNG",
+    desc: "Geser teks, ganti font, atur ukuran — lalu unduh hasilnya sebagai PNG siap posting.",
     color: "var(--success)",
     tint: "var(--tint-success)",
   },
   {
-    icon: "megaphone",
-    title: "Campaign Konten Masif",
-    desc: "Generate puluhan konten sekaligus dari satu brief campaign — cocok untuk promo, event, dan momen khusus.",
+    icon: "history",
+    title: "Riwayat Project Tersimpan",
+    desc: "Semua konten yang pernah dibuat tersimpan rapi — buka lagi, edit ulang, atau unduh kapan saja.",
     color: "var(--chart-5)",
     tint: "color-mix(in oklch, var(--chart-5) 12%, transparent)",
   },
@@ -188,7 +188,7 @@ const FEATURES = [
 const STEPS = [
   { num: "01", title: "Pilih Template",     desc: "Jelajahi galeri template dan pilih yang sesuai jenis kontenmu."      },
   { num: "02", title: "Isi Brief Singkat",  desc: "Tulis promo, produk, atau pesan yang ingin kamu sampaikan."           },
-  { num: "03", title: "Generate & Publish", desc: "AI buat kontennya, kamu tinggal edit tipis-tipis lalu langsung post." },
+  { num: "03", title: "Generate & Unduh",   desc: "AI buat kontennya, kamu tinggal edit tipis-tipis lalu unduh PNG-nya." },
 ];
 
 const PLANS = [
@@ -346,7 +346,7 @@ export default function LandingPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 { icon: "layout-dashboard", label: "Dashboard",     active: true  },
-                { icon: "megaphone",        label: "Campaign",      active: false },
+                { icon: "sparkles",         label: "Buat Konten",   active: false },
                 { icon: "layout-grid",      label: "Templates",     active: false },
                 { icon: "history",          label: "Riwayat",       active: false },
               ].map((item) => (
@@ -368,8 +368,8 @@ export default function LandingPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                 {[
                   { label: "Konten digenerate", value: "248", color: "var(--primary)"   },
-                  { label: "Dipublikasikan",    value: "176", color: "var(--success)"   },
-                  { label: "Terjadwal",         value: "9",   color: "var(--warning)"   },
+                  { label: "Diunduh",           value: "176", color: "var(--success)"   },
+                  { label: "Template dipakai",  value: "9",   color: "var(--warning)"   },
                 ].map((stat) => (
                   <div key={stat.label} style={{
                     padding: "12px 14px", borderRadius: "var(--radius-lg)",
@@ -433,7 +433,7 @@ export default function LandingPage() {
             Semua yang kamu butuhkan, satu platform
           </h2>
           <p style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)", maxWidth: 480, margin: "0 auto", lineHeight: 1.6 }}>
-            Dari generate konten hingga jadwal publish — dirancang khusus untuk UMKM Indonesia.
+            Dari brief singkat hingga PNG siap posting — dirancang khusus untuk UMKM Indonesia.
           </p>
         </div>
 

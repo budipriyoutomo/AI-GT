@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { useSyncExternalStore } from "react";
 import { Icon } from "./icon";
 
 type ToastVariant = "default" | "success" | "error" | "warning" | "info";
@@ -12,12 +12,6 @@ interface ToastData {
   variant?: ToastVariant;
   icon?: string;
 }
-
-interface ToastContextValue {
-  toast: (opts: Omit<ToastData, "id"> | string) => void;
-}
-
-const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
 
 const variantColors: Record<ToastVariant, string> = {
   default: "var(--primary)",
@@ -62,19 +56,30 @@ export function Toaster() {
   );
 }
 
-let _toasterState: { toasts: ToastData[]; setToasts: React.Dispatch<React.SetStateAction<ToastData[]>> } | null = null;
+// Store modul kecil: toast() bisa dipanggil dari mana saja (di luar komponen), Toaster berlangganan.
+let current: ToastData[] = [];
+const EMPTY: ToastData[] = [];
+const listeners = new Set<() => void>();
+
+function setToasts(update: (arr: ToastData[]) => ToastData[]) {
+  current = update(current);
+  listeners.forEach((l) => l());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
 function useToasterState() {
-  const [toasts, setToasts] = useState<ToastData[]>([]);
-  _toasterState = { toasts, setToasts };
-  return { toasts };
+  return { toasts: useSyncExternalStore(subscribe, () => current, () => EMPTY) };
 }
 
 export function toast(opts: Omit<ToastData, "id"> | string) {
   const data: Omit<ToastData, "id"> = typeof opts === "string" ? { title: opts } : opts;
   const id = Math.random().toString(36).slice(2);
-  _toasterState?.setToasts((arr) => [...arr, { ...data, id }]);
+  setToasts((arr) => [...arr, { ...data, id }]);
   setTimeout(() => {
-    _toasterState?.setToasts((arr) => arr.filter((x) => x.id !== id));
+    setToasts((arr) => arr.filter((x) => x.id !== id));
   }, 3800);
 }

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from sqlalchemy import delete, select
@@ -6,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.subscription import Subscription
 from app.models.user import User
-from app.services import billing_plans
+from app.services import billing_plans, storage_service
 from app.services.providers.auth.base_auth import AuthProvider
 from app.services.providers.auth.jwt_auth import JwtAuthProvider
 from app.services.providers.auth.supabase_auth import SupabaseAuthProvider
 from app.utils.exceptions import AppError, ErrorCode
+
+logger = logging.getLogger(__name__)
 
 
 def get_auth_provider() -> AuthProvider:
@@ -38,7 +41,7 @@ async def register_user(
         email=email.lower(),
         password_hash=hashed,
         name=name,
-        is_verified=False,
+        is_verified=True,  # B-1a: MVP tanpa verifikasi email
     )
     db.add(user)
     db.add(
@@ -51,6 +54,14 @@ async def register_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+SUSPENDED_MESSAGE = "Akun kamu dinonaktifkan. Hubungi kami lewat halaman Kontak."
+
+
+def assert_active(user: User) -> None:
+    if not user.is_active:
+        raise AppError(403, ErrorCode.AUTH_ACCOUNT_SUSPENDED, SUSPENDED_MESSAGE)
 
 
 async def login_user(
@@ -66,9 +77,8 @@ async def login_user(
 
     if not provider.verify_password(password, user.password_hash):
         raise AppError(401, ErrorCode.AUTH_INVALID_CREDENTIALS, "Email atau password salah.")
-
-    if not user.is_verified:
-        raise AppError(401, ErrorCode.AUTH_EMAIL_NOT_VERIFIED, "Silakan verifikasi email kamu terlebih dahulu.")
+    # Dicek SETELAH password: salah password tidak boleh membocorkan status suspend.
+    assert_active(user)
 
     token = provider.create_token(str(user.id))
     return user, token
@@ -113,12 +123,28 @@ async def delete_account(db: AsyncSession, user: User) -> None:
     await db.execute(delete(User).where(User.id == uid))
     await db.commit()
 
+    # File R2 dibersihkan SETELAH commit: baris DB sudah tidak ada, jadi kegagalan
+    # bucket tidak boleh membatalkan penghapusan akun (di-swallow, cukup di-log).
+    try:
+        storage_service.delete_user_files(str(uid))
+    except Exception as e:
+        logger.error("delete_account: R2 cleanup gagal user_id=%s: %s", uid, e)
+
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User:
     user = await db.scalar(select(User).where(User.id == uuid.UUID(user_id)))
     if not user:
         raise AppError(404, ErrorCode.PROFILE_NOT_FOUND, "User tidak ditemukan.")
     return user
+
+
+async def get_users_by_ids(db: AsyncSession, user_ids: set[uuid.UUID | None]) -> dict[uuid.UUID, User]:
+    """Satu query untuk banyak user sekaligus (hindari N+1 di list admin). None diabaikan."""
+    ids = {uid for uid in user_ids if uid is not None}
+    if not ids:
+        return {}
+    rows = await db.scalars(select(User).where(User.id.in_(ids)))
+    return {u.id: u for u in rows}
 
 
 def verify_token(token: str) -> str:

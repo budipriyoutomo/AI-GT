@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import TemplatesPage from "../page";
+import { templatesApi } from "@/api/templatesApi";
 import { DEFAULT_COMPANY_PROFILE } from "@/lib/defaults";
 
 vi.mock("next/navigation", () => ({
@@ -56,9 +58,22 @@ vi.mock("@/api/companyProfileApi", () => ({
   },
 }));
 
+const sub = (generate_used: number, generate_limit = 5) => ({
+  plan_id: "starter", plan_name: "Starter", status: "active", current_period_end: null, storage_addon_id: null,
+  usage: { generate_used, generate_limit, history_used: 0, history_limit: 20 },
+});
+
+const getSubscription = vi.fn();
+vi.mock("@/api/billingApi", () => ({
+  billingApi: { subscription: (...a: unknown[]) => getSubscription(...a) },
+}));
+
+vi.mock("@/components/ui/toast", () => ({ toast: vi.fn() }));
+
 describe("/templates gallery grid — generic default logo, no brand adaptation", () => {
   beforeEach(() => {
     rendererProps.mockClear();
+    getSubscription.mockResolvedValue(sub(1));
   });
 
   it("shows the static DEFAULT_COMPANY_PROFILE logo in the grid card, not the user's real logo", async () => {
@@ -83,5 +98,34 @@ describe("/templates gallery grid — generic default logo, no brand adaptation"
     // template_config di mock punya color_scheme kosong ({}); resolver unbranded tidak
     // pernah menyentuhnya (adaptScheme early-return saat brandColors null).
     expect(lastCall.cfg?.color_scheme).toEqual({});
+  });
+});
+
+describe("/templates — error state dan kuota habis (P3-1)", () => {
+  beforeEach(() => {
+    getSubscription.mockReset().mockResolvedValue(sub(1));
+  });
+
+  it("gagal memuat → error state dengan Coba lagi, bukan 'Belum ada template'", async () => {
+    vi.mocked(templatesApi.list).mockRejectedValueOnce(new Error("down"));
+    render(<TemplatesPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Gagal memuat template");
+    expect(screen.queryByText(/belum ada template/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /coba lagi/i }));
+    expect(await screen.findByTestId("template-renderer")).toBeInTheDocument();
+  });
+
+  it("kuota habis → banner upgrade di atas galeri", async () => {
+    getSubscription.mockResolvedValue(sub(5));
+    render(<TemplatesPage />);
+    expect(await screen.findByRole("status")).toHaveTextContent("Kuota generate bulan ini habis");
+  });
+
+  it("kuota masih ada → tanpa banner", async () => {
+    render(<TemplatesPage />);
+    await screen.findByTestId("template-renderer");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode, ButtonHTMLAttributes } from "react";
-import { LucideIcon } from "lucide-react";
 import { Icon } from "./icon";
 
 type Variant = "default" | "secondary" | "outline" | "ghost" | "destructive";

@@ -6,7 +6,11 @@ from pydantic import BaseModel
 
 
 GOAL_ENUM = Literal["awareness", "engagement", "conversion", "launch", "promo"]
-PLATFORM_ENUM = Literal["instagram_feed", "instagram_story", "facebook", "tiktok"]
+# P1-4c: MVP dikunci ke Instagram Feed — semua template 4:5 `instagram_post`, jadi platform
+# lain hanya mengubah prompt (copy untuk TikTok di poster Instagram). Buka lagi bersama
+# template & canvas per rasio (P1-4b), di kedua renderer.
+PLATFORM_ENUM = Literal["instagram_feed"]
+MVP_PLATFORM = "instagram_feed"
 LANGUAGE_STYLE_ENUM = Literal["formal", "casual", "persuasive", "fun_playful", "inspiratif"]
 IMAGE_SOURCE_ENUM = Literal["upload", "generated", "none"]
 
@@ -14,7 +18,7 @@ IMAGE_SOURCE_ENUM = Literal["upload", "generated", "none"]
 class CreateSessionRequest(BaseModel):
     template_id: uuid.UUID
     goal: GOAL_ENUM
-    platform: PLATFORM_ENUM
+    platform: PLATFORM_ENUM = MVP_PLATFORM
     language_style: LANGUAGE_STYLE_ENUM
     image_source: IMAGE_SOURCE_ENUM = "none"
     # Hasil POST /generate/upload-image — wajib jika image_source = "upload".

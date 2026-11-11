@@ -173,6 +173,28 @@ def upload_content_image(user_id: str, file_bytes: bytes) -> str:
         raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload gambar ke storage.")
 
 
+TEMPLATE_IMAGE_KINDS = ("thumbnail", "background")
+
+
+def upload_template_image(template_id: str, kind: str, file_bytes: bytes) -> str:
+    """Normalize + upload gambar template ke permanent/templates/{thumbnails|backgrounds}/{id}.png.
+    Key deterministik per template → upload ulang menimpa (tanpa orphan); `?v=` untuk cache busting."""
+    normalized = images.normalize_content_image(file_bytes)
+    key = f"permanent/templates/{kind}s/{template_id}.png"
+    try:
+        client = _get_client()
+        client.put_object(
+            Bucket=settings.cloudflare_r2_bucket_name,
+            Key=key,
+            Body=normalized,
+            ContentType="image/png",
+        )
+        return f"{_asset_path(key)}?v={int(time.time())}"
+    except Exception as e:
+        logger.error("upload_template_image failed template=%s kind=%s: %s", template_id, kind, e)
+        raise AppError(500, ErrorCode.STORAGE_UPLOAD_FAILED, "Gagal upload gambar template ke storage.")
+
+
 def upload_payment_proof(file_data: bytes, user_id: str, order_id: str, ext: str, content_type: str) -> str:
     """Upload bukti transfer ke permanent/payment-proofs/{user_id}/{order_id}.{ext}."""
     key = f"permanent/payment-proofs/{user_id}/{order_id}.{ext}"
@@ -212,3 +234,116 @@ def delete_file(key: str) -> None:
         client.delete_object(Bucket=settings.cloudflare_r2_bucket_name, Key=key)
     except Exception as e:
         logger.error("delete_file failed key=%s: %s", key, e)
+
+
+# Prefix R2 yang isinya milik satu user. Dipakai saat akun dihapus.
+# Catatan: `temp/` tidak ikut — key-nya di-index per session_id, bukan user_id,
+# dan sudah dibersihkan cron cleanup lewat expires_at.
+_USER_PREFIXES = (
+    "permanent/thematic-images/{uid}/",
+    "permanent/thumbnails/{uid}/",
+    "permanent/exported/{uid}/",
+    "permanent/logos/{uid}/",
+    "permanent/uploads/{uid}/",
+    "permanent/payment-proofs/{uid}/",
+)
+
+# delete_objects menolak lebih dari 1000 key per panggilan.
+_DELETE_BATCH = 1000
+
+
+def delete_user_prefix(prefix: str) -> int:
+    """Hapus seluruh objek di bawah `prefix`. Return jumlah objek terhapus.
+
+    Tidak pernah raise — penghapusan akun sudah menghapus baris DB-nya, jadi
+    kegagalan R2 tidak boleh membatalkan operasi yang sudah terlanjur commit.
+    """
+    try:
+        client = _get_client()
+        bucket = settings.cloudflare_r2_bucket_name
+        keys: list[dict] = []
+        for page in client.get_paginator("list_objects_v2").paginate(
+            Bucket=bucket, Prefix=prefix
+        ):
+            keys.extend({"Key": o["Key"]} for o in page.get("Contents", []))
+
+        for i in range(0, len(keys), _DELETE_BATCH):
+            client.delete_objects(
+                Bucket=bucket, Delete={"Objects": keys[i : i + _DELETE_BATCH]}
+            )
+        return len(keys)
+    except Exception as e:
+        logger.error("delete_user_prefix failed prefix=%s: %s", prefix, e)
+        return 0
+
+
+def delete_user_files(user_id: str) -> int:
+    """Bersihkan semua file milik user di R2. Return total objek terhapus."""
+    total = sum(delete_user_prefix(p.format(uid=user_id)) for p in _USER_PREFIXES)
+    logger.info("delete_user_files user_id=%s deleted=%d", user_id, total)
+    return total
+
+
+# ── Ringkasan pemakaian bucket (A-10) ─────────────────────────────────────
+
+# Kategori di bawah permanent/ yang segmen ketiganya adalah user_id.
+_PER_USER_CATEGORIES = {
+    "thematic-images", "thumbnails", "exported", "logos", "uploads", "payment-proofs",
+}
+
+SCAN_MAX_OBJECTS = 50_000
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+def aggregate_usage(objects) -> dict:
+    """Kelompokkan objek R2 per prefix 2-segmen & per user. Fungsi murni (mudah diuji).
+
+    `objects`: iterable dict {"Key", "Size"} seperti dari list_objects_v2.
+    """
+    prefixes: dict[str, dict] = {}
+    users: dict[str, dict] = {}
+    total_objects = total_bytes = 0
+    for obj in objects:
+        key, size = obj["Key"], int(obj.get("Size", 0))
+        parts = key.split("/")
+        prefix = "/".join(parts[:2])
+        p = prefixes.setdefault(prefix, {"prefix": prefix, "objects": 0, "bytes": 0})
+        p["objects"] += 1
+        p["bytes"] += size
+        if len(parts) >= 4 and parts[0] == "permanent" and parts[1] in _PER_USER_CATEGORIES and _is_uuid(parts[2]):
+            u = users.setdefault(parts[2], {"user_id": parts[2], "objects": 0, "bytes": 0})
+            u["objects"] += 1
+            u["bytes"] += size
+        total_objects += 1
+        total_bytes += size
+    by_size = lambda d: -d["bytes"]  # noqa: E731
+    return {
+        "prefixes": sorted(prefixes.values(), key=by_size),
+        "users": sorted(users.values(), key=by_size),
+        "total_objects": total_objects,
+        "total_bytes": total_bytes,
+    }
+
+
+def scan_usage(max_objects: int = SCAN_MAX_OBJECTS) -> dict:
+    """Pindai bucket (sinkron — panggil lewat asyncio.to_thread). Dibatasi max_objects
+    supaya bucket besar tidak membuat request admin menggantung; `truncated` menandainya."""
+    client = _get_client()
+    collected: list[dict] = []
+    truncated = False
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=settings.cloudflare_r2_bucket_name):
+        for obj in page.get("Contents", []):
+            if len(collected) >= max_objects:
+                truncated = True
+                break
+            collected.append(obj)
+        if truncated:
+            break
+    return {**aggregate_usage(collected), "truncated": truncated}

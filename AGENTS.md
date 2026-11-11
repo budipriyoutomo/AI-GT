@@ -108,8 +108,12 @@ TDD adalah **workflow wajib**, bukan opsional. Tidak ada implementasi tanpa test
 AUTH_INVALID_CREDENTIALS     AUTH_EMAIL_NOT_VERIFIED      AUTH_TOKEN_EXPIRED
 PROFILE_NOT_FOUND            TEMPLATE_NOT_FOUND           SESSION_NOT_FOUND
 SESSION_EXPIRED              VARIANT_NOT_SELECTED         AI_GENERATION_FAILED
-STORAGE_UPLOAD_FAILED        RATE_LIMIT_EXCEEDED
-INVALID_FILE_TYPE            FILE_TOO_LARGE
+STORAGE_UPLOAD_FAILED        RATE_LIMIT_EXCEEDED          FEATURE_REQUIRES_PREMIUM
+INVALID_FILE_TYPE            FILE_TOO_LARGE               ADMIN_FORBIDDEN
+ORDER_NOT_FOUND              ORDER_STATUS_INVALID         VALIDATION_ERROR
+MESSAGE_NOT_FOUND            USER_NOT_FOUND               AUTH_ACCOUNT_SUSPENDED
+JOB_NOT_FOUND                STORAGE_UNAVAILABLE          TEMPLATE_DRAFT_NOT_FOUND
+TEMPLATE_CONFIG_INVALID      TEMPLATE_IN_USE
 ```
 
 ### HTTP Status Code:
@@ -189,6 +193,13 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
 - ❌ Mengubah layout, background color, atau background image template
 - ❌ Menimpa color scheme template
 
+> **Panel admin (`/admin/templates`, A-6) juga tunduk pada aturan ini.** Template live hanya bisa diubah
+> metadata-nya (nama, industri, tema, `copy_intent`, premium, aktif) dan gambar per baris. Mengubah desain =
+> **versi baru**: duplikat ke `template_drafts` → edit di Template Lab → publish sebagai template **baru** →
+> template asal boleh dinonaktifkan. Publish memakai `template_validation.validate_template_config()`, yang
+> meng-expand preset lewat `app/services/design_system.py` — resolver yang **sama** dengan `seed_templates.py`.
+> Jangan menambah jalur insert/expand preset kedua.
+
 ### Membuat/mengubah template JSON
 
 > 📐 **Sebelum menulis atau mengubah file `template_config` JSON** (di `backend/scripts/seed_template_data/`),
@@ -210,6 +221,10 @@ Template adalah anchor visual yang **tidak pernah dimodifikasi** oleh backend at
   jalur brand-adapt kedua. Jalur ganda = preview branded dan PNG hasil export berbeda diam-diam.
 - **Fitur `template_config` baru wajib diimplementasi di KEDUANYA.** Fitur yang hanya ada di satu sisi tampil
   benar di preview lalu rusak/crash di editor (atau sebaliknya) — ini sumber bug berulang.
+  Contoh nyata (A-6): latar `source:"background"` dulu hanya dibaca renderer CSS (`background_url`); Fabric
+  memakai `thumbnail_url`, jadi latar upload admin hilang dari PNG export. Kini `generate_service` menyuntik
+  `background_url` ke `final_config.template_config` dan `canvas-spec` membacanya (project lama tanpa field
+  itu tetap jatuh ke `thumbnail_url`). Template Lab menampilkan **kedua** renderer berdampingan untuk menangkap ini.
 - **Data company profile ikut `branded`.** `branded` (galeri/preview: toggle "Preview dengan brand color";
   editor: `final_config.brand_applied`) menentukan SEMUA data profil sekaligus — warna, font, logo, tagline,
   dan kontak footer. Unbranded → `DEFAULT_COMPANY_PROFILE` (placeholder generik), branded → profil user.
@@ -238,10 +253,12 @@ ai-gt-bucket/
 └── permanent/
     ├── thematic-images/{user_id}/{project_id}.png      ← Dipindah saat pilih varian
     ├── exported/{user_id}/{project_id}/export.png      ← Final PNG setelah export
+    ├── thumbnails/{user_id}/{project_id}.png           ← Snapshot canvas untuk kartu History (autosave)
     ├── logos/{user_id}/logo.png                        ← Logo company profile (selalu dinormalisasi ke PNG)
     ├── uploads/{user_id}/{uuid}.png                    ← Gambar konten upload user (key acak, bukan overwrite)
     ├── payment-proofs/{user_id}/{order_id}.{ext}       ← Bukti transfer billing
-    └── templates/thumbnails/{template_id}.png          ← Thumbnail template
+    ├── templates/thumbnails/{template_id}.png          ← Thumbnail template (upload admin, A-6)
+    └── templates/backgrounds/{template_id}.png         ← Foto latar template (upload admin, A-6)
 ```
 
 > ⚠️ **Gambar upload user (`uploads/`) permanen sejak diupload** — tidak lewat `temp/` dan **tidak** di-move
@@ -251,6 +268,8 @@ ai-gt-bucket/
 
 > ⚠️ **Aset yang digambar ke canvas Fabric wajib lewat proxy `/api/v1/assets/{key}`**, bukan URL CDN langsung.
 > CDN publik tak mengirim header CORS → canvas ter-taint → gambar dibuang dari PNG hasil export.
+> Pengecualian: `permanent/payment-proofs/` **ditolak** proxy (`assets.DENIED_PREFIXES`) — data pribadi, hanya boleh
+> dibaca lewat endpoint admin ber-`get_current_admin`. Prefix privat baru wajib ditambahkan ke konstanta itu.
 
 ### Lifecycle image:
 1. Generate → upload ke `temp/` dengan TTL 1 jam
@@ -258,7 +277,16 @@ ai-gt-bucket/
 3. User export → upload ke `permanent/exported/`
 4. Session expire → auto-delete file di `temp/` (cron setiap 30 menit)
 
-> ⚠️ Implement scheduled cleanup job yang baca `expires_at` dari tabel `generate_sessions` untuk hapus file temp yang sudah expired.
+> ⚠️ Job terjadwal (cleanup temp, billing maintenance) **wajib** didaftarkan di `job_service.JOBS` dan dijalankan lewat
+> `job_service.run_job()` — setiap run tercatat di tabel `job_runs` (dipantau di `/admin/storage`). Jangan `scheduler.add_job()`
+> fungsi job secara langsung: run-nya jadi tak terlihat. Cleanup mengosongkan `thematic_image_url` setelah file dihapus (idempoten).
+
+> ⚠️ **Hapus akun wajib ikut menghapus file R2 milik user.** `auth_service.delete_account()` memanggil
+> `storage_service.delete_user_files()` **setelah** commit DB, dan kegagalannya di-swallow (cukup di-log) —
+> baris DB sudah hilang, jadi bucket yang error tidak boleh membatalkan penghapusan yang sudah jadi.
+> Daftar prefix ada di satu tempat: `storage_service._USER_PREFIXES` (6 prefix, termasuk `thumbnails/`).
+> Menambah prefix `permanent/{sesuatu}/{user_id}/` baru **wajib** menambahkannya ke konstanta itu juga,
+> kalau tidak filenya jadi sampah permanen di bucket.
 
 ---
 
@@ -301,8 +329,10 @@ ai-gt/
 │       │   └── (dashboard)/settings/
 │       ├── components/
 │       │   ├── ui/                ← Reusable UI components
+│       │   ├── admin/             ← AdminShell & nav panel admin (terpisah dari Shell user)
 │       │   ├── editor/            ← Canvas editor components
 │       │   ├── generate/          ← Generate flow components
+│       │   ├── history/           ← Kartu & aksi riwayat project
 │       │   └── template/          ← Template browser components
 │       ├── lib/
 │       │   ├── api.ts             ← API client (semua fetch ke backend)
@@ -318,6 +348,7 @@ ai-gt/
     │   ├── models/                ← SQLAlchemy ORM models
     │   ├── schemas/               ← Pydantic request/response schemas
     │   ├── routers/               ← FastAPI route handlers
+    │   │   └── admin/             ← Endpoint /api/v1/admin (WAJIB get_current_admin)
     │   ├── services/              ← Business logic & external integrations
     │   │   ├── ai_service.py      ← Orkestrasi AI (entry point)
     │   │   ├── providers/         ← Implementasi per AI provider
@@ -357,6 +388,11 @@ ai-gt/
 | 8 | ❌ AI image failure menggagalkan session | Image adalah optional layer — copy adalah output utama |
 | 9 | ❌ Panggil dua AI provider secara sequential | Haiku + image provider harus dipanggil secara paralel (`asyncio.gather`) |
 | 10 | ❌ Simpan session state di backend memory | Backend harus stateless — semua state ada di database |
+| 11 | ❌ Endpoint `/api/v1/admin` pakai `get_current_user` polos | Wajib `get_current_admin` — tanpa itu user biasa bisa baca bukti transfer & data user lain |
+| 12 | ❌ Tampilkan `password_hash` di response admin manapun | Tidak ada alasan sah; sekali bocor, bocor permanen |
+| 13 | ❌ Aksi admin yang mengubah data tanpa `audit_service.record()` | Panggil **sebelum** commit aksi (atomik); tambahkan nama aksinya ke `audit_service.ACTIONS` + label di `AdminAuditPanel` |
+| 14 | ❌ Endpoint yang bisa memberi role `admin`/`superadmin` | Role hanya diubah lewat `backend/scripts/promote_admin.py` — endpoint semacam itu membuka jalan user mengangkat dirinya sendiri |
+| 15 | ❌ Aturan "kuota habis" ditulis ulang di halaman | Frontend wajib pakai `lib/quota.ts::isQuotaExhausted` — cermin `billing_service.assert_generate_quota` (`used >= limit`, limit negatif = tak terbatas); ubah keduanya bersamaan |
 
 ---
 

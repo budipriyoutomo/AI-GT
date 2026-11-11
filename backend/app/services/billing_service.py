@@ -112,23 +112,26 @@ async def downgrade_expired_subscriptions(db: AsyncSession, user_id: uuid.UUID |
     return len(rows)
 
 
-async def run_billing_maintenance() -> None:
-    """Entry point cron — buat DB session sendiri, expire order & downgrade langganan."""
-    from app.database import AsyncSessionLocal
-
-    async with AsyncSessionLocal() as db:
-        await expire_stale_orders(db)
-        await downgrade_expired_subscriptions(db)
+def as_utc(dt: datetime) -> datetime:
+    # SQLite mengembalikan datetime naive; Postgres aware. Samakan ke UTC.
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 async def compute_usage(db: AsyncSession, user_id: uuid.UUID) -> dict:
-    """generate_used = jumlah session bulan berjalan; history_used = jumlah project."""
+    """generate_used = jumlah session sejak awal jendela kuota; history_used = jumlah project.
+
+    Jendela kuota = max(tgl 1 bulan berjalan, quota_reset_at). Satu-satunya tempat
+    kuota dihitung — gate generate, halaman langganan user, dan panel admin lewat sini.
+    """
     now = datetime.now(timezone.utc)
-    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    window_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    reset_at = await db.scalar(select(Subscription.quota_reset_at).where(Subscription.user_id == user_id))
+    if reset_at and as_utc(reset_at) > window_start:
+        window_start = as_utc(reset_at)
     generate_used = await db.scalar(
         select(func.count())
         .select_from(GenerateSession)
-        .where(GenerateSession.user_id == user_id, GenerateSession.created_at >= month_start)
+        .where(GenerateSession.user_id == user_id, GenerateSession.created_at >= window_start)
     )
     history_used = await db.scalar(
         select(func.count()).select_from(Project).where(Project.user_id == user_id)
